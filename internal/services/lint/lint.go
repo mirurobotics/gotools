@@ -114,7 +114,7 @@ func runCustomLinter(opts LintOpts) (bool, error) {
 // RunGolangci runs golangci-lint.
 func RunGolangci(out io.Writer, errW io.Writer) error {
 	_, _ = fmt.Fprintln(out, "Running golangci-lint...")
-	if err := RunExternal(out, errW, "golangci-lint", "run"); err != nil {
+	if err := RunExternal(out, errW, "go", "tool", "golangci-lint", "run"); err != nil {
 		_, _ = fmt.Fprintf(errW, "golangci-lint failed: %v\n", err)
 		return err
 	}
