@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 
 	"github.com/mirurobotics/gotools/internal/services/gocover"
 )
@@ -29,7 +28,7 @@ func Run(opts Opts) error {
 	r := runner{
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
-		measure:        defaultMeasure,
+		measure:        gocover.Measure,
 	}
 	return r.run(opts)
 }
@@ -125,24 +124,4 @@ func (r *runner) checkPackage(
 		status, coverage, threshold, relPkg,
 	)
 	return coverage >= threshold
-}
-
-func defaultMeasure(pkg string, testPaths []string) (float64, []byte, error) {
-	tmpFile := "coverage.out"
-	args := make([]string, 0, 3+len(testPaths))
-	args = append(args, "test", "-coverprofile="+tmpFile, "-coverpkg="+pkg)
-	args = append(args, testPaths...)
-
-	//nolint:gosec,noctx // G204: trusted subprocess
-	testCmd := exec.Command("go", args...)
-	testCmd.Env = append(os.Environ(), "GOWORK=off")
-	output, testErr := testCmd.CombinedOutput()
-	if testErr != nil {
-		_ = os.Remove(tmpFile)
-		return 0, output, testErr
-	}
-
-	coverage := gocover.ExtractCoverage(tmpFile)
-	_ = os.Remove(tmpFile)
-	return coverage, output, nil
 }

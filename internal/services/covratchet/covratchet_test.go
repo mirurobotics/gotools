@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/testutil"
 )
 
 func TestReadCovgate(t *testing.T) {
@@ -88,40 +90,18 @@ const (
 	pkgRel  = "internal/foo"
 )
 
-func makePkgDir(t *testing.T, rel string) string {
-	t.Helper()
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-	dir := filepath.Join(tmp, rel)
-	//nolint:gosec // G301: test directory
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return dir
-}
-
-func writeCovgateFile(t *testing.T, dir, val string) {
-	t.Helper()
-	path := filepath.Join(dir, ".covgate")
-	//nolint:gosec // G306: test file
-	err := os.WriteFile(path, []byte(val), 0o644)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func fakeMeasure(cov float64) func(string, []string) (float64, error) {
-	return func(string, []string) (float64, error) { return cov, nil }
+func fakeMeasure(cov float64) func(string, []string) (float64, []byte, error) {
+	return func(string, []string) (float64, []byte, error) { return cov, nil, nil }
 }
 
 func TestRatchetPackage_MeasureError(t *testing.T) {
-	makePkgDir(t, pkgRel)
+	testutil.MakePkgDir(t, pkgRel)
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{
-		measure: func(string, []string) (float64, error) {
-			return 0, fmt.Errorf("tests failed")
+		measure: func(string, []string) (float64, []byte, error) {
+			return 0, nil, fmt.Errorf("tests failed")
 		},
 	}
 
@@ -135,7 +115,7 @@ func TestRatchetPackage_MeasureError(t *testing.T) {
 }
 
 func TestRatchetPackage_New(t *testing.T) {
-	dir := makePkgDir(t, pkgRel)
+	dir := testutil.MakePkgDir(t, pkgRel)
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -161,7 +141,7 @@ func TestRatchetPackage_New(t *testing.T) {
 }
 
 func TestRatchetPackage_New_WriteError(t *testing.T) {
-	dir := makePkgDir(t, pkgRel)
+	dir := testutil.MakePkgDir(t, pkgRel)
 
 	//nolint:gosec // G302: test file permissions
 	if err := os.Chmod(dir, 0o555); err != nil {
@@ -184,8 +164,8 @@ func TestRatchetPackage_New_WriteError(t *testing.T) {
 }
 
 func TestRatchetPackage_FromZero(t *testing.T) {
-	dir := makePkgDir(t, pkgRel)
-	writeCovgateFile(t, dir, "0\n")
+	dir := testutil.MakePkgDir(t, pkgRel)
+	testutil.WriteCovgateFile(t, dir, "0\n")
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -211,8 +191,8 @@ func TestRatchetPackage_FromZero(t *testing.T) {
 }
 
 func TestRatchetPackage_Up(t *testing.T) {
-	dir := makePkgDir(t, pkgRel)
-	writeCovgateFile(t, dir, "70.0\n")
+	dir := testutil.MakePkgDir(t, pkgRel)
+	testutil.WriteCovgateFile(t, dir, "70.0\n")
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -238,8 +218,8 @@ func TestRatchetPackage_Up(t *testing.T) {
 }
 
 func TestRatchetPackage_Up_WriteError(t *testing.T) {
-	dir := makePkgDir(t, pkgRel)
-	writeCovgateFile(t, dir, "70.0\n")
+	dir := testutil.MakePkgDir(t, pkgRel)
+	testutil.WriteCovgateFile(t, dir, "70.0\n")
 
 	covFile := filepath.Join(dir, ".covgate")
 	//nolint:gosec // G302: test file permissions
@@ -263,8 +243,8 @@ func TestRatchetPackage_Up_WriteError(t *testing.T) {
 }
 
 func TestRatchetPackage_Ok(t *testing.T) {
-	dir := makePkgDir(t, pkgRel)
-	writeCovgateFile(t, dir, "90.0\n")
+	dir := testutil.MakePkgDir(t, pkgRel)
+	testutil.WriteCovgateFile(t, dir, "90.0\n")
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -280,7 +260,7 @@ func TestRatchetPackage_Ok(t *testing.T) {
 }
 
 func TestRun_Success(t *testing.T) {
-	makePkgDir(t, "pkg/a")
+	testutil.MakePkgDir(t, "pkg/a")
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -307,7 +287,7 @@ func TestRun_Success(t *testing.T) {
 }
 
 func TestRun_WithFailures(t *testing.T) {
-	makePkgDir(t, "pkg/a")
+	testutil.MakePkgDir(t, "pkg/a")
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -316,8 +296,8 @@ func TestRun_WithFailures(t *testing.T) {
 		goListPackages: func(string) ([]string, error) {
 			return []string{modName + "/pkg/a"}, nil
 		},
-		measure: func(string, []string) (float64, error) {
-			return 0, fmt.Errorf("tests failed")
+		measure: func(string, []string) (float64, []byte, error) {
+			return 0, nil, fmt.Errorf("tests failed")
 		},
 	}
 

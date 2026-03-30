@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/gocover"
+	"github.com/mirurobotics/gotools/internal/testutil"
 )
 
 func TestPrintHeader(t *testing.T) {
@@ -25,28 +28,6 @@ func TestPrintHeader(t *testing.T) {
 	}
 }
 
-func makePkgDir(t *testing.T, rel string) string {
-	t.Helper()
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-	dir := filepath.Join(tmp, rel)
-	//nolint:gosec // G301: test directory
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return dir
-}
-
-func writeCovgateFile(t *testing.T, dir, val string) {
-	t.Helper()
-	path := filepath.Join(dir, ".covgate")
-	//nolint:gosec // G306: test file
-	err := os.WriteFile(path, []byte(val), 0o644)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 const (
 	modName = "example.com/mod"
 	pkgName = "example.com/mod/internal/foo"
@@ -58,8 +39,8 @@ func fakeMeasure(cov float64) func(string, []string) (float64, []byte, error) {
 }
 
 func TestCheckPackage_Pass(t *testing.T) {
-	dir := makePkgDir(t, pkgRel)
-	writeCovgateFile(t, dir, "75.0\n")
+	dir := testutil.MakePkgDir(t, pkgRel)
+	testutil.WriteCovgateFile(t, dir, "75.0\n")
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -75,8 +56,8 @@ func TestCheckPackage_Pass(t *testing.T) {
 }
 
 func TestCheckPackage_Fail_BelowThreshold(t *testing.T) {
-	dir := makePkgDir(t, pkgRel)
-	writeCovgateFile(t, dir, "90.0\n")
+	dir := testutil.MakePkgDir(t, pkgRel)
+	testutil.WriteCovgateFile(t, dir, "90.0\n")
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -92,7 +73,7 @@ func TestCheckPackage_Fail_BelowThreshold(t *testing.T) {
 }
 
 func TestCheckPackage_Fail_TestError(t *testing.T) {
-	makePkgDir(t, pkgRel)
+	testutil.MakePkgDir(t, pkgRel)
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -120,7 +101,7 @@ func TestCheckPackage_Fail_TestError(t *testing.T) {
 }
 
 func TestCheckPackage_DefaultThreshold(t *testing.T) {
-	makePkgDir(t, pkgRel)
+	testutil.MakePkgDir(t, pkgRel)
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -136,7 +117,7 @@ func TestCheckPackage_DefaultThreshold(t *testing.T) {
 }
 
 func TestRun_AllPass(t *testing.T) {
-	makePkgDir(t, "pkg/a")
+	testutil.MakePkgDir(t, "pkg/a")
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -159,8 +140,8 @@ func TestRun_AllPass(t *testing.T) {
 }
 
 func TestRun_WithFailure(t *testing.T) {
-	dir := makePkgDir(t, "pkg/a")
-	writeCovgateFile(t, dir, "95.0\n")
+	dir := testutil.MakePkgDir(t, "pkg/a")
+	testutil.WriteCovgateFile(t, dir, "95.0\n")
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
@@ -182,7 +163,7 @@ func TestRun_WithFailure(t *testing.T) {
 	}
 }
 
-func TestDefaultMeasure_Pass(t *testing.T) {
+func TestMeasure_Pass(t *testing.T) {
 	tmp := t.TempDir()
 	t.Chdir(tmp)
 
@@ -214,16 +195,16 @@ func TestDefaultMeasure_Pass(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cov, _, err := defaultMeasure("testmod/mypkg", []string{"testmod/mypkg"})
+	cov, _, err := gocover.Measure("testmod/mypkg", []string{"testmod/mypkg"})
 	if err != nil {
-		t.Fatalf("defaultMeasure failed: %v", err)
+		t.Fatalf("Measure failed: %v", err)
 	}
 	if cov < 100.0 {
 		t.Errorf("expected 100%% coverage, got %.1f%%", cov)
 	}
 }
 
-func TestDefaultMeasure_TestFailure(t *testing.T) {
+func TestMeasure_TestFailure(t *testing.T) {
 	tmp := t.TempDir()
 	t.Chdir(tmp)
 
@@ -253,7 +234,7 @@ func TestDefaultMeasure_TestFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, output, err := defaultMeasure("testmod/mypkg", []string{"testmod/mypkg"})
+	_, output, err := gocover.Measure("testmod/mypkg", []string{"testmod/mypkg"})
 	if err == nil {
 		t.Fatal("expected error from failing test")
 	}
@@ -269,6 +250,20 @@ func TestRun_NilWriter(t *testing.T) {
 	}
 	//nolint:exhaustruct // test uses partial initialization
 	_ = r.run(Opts{Out: nil})
+}
+
+func TestRun_PublicWrapper(t *testing.T) {
+	tmp := t.TempDir()
+	t.Chdir(tmp)
+
+	// No go.mod → Run will fail at goModule, covering the
+	// public wrapper.
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	err := Run(Opts{Out: &buf})
+	if err == nil {
+		t.Fatal("expected error (no go module)")
+	}
 }
 
 func TestRun_GoModuleError(t *testing.T) {

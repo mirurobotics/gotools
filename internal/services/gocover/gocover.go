@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/mirurobotics/gotools/internal/services/cmdutil"
 )
 
 // RelPkg computes a module-relative package path.
@@ -58,15 +60,15 @@ func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
 
 // ExtractCoverage parses the total coverage percentage
 // from a Go coverage profile.
-func ExtractCoverage(coverFile string) float64 {
+func ExtractCoverage(coverFile string) (float64, error) {
 	if _, err := os.Stat(coverFile); err != nil {
-		return 0.0
+		return 0, fmt.Errorf("coverage file: %w", err)
 	}
 	out, err := ExecOutput(nil, "go", "tool", "cover", "-func="+coverFile)
 	if err != nil {
-		return 0.0
+		return 0, fmt.Errorf("go tool cover: %w", err)
 	}
-	return ParseCoverageOutput(out)
+	return ParseCoverageOutput(out), nil
 }
 
 // ParseCoverageOutput extracts the total coverage
@@ -108,6 +110,36 @@ func BuildTestPaths(pkg, relPkg, srcPrefix, testDir string) []string {
 		paths = append(paths, "./"+extPath)
 	}
 	return paths
+}
+
+// Measure runs tests for pkg with coverage profiling and
+// returns the coverage percentage and combined test output.
+// Uses a temp file for the coverage profile, cleaned up
+// automatically.
+func Measure(pkg string, testPaths []string) (float64, []byte, error) {
+	tmpFile, err := os.CreateTemp("", "miru-coverage-*.out")
+	if err != nil {
+		return 0, nil, fmt.Errorf("create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	_ = tmpFile.Close()
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	args := make([]string, 0, 3+len(testPaths))
+	args = append(args, "test", "-coverprofile="+tmpPath, "-coverpkg="+pkg)
+	args = append(args, testPaths...)
+
+	testCmd := cmdutil.GoCommand(args...)
+	output, testErr := testCmd.CombinedOutput()
+	if testErr != nil {
+		return 0, output, testErr
+	}
+
+	coverage, coverErr := ExtractCoverage(tmpPath)
+	if coverErr != nil {
+		return 0, output, fmt.Errorf("extract coverage: %w", coverErr)
+	}
+	return coverage, output, nil
 }
 
 // ExecOutput runs a command with GOWORK=off and returns

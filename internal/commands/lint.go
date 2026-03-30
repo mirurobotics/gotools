@@ -43,12 +43,7 @@ func bindLintFlags(cmd *cobra.Command, opts *lint.LintOpts) {
 		&opts.DoFix, "fix", true,
 		"auto-fix violations (false for CI check-only mode)",
 	)
-	bindLinterConfigFlags(
-		fl,
-		&opts.MaxLineWidth, &opts.TabWidth,
-		&opts.MaxFuncLen, &opts.MaxNestDepth, &opts.MaxParamCount,
-		&opts.Exclude, &opts.Rule,
-	)
+	bindLinterConfigFlags(fl, &opts.LinterFlags)
 	fl.BoolVar(&opts.Deadcode, "deadcode", false, "run deadcode checker")
 	fl.StringVar(
 		&opts.DeadcodeExclude, "deadcode-exclude", "",
@@ -60,31 +55,30 @@ func bindLintFlags(cmd *cobra.Command, opts *lint.LintOpts) {
 
 // bindLinterConfigFlags binds the shared linter configuration
 // flags used by both check and lint commands.
-func bindLinterConfigFlags(
-	fl *pflag.FlagSet,
-	maxLineWidth, tabWidth, maxFuncLen, maxNestDepth, maxParamCount *int,
-	exclude, rule *string,
-) {
+func bindLinterConfigFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
 	fl.IntVar(
-		maxLineWidth, "max-line-width", 88,
+		&flags.MaxLineWidth, "max-line-width", 88,
 		"maximum line width for collapsing multi-line calls",
 	)
-	fl.IntVar(tabWidth, "tab-width", 4, "tab width for calculating visual line width")
 	fl.IntVar(
-		maxFuncLen, "max-func-len", 50,
+		&flags.TabWidth, "tab-width", 4,
+		"tab width for calculating visual line width",
+	)
+	fl.IntVar(
+		&flags.MaxFuncLen, "max-func-len", 50,
 		"maximum function length (non-blank, non-comment)",
 	)
 	fl.IntVar(
-		maxNestDepth, "max-nest-depth", 4,
+		&flags.MaxNestDepth, "max-nest-depth", 4,
 		"maximum nesting depth within functions",
 	)
 	fl.IntVar(
-		maxParamCount, "max-param-count", 5,
+		&flags.MaxParamCount, "max-param-count", 5,
 		"maximum param count excluding context.Context",
 	)
 	fl.StringVar(
-		exclude, "exclude", "",
+		&flags.Exclude, "exclude", "",
 		"comma-separated rules to exclude (empty=run all)",
 	)
-	fl.StringVar(rule, "rule", "", "only run a specific rule")
+	fl.StringVar(&flags.Rule, "rule", "", "only run a specific rule")
 }

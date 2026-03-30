@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
+
+	"github.com/mirurobotics/gotools/internal/services/cmdutil"
 )
 
 // Opts holds the options for the coverage service.
@@ -32,9 +33,7 @@ func Run(opts Opts) error {
 
 	testArgs := buildTestArgs(opts.SubPkg, opts.SrcPrefix, opts.TestPrefix, coverFile)
 
-	//nolint:gosec,noctx // G204: trusted subprocess
-	testCmd := exec.Command("go", testArgs...)
-	testCmd.Env = append(os.Environ(), "GOWORK=off")
+	testCmd := cmdutil.GoCommand(testArgs...)
 	testCmd.Stdout = opts.Out
 	testCmd.Stderr = opts.Err
 	if err := testCmd.Run(); err != nil {
@@ -77,8 +76,7 @@ func buildTestArgs(subPkg, srcPrefix, testPrefix, coverFile string) []string {
 }
 
 func printCoverageSummary(coverFile string, out io.Writer, errW io.Writer) error {
-	//nolint:gosec,noctx // G204: trusted subprocess
-	funcCmd := exec.Command("go", "tool", "cover", "-func="+coverFile)
+	funcCmd := cmdutil.GoCommand("tool", "cover", "-func="+coverFile)
 	funcCmd.Stderr = errW
 	cmdOut, err := funcCmd.Output()
 	if err != nil {
@@ -93,8 +91,7 @@ func printCoverageSummary(coverFile string, out io.Writer, errW io.Writer) error
 }
 
 func openHTMLReport(coverFile string, out io.Writer, errW io.Writer) error {
-	//nolint:gosec,noctx // G204: trusted subprocess
-	htmlCmd := exec.Command("go", "tool", "cover", "-html="+coverFile)
+	htmlCmd := cmdutil.GoCommand("tool", "cover", "-html="+coverFile)
 	htmlCmd.Stdout = out
 	htmlCmd.Stderr = errW
 	if err := htmlCmd.Run(); err != nil {

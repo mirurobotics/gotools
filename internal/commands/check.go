@@ -38,12 +38,7 @@ func NewCheckCommand() *cobra.Command {
 	fl := cmd.Flags()
 	fl.StringVar(&opts.Path, "path", ".", "directory to scan")
 	fl.BoolVar(&opts.DoFix, "fix", false, "auto-fix violations")
-	bindLinterConfigFlags(
-		fl,
-		&opts.MaxLineWidth, &opts.TabWidth,
-		&opts.MaxFuncLen, &opts.MaxNestDepth, &opts.MaxParamCount,
-		&opts.Exclude, &opts.Rule,
-	)
+	bindLinterConfigFlags(fl, &opts.LinterFlags)
 
 	return cmd
 }
