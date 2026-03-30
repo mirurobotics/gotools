@@ -122,11 +122,6 @@ func (r *runner) ratchetPackage(
 		return 1, 0, 0
 	}
 
-	if current == "0" {
-		_, _ = fmt.Fprintf(w, "%-6s  %8s  %8s  %s\n", "SKIP", "0%", "\u2014", relPkg)
-		return 0, 1, 0
-	}
-
 	currentVal, _ := strconv.ParseFloat(current, 64)
 	if actual > currentVal {
 		if err := writeCovgate(covgateFile, actual); err != nil {

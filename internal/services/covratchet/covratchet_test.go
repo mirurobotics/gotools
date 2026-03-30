@@ -183,7 +183,7 @@ func TestRatchetPackage_New_WriteError(t *testing.T) {
 	}
 }
 
-func TestRatchetPackage_Skip(t *testing.T) {
+func TestRatchetPackage_FromZero(t *testing.T) {
 	dir := makePkgDir(t, pkgRel)
 	writeCovgateFile(t, dir, "0\n")
 
@@ -192,11 +192,21 @@ func TestRatchetPackage_Skip(t *testing.T) {
 	r := runner{measure: fakeMeasure(85.0)}
 
 	u, unch, f := r.ratchetPackage(pkgName, modName, "", "", &buf)
-	if u != 0 || unch != 1 || f != 0 {
-		t.Errorf("got (%d,%d,%d), want (0,1,0)", u, unch, f)
+	if u != 1 || unch != 0 || f != 0 {
+		t.Errorf("got (%d,%d,%d), want (1,0,0)", u, unch, f)
 	}
-	if !strings.Contains(buf.String(), "SKIP") {
-		t.Errorf("missing SKIP: %s", buf.String())
+	if !strings.Contains(buf.String(), "UP") {
+		t.Errorf("missing UP: %s", buf.String())
+	}
+
+	path := filepath.Join(dir, ".covgate")
+	//nolint:gosec // G304: test file read
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(data); got != "85.0\n" {
+		t.Errorf(".covgate = %q, want %q", got, "85.0\n")
 	}
 }
 
