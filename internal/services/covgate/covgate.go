@@ -18,8 +18,23 @@ type Opts struct {
 	Out              io.Writer
 }
 
+type runner struct {
+	goModule       func() (string, error)
+	goListPackages func(string) ([]string, error)
+	measure        func(pkg string, testPaths []string) (float64, []byte, error)
+}
+
 // Run checks per-package coverage against thresholds.
 func Run(opts Opts) error {
+	r := runner{
+		goModule:       gocover.GoModule,
+		goListPackages: gocover.GoListPackages,
+		measure:        defaultMeasure,
+	}
+	return r.run(opts)
+}
+
+func (r *runner) run(opts Opts) error {
 	if opts.Out == nil {
 		opts.Out = os.Stdout
 	}
@@ -31,12 +46,12 @@ func Run(opts Opts) error {
 		opts.DefaultThreshold,
 	)
 
-	module, err := gocover.GoModule()
+	module, err := r.goModule()
 	if err != nil {
 		return err
 	}
 
-	pkgs, err := gocover.GoListPackages(opts.Packages)
+	pkgs, err := r.goListPackages(opts.Packages)
 	if err != nil {
 		return err
 	}
@@ -45,7 +60,7 @@ func Run(opts Opts) error {
 
 	hasFailures := false
 	for _, pkg := range pkgs {
-		ok := checkPackage(
+		ok := r.checkPackage(
 			pkg, module, opts.SrcPrefix,
 			opts.TestDir, opts.DefaultThreshold, w,
 		)
@@ -78,7 +93,7 @@ func printHeader(w io.Writer) {
 	)
 }
 
-func checkPackage(
+func (r *runner) checkPackage(
 	pkg, module, srcPrefix, testDir string,
 	defaultThreshold float64, w io.Writer,
 ) bool {
@@ -88,14 +103,7 @@ func checkPackage(
 
 	testPaths := gocover.BuildTestPaths(pkg, relPkg, srcPrefix, testDir)
 
-	tmpFile := "coverage.out"
-	args := []string{"test", "-coverprofile=" + tmpFile, "-coverpkg=" + pkg}
-	args = append(args, testPaths...)
-
-	testCmd := exec.Command("go", args...)
-	testCmd.Env = append(os.Environ(), "GOWORK=off")
-	output, testErr := testCmd.CombinedOutput()
-
+	coverage, output, testErr := r.measure(pkg, testPaths)
 	if testErr != nil {
 		_, _ = fmt.Fprintf(
 			w, "%-6s  %8s  %8s  %s\n",
@@ -105,12 +113,8 @@ func checkPackage(
 		_, _ = fmt.Fprintln(w)
 		_, _ = fmt.Fprint(w, string(output))
 		_, _ = fmt.Fprintln(w)
-		_ = os.Remove(tmpFile)
 		return false
 	}
-
-	coverage := gocover.ExtractCoverage(tmpFile)
-	_ = os.Remove(tmpFile)
 
 	status := "PASS"
 	if coverage < threshold {
@@ -121,4 +125,24 @@ func checkPackage(
 		status, coverage, threshold, relPkg,
 	)
 	return coverage >= threshold
+}
+
+func defaultMeasure(pkg string, testPaths []string) (float64, []byte, error) {
+	tmpFile := "coverage.out"
+	args := make([]string, 0, 3+len(testPaths))
+	args = append(args, "test", "-coverprofile="+tmpFile, "-coverpkg="+pkg)
+	args = append(args, testPaths...)
+
+	//nolint:gosec,noctx // G204: trusted subprocess
+	testCmd := exec.Command("go", args...)
+	testCmd.Env = append(os.Environ(), "GOWORK=off")
+	output, testErr := testCmd.CombinedOutput()
+	if testErr != nil {
+		_ = os.Remove(tmpFile)
+		return 0, output, testErr
+	}
+
+	coverage := gocover.ExtractCoverage(tmpFile)
+	_ = os.Remove(tmpFile)
+	return coverage, output, nil
 }
