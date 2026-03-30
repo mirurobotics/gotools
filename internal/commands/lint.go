@@ -14,6 +14,7 @@ import (
 func NewLintCommand() *cobra.Command {
 	var opts lint.LintOpts
 
+	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{
 		Use:   "lint",
 		Short: "Run all Go linters",

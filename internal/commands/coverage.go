@@ -13,6 +13,7 @@ import (
 func NewCoverageCommand() *cobra.Command {
 	var opts coverage.Opts
 
+	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{
 		Use:   "coverage [sub-package]",
 		Short: "Generate Go coverage report",

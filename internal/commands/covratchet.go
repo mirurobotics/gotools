@@ -13,6 +13,7 @@ import (
 func NewCovratchetCommand() *cobra.Command {
 	var opts covratchet.Opts
 
+	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{
 		Use:   "covratchet",
 		Short: "Ratchet up per-package coverage thresholds",

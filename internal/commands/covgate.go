@@ -13,6 +13,7 @@ import (
 func NewCovgateCommand() *cobra.Command {
 	var opts covgate.Opts
 
+	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{
 		Use:   "covgate",
 		Short: "Check per-package coverage thresholds",

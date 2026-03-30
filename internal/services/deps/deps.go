@@ -19,6 +19,7 @@ func RunUpdate(out io.Writer, errW io.Writer) error {
 
 	for _, step := range steps {
 		_, _ = fmt.Fprintln(out, step.label)
+		//nolint:gosec,noctx // G204: trusted subprocess
 		cmd := exec.Command("go", step.args...)
 		cmd.Stdout = out
 		cmd.Stderr = errW

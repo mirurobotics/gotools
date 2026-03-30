@@ -19,8 +19,23 @@ type Opts struct {
 	Out       io.Writer
 }
 
+type runner struct {
+	goModule       func() (string, error)
+	goListPackages func(string) ([]string, error)
+	measure        func(pkg string, testPaths []string) (float64, error)
+}
+
 // Run ratchets up .covgate thresholds.
 func Run(opts Opts) error {
+	r := runner{
+		goModule:       gocover.GoModule,
+		goListPackages: gocover.GoListPackages,
+		measure:        measureCoverage,
+	}
+	return r.run(opts)
+}
+
+func (r *runner) run(opts Opts) error {
 	if opts.Out == nil {
 		opts.Out = os.Stdout
 	}
@@ -29,12 +44,12 @@ func Run(opts Opts) error {
 	_, _ = fmt.Fprintln(w, "Updating .covgate files (ratchet up only)...")
 	_, _ = fmt.Fprintln(w)
 
-	module, err := gocover.GoModule()
+	module, err := r.goModule()
 	if err != nil {
 		return err
 	}
 
-	pkgs, err := gocover.GoListPackages(opts.Packages)
+	pkgs, err := r.goListPackages(opts.Packages)
 	if err != nil {
 		return err
 	}
@@ -46,7 +61,7 @@ func Run(opts Opts) error {
 	failed := 0
 
 	for _, pkg := range pkgs {
-		u, unch, f := ratchetPackage(pkg, module, opts.SrcPrefix, opts.TestDir, w)
+		u, unch, f := r.ratchetPackage(pkg, module, opts.SrcPrefix, opts.TestDir, w)
 		updated += u
 		unchanged += unch
 		failed += f
@@ -74,7 +89,7 @@ func printHeader(w io.Writer) {
 	)
 }
 
-func ratchetPackage(
+func (r *runner) ratchetPackage(
 	pkg, module, srcPrefix, testDir string, w io.Writer,
 ) (updated, unchanged, failed int) {
 	relPkg := gocover.RelPkg(pkg, module)
@@ -83,7 +98,7 @@ func ratchetPackage(
 
 	current := readCovgate(covgateFile)
 	testPaths := gocover.BuildTestPaths(pkg, relPkg, srcPrefix, testDir)
-	actual, err := measureCoverage(pkg, testPaths)
+	actual, err := r.measure(pkg, testPaths)
 	if err != nil {
 		_, _ = fmt.Fprintf(
 			w, "%-6s  %8s  %8s  %s\n",
@@ -105,11 +120,6 @@ func ratchetPackage(
 			"NEW", "\u2014", actual, relPkg,
 		)
 		return 1, 0, 0
-	}
-
-	if current == "0" {
-		_, _ = fmt.Fprintf(w, "%-6s  %8s  %8s  %s\n", "SKIP", "0%", "\u2014", relPkg)
-		return 0, 1, 0
 	}
 
 	currentVal, _ := strconv.ParseFloat(current, 64)
@@ -134,9 +144,11 @@ func ratchetPackage(
 
 func measureCoverage(pkg string, testPaths []string) (float64, error) {
 	tmpFile := "coverage.out"
-	args := []string{"test", "-coverprofile=" + tmpFile, "-coverpkg=" + pkg}
+	args := make([]string, 0, 3+len(testPaths))
+	args = append(args, "test", "-coverprofile="+tmpFile, "-coverpkg="+pkg)
 	args = append(args, testPaths...)
 
+	//nolint:gosec,noctx // G204: trusted subprocess
 	testCmd := exec.Command("go", args...)
 	testCmd.Env = append(os.Environ(), "GOWORK=off")
 	testCmd.Stdout = nil
@@ -152,6 +164,7 @@ func measureCoverage(pkg string, testPaths []string) (float64, error) {
 }
 
 func readCovgate(path string) string {
+	//nolint:gosec // G304: trusted file path
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return ""
@@ -161,5 +174,6 @@ func readCovgate(path string) string {
 
 func writeCovgate(path string, coverage float64) error {
 	content := fmt.Sprintf("%.1f\n", coverage)
+	//nolint:gosec // G306: intentional 0644
 	return os.WriteFile(path, []byte(content), 0o644)
 }

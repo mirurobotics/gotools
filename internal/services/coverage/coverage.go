@@ -32,6 +32,7 @@ func Run(opts Opts) error {
 
 	testArgs := buildTestArgs(opts.SubPkg, opts.SrcPrefix, opts.TestPrefix, coverFile)
 
+	//nolint:gosec,noctx // G204: trusted subprocess
 	testCmd := exec.Command("go", testArgs...)
 	testCmd.Env = append(os.Environ(), "GOWORK=off")
 	testCmd.Stdout = opts.Out
@@ -76,6 +77,7 @@ func buildTestArgs(subPkg, srcPrefix, testPrefix, coverFile string) []string {
 }
 
 func printCoverageSummary(coverFile string, out io.Writer, errW io.Writer) error {
+	//nolint:gosec,noctx // G204: trusted subprocess
 	funcCmd := exec.Command("go", "tool", "cover", "-func="+coverFile)
 	funcCmd.Stderr = errW
 	cmdOut, err := funcCmd.Output()
@@ -91,6 +93,7 @@ func printCoverageSummary(coverFile string, out io.Writer, errW io.Writer) error
 }
 
 func openHTMLReport(coverFile string, out io.Writer, errW io.Writer) error {
+	//nolint:gosec,noctx // G204: trusted subprocess
 	htmlCmd := exec.Command("go", "tool", "cover", "-html="+coverFile)
 	htmlCmd.Stdout = out
 	htmlCmd.Stderr = errW
