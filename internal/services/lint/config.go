@@ -9,10 +9,9 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter"
 )
 
-// CheckOpts holds the options for the check command.
-type CheckOpts struct {
-	Path          string
-	DoFix         bool
+// LinterFlags holds the shared configuration flags used
+// by both check and lint commands.
+type LinterFlags struct {
 	MaxLineWidth  int
 	TabWidth      int
 	MaxFuncLen    int
@@ -20,8 +19,15 @@ type CheckOpts struct {
 	MaxParamCount int
 	Exclude       string
 	Rule          string
-	Out           io.Writer
-	Err           io.Writer
+}
+
+// CheckOpts holds the options for the check command.
+type CheckOpts struct {
+	Path  string
+	DoFix bool
+	LinterFlags
+	Out io.Writer
+	Err io.Writer
 }
 
 // RunCheck runs the custom linter in standalone mode.
@@ -34,11 +40,7 @@ func RunCheck(opts CheckOpts) (diags, fixed int, err error) {
 		opts.Err = os.Stderr
 	}
 
-	cfg, err := BuildLinterConfig(
-		opts.Exclude, opts.Rule,
-		opts.MaxLineWidth, opts.TabWidth,
-		opts.MaxFuncLen, opts.MaxNestDepth, opts.MaxParamCount,
-	)
+	cfg, err := BuildLinterConfig(opts.LinterFlags)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -55,32 +57,28 @@ func RunCheck(opts CheckOpts) (diags, fixed int, err error) {
 
 // BuildLinterConfig creates a linter.Config from the
 // common flag values shared by check and lint commands.
-func BuildLinterConfig(
-	exclude, rule string,
-	maxLineWidth, tabWidth,
-	maxFuncLen, maxNestDepth, maxParamCount int,
-) (linter.Config, error) {
-	excl := ParseExclusions(exclude)
+func BuildLinterConfig(flags LinterFlags) (linter.Config, error) {
+	excl := ParseExclusions(flags.Exclude)
 	if err := linter.ValidateExclusions(excl); err != nil {
 		return linter.Config{}, err
 	}
 
-	if rule != "" {
-		single := BuildSingleRuleExclusions(rule)
+	if flags.Rule != "" {
+		single := BuildSingleRuleExclusions(flags.Rule)
 		if single == nil {
 			return linter.Config{},
-				fmt.Errorf("unknown rule: %q", rule)
+				fmt.Errorf("unknown rule: %q", flags.Rule)
 		}
 		excl = single
 	}
 
 	//nolint:exhaustruct // Out/Err set after construction
 	return linter.Config{
-		MaxLineWidth:  maxLineWidth,
-		TabWidth:      tabWidth,
-		MaxFuncLen:    maxFuncLen,
-		MaxNestDepth:  maxNestDepth,
-		MaxParamCount: maxParamCount,
+		MaxLineWidth:  flags.MaxLineWidth,
+		TabWidth:      flags.TabWidth,
+		MaxFuncLen:    flags.MaxFuncLen,
+		MaxNestDepth:  flags.MaxNestDepth,
+		MaxParamCount: flags.MaxParamCount,
 		Exclude:       excl,
 	}, nil
 }

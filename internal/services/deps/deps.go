@@ -3,11 +3,35 @@ package deps
 import (
 	"fmt"
 	"io"
-	"os/exec"
+
+	"github.com/mirurobotics/gotools/internal/services/cmdutil"
 )
+
+type runner struct {
+	exec func(out io.Writer, errW io.Writer, args ...string) error
+}
+
+func defaultExec(out io.Writer, errW io.Writer, args ...string) error {
+	cmd := cmdutil.GoCommand(args...)
+	cmd.Stdout = out
+	cmd.Stderr = errW
+	return cmd.Run()
+}
 
 // RunUpdate updates all Go dependencies.
 func RunUpdate(out io.Writer, errW io.Writer) error {
+	r := runner{exec: defaultExec}
+	return r.runUpdate(out, errW)
+}
+
+func (r *runner) runUpdate(out io.Writer, errW io.Writer) error {
+	if out == nil {
+		out = io.Discard
+	}
+	if errW == nil {
+		errW = io.Discard
+	}
+
 	steps := []struct {
 		label string
 		args  []string
@@ -19,11 +43,7 @@ func RunUpdate(out io.Writer, errW io.Writer) error {
 
 	for _, step := range steps {
 		_, _ = fmt.Fprintln(out, step.label)
-		//nolint:gosec,noctx // G204: trusted subprocess
-		cmd := exec.Command("go", step.args...)
-		cmd.Stdout = out
-		cmd.Stderr = errW
-		if err := cmd.Run(); err != nil {
+		if err := r.exec(out, errW, step.args...); err != nil {
 			return fmt.Errorf("%s: %w", step.label, err)
 		}
 		_, _ = fmt.Fprintln(out)

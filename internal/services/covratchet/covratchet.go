@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -22,7 +21,7 @@ type Opts struct {
 type runner struct {
 	goModule       func() (string, error)
 	goListPackages func(string) ([]string, error)
-	measure        func(pkg string, testPaths []string) (float64, error)
+	measure        func(pkg string, testPaths []string) (float64, []byte, error)
 }
 
 // Run ratchets up .covgate thresholds.
@@ -30,7 +29,7 @@ func Run(opts Opts) error {
 	r := runner{
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
-		measure:        measureCoverage,
+		measure:        gocover.Measure,
 	}
 	return r.run(opts)
 }
@@ -98,7 +97,7 @@ func (r *runner) ratchetPackage(
 
 	current := readCovgate(covgateFile)
 	testPaths := gocover.BuildTestPaths(pkg, relPkg, srcPrefix, testDir)
-	actual, err := r.measure(pkg, testPaths)
+	actual, _, err := r.measure(pkg, testPaths)
 	if err != nil {
 		_, _ = fmt.Fprintf(
 			w, "%-6s  %8s  %8s  %s\n",
@@ -140,27 +139,6 @@ func (r *runner) ratchetPackage(
 
 	_, _ = fmt.Fprintf(w, "%-6s  %7s%%  %7.1f%%  %s\n", "OK", current, actual, relPkg)
 	return 0, 1, 0
-}
-
-func measureCoverage(pkg string, testPaths []string) (float64, error) {
-	tmpFile := "coverage.out"
-	args := make([]string, 0, 3+len(testPaths))
-	args = append(args, "test", "-coverprofile="+tmpFile, "-coverpkg="+pkg)
-	args = append(args, testPaths...)
-
-	//nolint:gosec,noctx // G204: trusted subprocess
-	testCmd := exec.Command("go", args...)
-	testCmd.Env = append(os.Environ(), "GOWORK=off")
-	testCmd.Stdout = nil
-	testCmd.Stderr = nil
-	if err := testCmd.Run(); err != nil {
-		_ = os.Remove(tmpFile)
-		return 0, fmt.Errorf("tests failed for %s: %w", pkg, err)
-	}
-
-	actual := gocover.ExtractCoverage(tmpFile)
-	_ = os.Remove(tmpFile)
-	return actual, nil
 }
 
 func readCovgate(path string) string {

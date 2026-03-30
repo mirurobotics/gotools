@@ -3,6 +3,7 @@ package lint
 import (
 	"bytes"
 	"io"
+	"strings"
 	"testing"
 )
 
@@ -53,25 +54,76 @@ func TestRunExternal_Failure(t *testing.T) {
 }
 
 func TestBuildLinterConfig_InvalidExclude(t *testing.T) {
-	_, err := BuildLinterConfig("nonexistent-rule", "", 88, 4, 50, 4, 5)
+	//nolint:exhaustruct // only testing exclude
+	_, err := BuildLinterConfig(LinterFlags{Exclude: "nonexistent-rule"})
 	if err == nil {
 		t.Error("expected error for invalid exclusion")
 	}
 }
 
 func TestBuildLinterConfig_UnknownSingleRule(t *testing.T) {
-	_, err := BuildLinterConfig("", "nonexistent", 88, 4, 50, 4, 5)
+	//nolint:exhaustruct // only testing rule
+	_, err := BuildLinterConfig(LinterFlags{Rule: "nonexistent"})
 	if err == nil {
 		t.Error("expected error for unknown rule")
 	}
 }
 
 func TestBuildLinterConfig_ValidSingleRule(t *testing.T) {
-	cfg, err := BuildLinterConfig("", "errfmt", 88, 4, 50, 4, 5)
+	//nolint:exhaustruct // only testing rule
+	cfg, err := BuildLinterConfig(LinterFlags{Rule: "errfmt"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cfg.Exclude["errfmt"] {
 		t.Error("errfmt should not be excluded")
+	}
+}
+
+func TestRunLint_AllSkipped(t *testing.T) {
+	var out bytes.Buffer
+	//nolint:exhaustruct // testing skip-all path
+	err := RunLint(LintOpts{
+		NoGofumpt:  true,
+		NoGolangci: true,
+		Out:        &out,
+		Err:        io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out.String(), "Lint complete") {
+		t.Errorf("expected 'Lint complete' in output, got %q", out.String())
+	}
+}
+
+func TestRunLint_NilWriters(t *testing.T) {
+	// Ensure nil Out/Err don't panic (they default to os.Stdout/os.Stderr).
+	//nolint:exhaustruct // testing nil writer defaults
+	err := RunLint(LintOpts{NoGofumpt: true, NoGolangci: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunLint_EmptyPaths(t *testing.T) {
+	var out bytes.Buffer
+	// Empty Paths should skip the custom linter and succeed.
+	//nolint:exhaustruct // testing empty Paths path
+	err := RunLint(LintOpts{
+		Paths:      "",
+		NoGofumpt:  true,
+		NoGolangci: true,
+		Out:        &out,
+		Err:        io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(out.String(), "custom linter") {
+		t.Error("custom linter should not have run with empty Paths")
+	}
+	if !strings.Contains(out.String(), "Lint complete") {
+		t.Errorf("expected 'Lint complete' in output, got %q", out.String())
 	}
 }

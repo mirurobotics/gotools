@@ -3,7 +3,8 @@ package gotest
 import (
 	"io"
 	"os"
-	"os/exec"
+
+	"github.com/mirurobotics/gotools/internal/services/cmdutil"
 )
 
 // Opts holds the options for the gotest service.
@@ -24,8 +25,7 @@ func Run(opts Opts) error {
 
 	args := buildArgs(opts.ExtraArgs)
 
-	//nolint:gosec,noctx // G204: trusted subprocess
-	cmd := exec.Command("go", args...)
+	cmd := cmdutil.GoCommand(args...)
 	cmd.Stdout = opts.Out
 	cmd.Stderr = opts.Err
 

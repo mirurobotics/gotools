@@ -1,7 +1,9 @@
 package gocover
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -127,6 +129,132 @@ func TestParseCoverageOutput(t *testing.T) {
 				t.Errorf("ParseCoverageOutput() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func makeGoProject(t *testing.T) {
+	t.Helper()
+	tmp := t.TempDir()
+	t.Chdir(tmp)
+
+	goMod := "module testmod\n\ngo 1.23\n"
+	//nolint:gosec // G306: test file
+	_ = os.WriteFile(filepath.Join(tmp, "go.mod"), []byte(goMod), 0o644)
+	pkg := filepath.Join(tmp, "mypkg")
+	//nolint:gosec // G301: test directory
+	_ = os.MkdirAll(pkg, 0o755)
+	lib := "package mypkg\n\n" +
+		"func Add(a, b int) int { return a + b }\n"
+	//nolint:gosec // G306: test file
+	_ = os.WriteFile(filepath.Join(pkg, "lib.go"), []byte(lib), 0o644)
+	testSrc := "package mypkg\n\n" +
+		"import \"testing\"\n\n" +
+		"func TestAdd(t *testing.T) {\n" +
+		"\tif Add(1,2) != 3 { t.Fatal() }\n}\n"
+	//nolint:gosec // G306: test file
+	_ = os.WriteFile(filepath.Join(pkg, "lib_test.go"), []byte(testSrc), 0o644)
+}
+
+func TestGoModule(t *testing.T) {
+	makeGoProject(t)
+
+	mod, err := GoModule()
+	if err != nil {
+		t.Fatalf("GoModule: %v", err)
+	}
+	if mod != "testmod" {
+		t.Errorf("got %q, want %q", mod, "testmod")
+	}
+}
+
+func TestGoListPackages(t *testing.T) {
+	makeGoProject(t)
+
+	pkgs, err := GoListPackages("testmod/...")
+	if err != nil {
+		t.Fatalf("GoListPackages: %v", err)
+	}
+	found := false
+	for _, p := range pkgs {
+		if p == "testmod/mypkg" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected testmod/mypkg in %v", pkgs)
+	}
+}
+
+func TestExtractCoverage(t *testing.T) {
+	makeGoProject(t)
+
+	// Generate a real coverage profile.
+	tmp := t.TempDir()
+	covFile := filepath.Join(tmp, "cover.out")
+	//nolint:gosec // G204: test subprocess
+	cmd := exec.CommandContext(
+		context.Background(),
+		"go", "test", "-coverprofile="+covFile,
+		"-coverpkg=testmod/mypkg", "testmod/mypkg",
+	)
+	cmd.Env = append(os.Environ(), "GOWORK=off")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go test: %v\n%s", err, out)
+	}
+
+	cov, err := ExtractCoverage(covFile)
+	if err != nil {
+		t.Fatalf("ExtractCoverage: %v", err)
+	}
+	if cov < 100.0 {
+		t.Errorf("expected 100%%, got %.1f%%", cov)
+	}
+}
+
+func TestExtractCoverage_MissingFile(t *testing.T) {
+	_, err := ExtractCoverage("/nonexistent/cover.out")
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestMeasure(t *testing.T) {
+	makeGoProject(t)
+
+	cov, _, err := Measure("testmod/mypkg", []string{"testmod/mypkg"})
+	if err != nil {
+		t.Fatalf("Measure: %v", err)
+	}
+	if cov < 100.0 {
+		t.Errorf("expected 100%%, got %.1f%%", cov)
+	}
+}
+
+func TestMeasure_TestFailure(t *testing.T) {
+	tmp := t.TempDir()
+	t.Chdir(tmp)
+
+	goMod := "module testmod\n\ngo 1.23\n"
+	//nolint:gosec // G306: test file
+	_ = os.WriteFile(filepath.Join(tmp, "go.mod"), []byte(goMod), 0o644)
+	pkg := filepath.Join(tmp, "mypkg")
+	//nolint:gosec // G301: test directory
+	_ = os.MkdirAll(pkg, 0o755)
+	//nolint:gosec // G306: test file
+	_ = os.WriteFile(filepath.Join(pkg, "lib.go"), []byte("package mypkg\n"), 0o644)
+	testSrc := "package mypkg\n\n" +
+		"import \"testing\"\n\n" +
+		"func TestFail(t *testing.T) " +
+		"{ t.Fatal(\"fail\") }\n"
+	//nolint:gosec // G306: test file
+	_ = os.WriteFile(filepath.Join(pkg, "lib_test.go"), []byte(testSrc), 0o644)
+
+	_, output, err := Measure("testmod/mypkg", []string{"testmod/mypkg"})
+	if err == nil {
+		t.Fatal("expected error from failing test")
+	}
+	if len(output) == 0 {
+		t.Error("expected non-empty output")
 	}
 }
 

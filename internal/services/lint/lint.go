@@ -8,20 +8,15 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/mirurobotics/gotools/internal/services/cmdutil"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter"
 )
 
 // LintOpts holds the options for the lint orchestrator.
 type LintOpts struct {
-	Paths           string
-	DoFix           bool
-	MaxLineWidth    int
-	TabWidth        int
-	MaxFuncLen      int
-	MaxNestDepth    int
-	MaxParamCount   int
-	Exclude         string
-	Rule            string
+	Paths string
+	DoFix bool
+	LinterFlags
 	Deadcode        bool
 	DeadcodeExclude string
 	NoGofumpt       bool
@@ -79,11 +74,7 @@ func RunLint(opts LintOpts) error {
 }
 
 func runCustomLinter(opts LintOpts) (bool, error) {
-	cfg, err := BuildLinterConfig(
-		opts.Exclude, opts.Rule,
-		opts.MaxLineWidth, opts.TabWidth,
-		opts.MaxFuncLen, opts.MaxNestDepth, opts.MaxParamCount,
-	)
+	cfg, err := BuildLinterConfig(opts.LinterFlags)
 	if err != nil {
 		return false, err
 	}
@@ -130,8 +121,7 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 	}
 
 	_, _ = fmt.Fprintln(out, "Checking gofumpt...")
-	//nolint:noctx // CLI tool, no context needed
-	cmd := exec.Command("go", "tool", "gofumpt", "-l", ".")
+	cmd := cmdutil.GoCommand("tool", "gofumpt", "-l", ".")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -151,11 +141,10 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 // filtering output.
 func RunDeadcode(out io.Writer, excludePattern string) error {
 	_, _ = fmt.Fprintln(out, "Running deadcode...")
-	//nolint:noctx // CLI tool, no context needed
-	cmd := exec.Command("go", "tool", "deadcode", "-test", "./...")
-	var stdout bytes.Buffer
+	cmd := cmdutil.GoCommand("tool", "deadcode", "-test", "./...")
+	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
-	cmd.Stderr = io.Discard
+	cmd.Stderr = &stderr
 	err := cmd.Run()
 
 	filtered := FilterDeadcodeOutput(stdout.String(), excludePattern)
@@ -166,7 +155,7 @@ func RunDeadcode(out io.Writer, excludePattern string) error {
 		return fmt.Errorf("deadcode found issues")
 	}
 	if err != nil {
-		return fmt.Errorf("deadcode: %w", err)
+		return fmt.Errorf("deadcode: %w\n%s", err, stderr.String())
 	}
 	return nil
 }
@@ -197,11 +186,17 @@ func FilterDeadcodeOutput(raw, excludePattern string) []string {
 	return filtered
 }
 
-// RunExternal runs an external command, inheriting
-// stdout/stderr from the provided writers.
+// RunExternal runs an external Go toolchain command,
+// inheriting stdout/stderr from the provided writers.
+// The first arg is expected to be the go subcommand.
 func RunExternal(out io.Writer, errW io.Writer, name string, args ...string) error {
-	//nolint:gosec,noctx // G204: trusted subprocess
-	cmd := exec.Command(name, args...)
+	var cmd *exec.Cmd
+	if name == "go" {
+		cmd = cmdutil.GoCommand(args...)
+	} else {
+		//nolint:gosec,noctx // G204: trusted subprocess
+		cmd = exec.Command(name, args...)
+	}
 	cmd.Stdout = out
 	cmd.Stderr = errW
 	return cmd.Run()
