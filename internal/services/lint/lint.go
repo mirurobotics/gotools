@@ -125,11 +125,11 @@ func RunGolangci(out io.Writer, errW io.Writer) error {
 func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 	if fix {
 		_, _ = fmt.Fprintln(out, "Running gofumpt...")
-		return RunExternal(out, errW, "gofumpt", "-w", ".")
+		return RunExternal(out, errW, "go", "tool", "gofumpt", "-w", ".")
 	}
 
 	_, _ = fmt.Fprintln(out, "Checking gofumpt...")
-	cmdOut, err := exec.Command("gofumpt", "-l", ".").CombinedOutput()
+	cmdOut, err := exec.Command("go", "tool", "gofumpt", "-l", ".").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("gofumpt failed: %w\n%s", err, cmdOut)
 	}
@@ -146,7 +146,7 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 // filtering output.
 func RunDeadcode(out io.Writer, excludePattern string) error {
 	_, _ = fmt.Fprintln(out, "Running deadcode...")
-	cmdOut, err := exec.Command("deadcode", "-test", "./...").CombinedOutput()
+	cmdOut, err := exec.Command("go", "tool", "deadcode", "-test", "./...").CombinedOutput()
 
 	filtered := FilterDeadcodeOutput(string(cmdOut), excludePattern)
 	if len(filtered) > 0 {
