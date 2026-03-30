@@ -69,12 +69,13 @@ func SplitVersionParts(s string) []string {
 
 	for _, c := range s {
 		isDigit := c >= '0' && c <= '9'
-		if cur == "" {
+		switch {
+		case cur == "":
 			cur = string(c)
 			inDigit = isDigit
-		} else if isDigit == inDigit {
+		case isDigit == inDigit:
 			cur += string(c)
-		} else {
+		default:
 			parts = append(parts, cur)
 			cur = string(c)
 			inDigit = isDigit
@@ -149,6 +150,7 @@ func Current(errW io.Writer) (string, error) {
 	if errW == nil {
 		errW = os.Stderr
 	}
+	//nolint:noctx // CLI tool, no context needed
 	cmd := exec.Command("git", "describe", "--exact-match", "--tags", "HEAD")
 	cmd.Stderr = errW
 	out, err := cmd.Output()
@@ -163,6 +165,7 @@ func GitTags(errW io.Writer) ([]string, error) {
 	if errW == nil {
 		errW = os.Stderr
 	}
+	//nolint:noctx // CLI tool, no context needed
 	cmd := exec.Command("git", "tag")
 	var buf bytes.Buffer
 	cmd.Stdout = &buf

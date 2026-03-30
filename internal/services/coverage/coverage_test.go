@@ -10,6 +10,7 @@ import (
 func TestBuildTestArgs(t *testing.T) {
 	dir := t.TempDir()
 	extDir := filepath.Join(dir, "bar")
+	//nolint:gosec // G301: test directory
 	_ = os.MkdirAll(extDir, 0o755)
 
 	tests := []struct {

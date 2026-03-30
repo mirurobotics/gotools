@@ -1,0 +1,30 @@
+version: "2"
+
+run:
+  timeout: 8m
+
+linters:
+  enable:
+    # existing
+    - exhaustive
+    - exhaustruct
+    # consolidated from standalone
+    - govet
+    - errcheck
+    - staticcheck
+    # security
+    - gosec
+    # bug-finding
+    - bodyclose
+    - noctx
+    - sqlclosecheck
+    - rowserrcheck
+    - nilerr
+    - makezero
+    - ineffassign
+    # code quality
+    - gocritic
+    - unconvert
+    - unparam
+    - prealloc
+    - predeclared

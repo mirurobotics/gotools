@@ -24,6 +24,7 @@ func Run(opts Opts) error {
 
 	args := buildArgs(opts.ExtraArgs)
 
+	//nolint:gosec,noctx // G204: trusted subprocess
 	cmd := exec.Command("go", args...)
 	cmd.Stdout = opts.Out
 	cmd.Stderr = opts.Err
@@ -34,9 +35,10 @@ func Run(opts Opts) error {
 // buildArgs constructs the go test argument list, stripping
 // a leading "--" separator if present.
 func buildArgs(extra []string) []string {
-	args := []string{"test", "./..."}
 	if len(extra) > 0 && extra[0] == "--" {
 		extra = extra[1:]
 	}
+	args := make([]string, 0, 2+len(extra))
+	args = append(args, "test", "./...")
 	return append(args, extra...)
 }

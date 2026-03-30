@@ -11,6 +11,7 @@ import (
 // NewDepsCommand returns a cobra command with dependency
 // management subcommands.
 func NewDepsCommand() *cobra.Command {
+	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{
 		Use:   "deps",
 		Short: "Dependency management utilities",
@@ -24,6 +25,7 @@ func NewDepsCommand() *cobra.Command {
 }
 
 func newUpdateCommand() *cobra.Command {
+	//nolint:exhaustruct // cobra uses partial initialization
 	return &cobra.Command{
 		Use:   "update",
 		Short: "Update all Go dependencies",

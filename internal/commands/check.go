@@ -14,6 +14,7 @@ import (
 func NewCheckCommand() *cobra.Command {
 	var opts lint.CheckOpts
 
+	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{
 		Use:   "check",
 		Short: "Run the custom Go linter",

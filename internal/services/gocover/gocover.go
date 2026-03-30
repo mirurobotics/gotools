@@ -43,6 +43,7 @@ func GoListPackages(pattern string) ([]string, error) {
 // .covgate file, falling back to the default.
 func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
 	covFile := filepath.Join(pkgDir, ".covgate")
+	//nolint:gosec // G304: trusted file path
 	data, err := os.ReadFile(covFile)
 	if err != nil {
 		return defaultThreshold
@@ -115,6 +116,7 @@ func ExecOutput(errW io.Writer, name string, args ...string) (string, error) {
 	if errW == nil {
 		errW = os.Stderr
 	}
+	//nolint:gosec,noctx // G204: trusted subprocess
 	cmd := exec.Command(name, args...)
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	var buf bytes.Buffer

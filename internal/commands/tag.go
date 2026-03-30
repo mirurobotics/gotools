@@ -12,6 +12,7 @@ import (
 // NewTagCommand returns a cobra command with git tag
 // utility subcommands.
 func NewTagCommand() *cobra.Command {
+	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Git tag utilities",
@@ -26,6 +27,7 @@ func NewTagCommand() *cobra.Command {
 }
 
 func newPreviousCommand() *cobra.Command {
+	//nolint:exhaustruct // cobra uses partial initialization
 	return &cobra.Command{
 		Use:   "previous [prefix]",
 		Short: "Find most recent semver tag (exact only)",
@@ -49,6 +51,7 @@ func newPreviousCommand() *cobra.Command {
 }
 
 func newLatestCommand() *cobra.Command {
+	//nolint:exhaustruct // cobra uses partial initialization
 	return &cobra.Command{
 		Use:   "latest [prefix]",
 		Short: "Find latest semver tag (with pre-release)",
@@ -72,6 +75,7 @@ func newLatestCommand() *cobra.Command {
 }
 
 func newCurrentCommand() *cobra.Command {
+	//nolint:exhaustruct // cobra uses partial initialization
 	return &cobra.Command{
 		Use:   "current",
 		Short: "Get exact tag on HEAD",

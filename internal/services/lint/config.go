@@ -74,6 +74,7 @@ func BuildLinterConfig(
 		excl = single
 	}
 
+	//nolint:exhaustruct // Out/Err set after construction
 	return linter.Config{
 		MaxLineWidth:  maxLineWidth,
 		TabWidth:      tabWidth,

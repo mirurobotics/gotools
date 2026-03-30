@@ -130,6 +130,7 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 	}
 
 	_, _ = fmt.Fprintln(out, "Checking gofumpt...")
+	//nolint:noctx // CLI tool, no context needed
 	cmd := exec.Command("go", "tool", "gofumpt", "-l", ".")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -150,6 +151,7 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 // filtering output.
 func RunDeadcode(out io.Writer, excludePattern string) error {
 	_, _ = fmt.Fprintln(out, "Running deadcode...")
+	//nolint:noctx // CLI tool, no context needed
 	cmd := exec.Command("go", "tool", "deadcode", "-test", "./...")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
@@ -198,6 +200,7 @@ func FilterDeadcodeOutput(raw, excludePattern string) []string {
 // RunExternal runs an external command, inheriting
 // stdout/stderr from the provided writers.
 func RunExternal(out io.Writer, errW io.Writer, name string, args ...string) error {
+	//nolint:gosec,noctx // G204: trusted subprocess
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = out
 	cmd.Stderr = errW

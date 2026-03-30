@@ -27,10 +27,12 @@ func TestGetThreshold(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pkgDir := filepath.Join(dir, tt.name)
+			//nolint:gosec // G301: test directory
 			_ = os.MkdirAll(pkgDir, 0o755)
 
 			if tt.exists {
 				covFile := filepath.Join(pkgDir, ".covgate")
+				//nolint:gosec // G306: test file
 				_ = os.WriteFile(covFile, []byte(tt.content), 0o644)
 			}
 
@@ -70,6 +72,7 @@ func TestRelPkg(t *testing.T) {
 func TestBuildTestPaths(t *testing.T) {
 	dir := t.TempDir()
 	testDir := filepath.Join(dir, "tests", "errs")
+	//nolint:gosec // G301: test directory
 	_ = os.MkdirAll(testDir, 0o755)
 
 	tests := []struct {
