@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"os"
+
 	"github.com/mirurobotics/gotools/internal/services/covratchet"
 
 	"github.com/spf13/cobra"
@@ -18,7 +20,10 @@ func NewCovratchetCommand() *cobra.Command {
 			"with coverage instrumentation, and ratchets " +
 			"thresholds up when actual coverage exceeds " +
 			"the current threshold.",
-		RunE: func(_ *cobra.Command, _ []string) error { return covratchet.Run(opts) },
+		RunE: func(_ *cobra.Command, _ []string) error {
+			opts.Out = os.Stdout
+			return covratchet.Run(opts)
+		},
 	}
 
 	fl := cmd.Flags()

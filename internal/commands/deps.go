@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"os"
+
 	"github.com/mirurobotics/gotools/internal/services/deps"
 
 	"github.com/spf13/cobra"
@@ -27,6 +29,8 @@ func newUpdateCommand() *cobra.Command {
 		Short: "Update all Go dependencies",
 		Long: "Runs go get -u ./..., go mod tidy, " +
 			"and go mod verify.",
-		RunE: func(_ *cobra.Command, _ []string) error { return deps.RunUpdate() },
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return deps.RunUpdate(os.Stdout, os.Stderr)
+		},
 	}
 }

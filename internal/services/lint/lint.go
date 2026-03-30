@@ -2,6 +2,7 @@ package lint
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -24,11 +25,20 @@ type LintOpts struct {
 	DeadcodeExclude string
 	NoGofumpt       bool
 	NoGolangci      bool
+	Out             io.Writer
+	Err             io.Writer
 }
 
 // RunLint runs the full lint suite: custom linter,
 // gofumpt, and golangci-lint.
 func RunLint(opts LintOpts) error {
+	if opts.Out == nil {
+		opts.Out = os.Stdout
+	}
+	if opts.Err == nil {
+		opts.Err = os.Stderr
+	}
+
 	var failures []string
 
 	if opts.Paths != "" {
@@ -42,19 +52,19 @@ func RunLint(opts LintOpts) error {
 	}
 
 	if !opts.NoGofumpt {
-		if err := RunGofumpt(opts.DoFix); err != nil {
+		if err := RunGofumpt(opts.Out, opts.Err, opts.DoFix); err != nil {
 			return fmt.Errorf("gofumpt: %w", err)
 		}
 	}
 
 	if !opts.NoGolangci {
-		if err := RunGolangci(); err != nil {
+		if err := RunGolangci(opts.Out, opts.Err); err != nil {
 			failures = append(failures, "golangci-lint")
 		}
 	}
 
 	if opts.Deadcode {
-		if err := RunDeadcode(opts.DeadcodeExclude); err != nil {
+		if err := RunDeadcode(opts.Out, opts.DeadcodeExclude); err != nil {
 			failures = append(failures, "deadcode")
 		}
 	}
@@ -63,7 +73,7 @@ func RunLint(opts LintOpts) error {
 		return fmt.Errorf("lint failed: %s", strings.Join(failures, ", "))
 	}
 
-	fmt.Println("\nLint complete")
+	_, _ = fmt.Fprintln(opts.Out, "\nLint complete")
 	return nil
 }
 
@@ -76,6 +86,8 @@ func runCustomLinter(opts LintOpts) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	cfg.Out = opts.Out
+	cfg.Err = opts.Err
 
 	totalDiags := 0
 	for _, p := range strings.Split(opts.Paths, ",") {
@@ -83,16 +95,16 @@ func runCustomLinter(opts LintOpts) (bool, error) {
 		if p == "" {
 			continue
 		}
-		fmt.Printf("Running custom linter on %s...\n", p)
+		_, _ = fmt.Fprintf(opts.Out, "Running custom linter on %s...\n", p)
 		diags, fixed, runErr := linter.Run(p, opts.DoFix, cfg)
 		if runErr != nil {
 			return false, fmt.Errorf("custom linter on %s: %w", p, runErr)
 		}
 		if opts.DoFix && fixed > 0 {
-			fmt.Printf("%d file(s) fixed in %s.\n", fixed, p)
+			_, _ = fmt.Fprintf(opts.Out, "%d file(s) fixed in %s.\n", fixed, p)
 		}
 		if diags > 0 {
-			fmt.Printf("%d violation(s) found in %s.\n", diags, p)
+			_, _ = fmt.Fprintf(opts.Out, "%d violation(s) found in %s.\n", diags, p)
 		}
 		totalDiags += diags
 	}
@@ -100,31 +112,31 @@ func runCustomLinter(opts LintOpts) (bool, error) {
 }
 
 // RunGolangci runs golangci-lint.
-func RunGolangci() error {
-	fmt.Println("Running golangci-lint...")
-	if err := RunExternal("golangci-lint", "run"); err != nil {
-		fmt.Fprintf(os.Stderr, "golangci-lint failed: %v\n", err)
+func RunGolangci(out io.Writer, errW io.Writer) error {
+	_, _ = fmt.Fprintln(out, "Running golangci-lint...")
+	if err := RunExternal(out, errW, "golangci-lint", "run"); err != nil {
+		_, _ = fmt.Fprintf(errW, "golangci-lint failed: %v\n", err)
 		return err
 	}
 	return nil
 }
 
 // RunGofumpt runs gofumpt in fix or check mode.
-func RunGofumpt(fix bool) error {
+func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 	if fix {
-		fmt.Println("Running gofumpt...")
-		return RunExternal("gofumpt", "-w", ".")
+		_, _ = fmt.Fprintln(out, "Running gofumpt...")
+		return RunExternal(out, errW, "gofumpt", "-w", ".")
 	}
 
-	fmt.Println("Checking gofumpt...")
-	out, err := exec.Command("gofumpt", "-l", ".").CombinedOutput()
+	_, _ = fmt.Fprintln(out, "Checking gofumpt...")
+	cmdOut, err := exec.Command("gofumpt", "-l", ".").CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("gofumpt failed: %w\n%s", err, out)
+		return fmt.Errorf("gofumpt failed: %w\n%s", err, cmdOut)
 	}
-	trimmed := strings.TrimSpace(string(out))
+	trimmed := strings.TrimSpace(string(cmdOut))
 	if trimmed != "" {
-		fmt.Println("Files need formatting:")
-		fmt.Println(trimmed)
+		_, _ = fmt.Fprintln(out, "Files need formatting:")
+		_, _ = fmt.Fprintln(out, trimmed)
 		return fmt.Errorf("gofumpt found unformatted files")
 	}
 	return nil
@@ -132,14 +144,14 @@ func RunGofumpt(fix bool) error {
 
 // RunDeadcode runs the deadcode checker, optionally
 // filtering output.
-func RunDeadcode(excludePattern string) error {
-	fmt.Println("Running deadcode...")
-	out, err := exec.Command("deadcode", "-test", "./...").CombinedOutput()
+func RunDeadcode(out io.Writer, excludePattern string) error {
+	_, _ = fmt.Fprintln(out, "Running deadcode...")
+	cmdOut, err := exec.Command("deadcode", "-test", "./...").CombinedOutput()
 
-	filtered := FilterDeadcodeOutput(string(out), excludePattern)
+	filtered := FilterDeadcodeOutput(string(cmdOut), excludePattern)
 	if len(filtered) > 0 {
 		for _, line := range filtered {
-			fmt.Println(line)
+			_, _ = fmt.Fprintln(out, line)
 		}
 		return fmt.Errorf("deadcode found issues")
 	}
@@ -176,10 +188,10 @@ func FilterDeadcodeOutput(raw, excludePattern string) []string {
 }
 
 // RunExternal runs an external command, inheriting
-// stdout/stderr.
-func RunExternal(name string, args ...string) error {
+// stdout/stderr from the provided writers.
+func RunExternal(out io.Writer, errW io.Writer, name string, args ...string) error {
 	cmd := exec.Command(name, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = out
+	cmd.Stderr = errW
 	return cmd.Run()
 }

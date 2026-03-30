@@ -1,6 +1,7 @@
 package linter
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,8 @@ var defaultCfg = Config{
 	MaxNestDepth:  0,
 	MaxParamCount: 0,
 	Exclude:       nil,
+	Out:           io.Discard,
+	Err:           io.Discard,
 }
 
 // --- Diagnostic tests ---
@@ -317,6 +320,8 @@ func f() {
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       nil,
+		Out:           io.Discard,
+		Err:           io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -376,6 +381,8 @@ func Code() int {
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       nil,
+		Out:           io.Discard,
+		Err:           io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -684,6 +691,8 @@ func NewScope(
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       nil,
+		Out:           io.Discard,
+		Err:           io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -729,6 +738,8 @@ func Process(
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       nil,
+		Out:           io.Discard,
+		Err:           io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -775,6 +786,8 @@ func Get(
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       nil,
+		Out:           io.Discard,
+		Err:           io.Discard,
 	}
 	diags, fixed, err := Run(dir, false, cfg)
 	if err != nil {
@@ -837,6 +850,8 @@ func f() { _ = strings.ToUpper(os.Getenv("X")) }
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       map[Rule]bool{RulePkgName: true, RuleImports: true},
+		Out:           io.Discard,
+		Err:           io.Discard,
 	}
 	diags, _, err := Run(dir, false, cfg)
 	if err != nil {
@@ -866,6 +881,8 @@ func f() { _ = strings.ToUpper(os.Getenv("X")) }
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       map[Rule]bool{RuleImports: true},
+		Out:           io.Discard,
+		Err:           io.Discard,
 	}
 	diags, _, err := Run(dir, false, cfg)
 	if err != nil {
@@ -895,6 +912,8 @@ func f() { _ = strings.ToUpper(os.Getenv("X")) }
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       map[Rule]bool{RulePkgName: true},
+		Out:           io.Discard,
+		Err:           io.Discard,
 	}
 	diags, fixed, err := Run(dir, true, cfg)
 	if err != nil {

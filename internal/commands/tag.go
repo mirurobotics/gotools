@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/mirurobotics/gotools/internal/services/tag"
 
@@ -37,7 +38,7 @@ func newPreviousCommand() *cobra.Command {
 			if len(args) > 0 {
 				prefix = args[0]
 			}
-			result, err := tag.Previous(prefix)
+			result, err := tag.Previous(prefix, os.Stderr)
 			if err != nil {
 				return err
 			}
@@ -60,7 +61,7 @@ func newLatestCommand() *cobra.Command {
 			if len(args) > 0 {
 				prefix = args[0]
 			}
-			result, err := tag.Latest(prefix)
+			result, err := tag.Latest(prefix, os.Stderr)
 			if err != nil {
 				return err
 			}
@@ -77,7 +78,7 @@ func newCurrentCommand() *cobra.Command {
 		Long: "Gets the exact tag pointing at the " +
 			"current HEAD commit.",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			result, err := tag.Current()
+			result, err := tag.Current(os.Stderr)
 			if err != nil {
 				return err
 			}

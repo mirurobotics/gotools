@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"os"
+
 	"github.com/mirurobotics/gotools/internal/services/coverage"
 
 	"github.com/spf13/cobra"
@@ -21,13 +23,15 @@ func NewCoverageCommand() *cobra.Command {
 			if len(args) > 0 {
 				opts.SubPkg = args[0]
 			}
+			opts.Out = os.Stdout
+			opts.Err = os.Stderr
 			return coverage.Run(opts)
 		},
 	}
 
 	fl := cmd.Flags()
-	fl.StringVar(&opts.SrcPrefix, "src-prefix", "./pkg", "source package prefix")
-	fl.StringVar(&opts.TestPrefix, "test-prefix", "./tests", "external test prefix")
+	fl.StringVar(&opts.SrcPrefix, "src-prefix", "pkg", "source package prefix")
+	fl.StringVar(&opts.TestPrefix, "test-prefix", "tests", "external test prefix")
 	fl.BoolVar(&opts.NoHTML, "no-html", false, "skip opening HTML report")
 
 	return cmd

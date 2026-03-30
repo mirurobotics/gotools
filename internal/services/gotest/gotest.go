@@ -1,7 +1,7 @@
 package gotest
 
 import (
-	"fmt"
+	"io"
 	"os"
 	"os/exec"
 )
@@ -9,28 +9,34 @@ import (
 // Opts holds the options for the gotest service.
 type Opts struct {
 	ExtraArgs []string
+	Out       io.Writer
+	Err       io.Writer
 }
 
 // Run executes go test ./... with optional extra args.
 func Run(opts Opts) error {
-	args := []string{"test", "./..."}
+	if opts.Out == nil {
+		opts.Out = os.Stdout
+	}
+	if opts.Err == nil {
+		opts.Err = os.Stderr
+	}
 
-	extra := opts.ExtraArgs
-	// Strip leading "--" if present (cobra passes it
-	// through with DisableFlagParsing).
+	args := buildArgs(opts.ExtraArgs)
+
+	cmd := exec.Command("go", args...)
+	cmd.Stdout = opts.Out
+	cmd.Stderr = opts.Err
+
+	return cmd.Run()
+}
+
+// buildArgs constructs the go test argument list, stripping
+// a leading "--" separator if present.
+func buildArgs(extra []string) []string {
+	args := []string{"test", "./..."}
 	if len(extra) > 0 && extra[0] == "--" {
 		extra = extra[1:]
 	}
-	args = append(args, extra...)
-
-	cmd := exec.Command("go", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "go test failed: %v\n", err)
-		os.Exit(1)
-	}
-
-	return nil
+	return append(args, extra...)
 }

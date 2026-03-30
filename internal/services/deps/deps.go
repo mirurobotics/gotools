@@ -2,12 +2,12 @@ package deps
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"os/exec"
 )
 
 // RunUpdate updates all Go dependencies.
-func RunUpdate() error {
+func RunUpdate(out io.Writer, errW io.Writer) error {
 	steps := []struct {
 		label string
 		args  []string
@@ -18,14 +18,14 @@ func RunUpdate() error {
 	}
 
 	for _, step := range steps {
-		fmt.Println(step.label)
+		_, _ = fmt.Fprintln(out, step.label)
 		cmd := exec.Command("go", step.args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		cmd.Stdout = out
+		cmd.Stderr = errW
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("%s: %w", step.label, err)
 		}
-		fmt.Println()
+		_, _ = fmt.Fprintln(out)
 	}
 
 	return nil

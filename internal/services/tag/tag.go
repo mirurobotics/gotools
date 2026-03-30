@@ -3,6 +3,7 @@ package tag
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -103,8 +104,8 @@ func ParseNum(s string) (int, bool) {
 
 // Previous finds the most recent semver tag matching
 // <prefix>X.Y.Z with no pre-release suffix.
-func Previous(prefix string) (string, error) {
-	tags, err := GitTags()
+func Previous(prefix string, errW io.Writer) (string, error) {
+	tags, err := GitTags(errW)
 	if err != nil {
 		return "", err
 	}
@@ -124,8 +125,8 @@ func Previous(prefix string) (string, error) {
 
 // Latest finds the latest tag matching <prefix>X.Y.Z
 // with optional pre-release suffix.
-func Latest(prefix string) (string, error) {
-	tags, err := GitTags()
+func Latest(prefix string, errW io.Writer) (string, error) {
+	tags, err := GitTags(errW)
 	if err != nil {
 		return "", err
 	}
@@ -144,9 +145,12 @@ func Latest(prefix string) (string, error) {
 }
 
 // Current returns the exact tag on HEAD.
-func Current() (string, error) {
+func Current(errW io.Writer) (string, error) {
+	if errW == nil {
+		errW = os.Stderr
+	}
 	cmd := exec.Command("git", "describe", "--exact-match", "--tags", "HEAD")
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = errW
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("no tag on HEAD: %w", err)
@@ -155,11 +159,14 @@ func Current() (string, error) {
 }
 
 // GitTags returns all git tags.
-func GitTags() ([]string, error) {
+func GitTags(errW io.Writer) ([]string, error) {
+	if errW == nil {
+		errW = os.Stderr
+	}
 	cmd := exec.Command("git", "tag")
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = errW
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("git tag: %w", err)
 	}

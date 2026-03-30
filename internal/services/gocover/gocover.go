@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,7 +23,7 @@ func RelPkg(pkg, module string) string {
 
 // GoModule returns the current module name.
 func GoModule() (string, error) {
-	out, err := ExecOutput("go", "list", "-m")
+	out, err := ExecOutput(nil, "go", "list", "-m")
 	if err != nil {
 		return "", fmt.Errorf("go list -m: %w", err)
 	}
@@ -31,7 +32,7 @@ func GoModule() (string, error) {
 
 // GoListPackages lists packages matching a pattern.
 func GoListPackages(pattern string) ([]string, error) {
-	out, err := ExecOutput("go", "list", pattern)
+	out, err := ExecOutput(nil, "go", "list", pattern)
 	if err != nil {
 		return nil, fmt.Errorf("go list %s: %w", pattern, err)
 	}
@@ -60,7 +61,7 @@ func ExtractCoverage(coverFile string) float64 {
 	if _, err := os.Stat(coverFile); err != nil {
 		return 0.0
 	}
-	out, err := ExecOutput("go", "tool", "cover", "-func="+coverFile)
+	out, err := ExecOutput(nil, "go", "tool", "cover", "-func="+coverFile)
 	if err != nil {
 		return 0.0
 	}
@@ -104,12 +105,15 @@ func BuildTestPaths(pkg, relPkg, srcPrefix, testDir string) []string {
 
 // ExecOutput runs a command with GOWORK=off and returns
 // its stdout.
-func ExecOutput(name string, args ...string) (string, error) {
+func ExecOutput(errW io.Writer, name string, args ...string) (string, error) {
+	if errW == nil {
+		errW = os.Stderr
+	}
 	cmd := exec.Command(name, args...)
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = errW
 	if err := cmd.Run(); err != nil {
 		return "", err
 	}

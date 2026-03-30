@@ -1,6 +1,10 @@
 package lint
 
-import "testing"
+import (
+	"bytes"
+	"io"
+	"testing"
+)
 
 func TestFilterDeadcodeOutput(t *testing.T) {
 	tests := []struct {
@@ -27,5 +31,47 @@ func TestFilterDeadcodeOutput(t *testing.T) {
 				t.Errorf("len = %d, want %d: %v", len(got), tt.want, got)
 			}
 		})
+	}
+}
+
+func TestRunExternal_Success(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	err := RunExternal(&out, &errBuf, "echo", "hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); got != "hello\n" {
+		t.Errorf("stdout = %q, want %q", got, "hello\n")
+	}
+}
+
+func TestRunExternal_Failure(t *testing.T) {
+	err := RunExternal(io.Discard, io.Discard, "false")
+	if err == nil {
+		t.Error("expected error from false command")
+	}
+}
+
+func TestBuildLinterConfig_InvalidExclude(t *testing.T) {
+	_, err := BuildLinterConfig("nonexistent-rule", "", 88, 4, 50, 4, 5)
+	if err == nil {
+		t.Error("expected error for invalid exclusion")
+	}
+}
+
+func TestBuildLinterConfig_UnknownSingleRule(t *testing.T) {
+	_, err := BuildLinterConfig("", "nonexistent", 88, 4, 50, 4, 5)
+	if err == nil {
+		t.Error("expected error for unknown rule")
+	}
+}
+
+func TestBuildLinterConfig_ValidSingleRule(t *testing.T) {
+	cfg, err := BuildLinterConfig("", "errfmt", 88, 4, 50, 4, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Exclude["errfmt"] {
+		t.Error("errfmt should not be excluded")
 	}
 }

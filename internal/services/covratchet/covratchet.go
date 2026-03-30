@@ -2,6 +2,7 @@ package covratchet
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -15,12 +16,18 @@ type Opts struct {
 	Packages  string
 	SrcPrefix string
 	TestDir   string
+	Out       io.Writer
 }
 
 // Run ratchets up .covgate thresholds.
 func Run(opts Opts) error {
-	fmt.Println("Updating .covgate files (ratchet up only)...")
-	fmt.Println()
+	if opts.Out == nil {
+		opts.Out = os.Stdout
+	}
+	w := opts.Out
+
+	_, _ = fmt.Fprintln(w, "Updating .covgate files (ratchet up only)...")
+	_, _ = fmt.Fprintln(w)
 
 	module, err := gocover.GoModule()
 	if err != nil {
@@ -32,59 +39,100 @@ func Run(opts Opts) error {
 		return err
 	}
 
-	printHeader()
+	printHeader(w)
 
 	updated := 0
 	unchanged := 0
+	failed := 0
 
 	for _, pkg := range pkgs {
-		u, unch := ratchetPackage(pkg, module, opts.SrcPrefix, opts.TestDir)
+		u, unch, f := ratchetPackage(pkg, module, opts.SrcPrefix, opts.TestDir, w)
 		updated += u
 		unchanged += unch
+		failed += f
 	}
 
-	fmt.Println()
-	fmt.Printf("Done. Updated: %d, Unchanged: %d\n", updated, unchanged)
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintf(
+		w, "Done. Updated: %d, Unchanged: %d, Failed: %d\n",
+		updated, unchanged, failed,
+	)
+	if failed > 0 {
+		return fmt.Errorf("%d package(s) failed", failed)
+	}
 	return nil
 }
 
-func printHeader() {
-	fmt.Printf("%-6s  %8s  %8s  %s\n", "STATUS", "PREVIOUS", "CURRENT", "PACKAGE")
-	fmt.Printf("%-6s  %8s  %8s  %s\n", "------", "--------", "-------", "-------")
+func printHeader(w io.Writer) {
+	_, _ = fmt.Fprintf(
+		w, "%-6s  %8s  %8s  %s\n",
+		"STATUS", "PREVIOUS", "CURRENT", "PACKAGE",
+	)
+	_, _ = fmt.Fprintf(
+		w, "%-6s  %8s  %8s  %s\n",
+		"------", "--------", "-------", "-------",
+	)
 }
 
-func ratchetPackage(pkg, module, srcPrefix, testDir string) (updated, unchanged int) {
+func ratchetPackage(
+	pkg, module, srcPrefix, testDir string, w io.Writer,
+) (updated, unchanged, failed int) {
 	relPkg := gocover.RelPkg(pkg, module)
 	pkgDir := "./" + relPkg
 	covgateFile := pkgDir + "/.covgate"
 
 	current := readCovgate(covgateFile)
 	testPaths := gocover.BuildTestPaths(pkg, relPkg, srcPrefix, testDir)
-	actual := measureCoverage(pkg, testPaths)
+	actual, err := measureCoverage(pkg, testPaths)
+	if err != nil {
+		_, _ = fmt.Fprintf(
+			w, "%-6s  %8s  %8s  %s\n",
+			"FAIL", "\u2014", "\u2014", relPkg,
+		)
+		return 0, 0, 1
+	}
 
 	if current == "" {
-		writeCovgate(covgateFile, actual)
-		fmt.Printf("%-6s  %8s  %7.1f%%  %s\n", "NEW", "\u2014", actual, relPkg)
-		return 1, 0
+		if err := writeCovgate(covgateFile, actual); err != nil {
+			_, _ = fmt.Fprintf(
+				w, "%-6s  %8s  %7.1f%%  %s (%v)\n",
+				"FAIL", "\u2014", actual, relPkg, err,
+			)
+			return 0, 0, 1
+		}
+		_, _ = fmt.Fprintf(
+			w, "%-6s  %8s  %7.1f%%  %s\n",
+			"NEW", "\u2014", actual, relPkg,
+		)
+		return 1, 0, 0
 	}
 
 	if current == "0" {
-		fmt.Printf("%-6s  %8s  %8s  %s\n", "SKIP", "0%", "\u2014", relPkg)
-		return 0, 1
+		_, _ = fmt.Fprintf(w, "%-6s  %8s  %8s  %s\n", "SKIP", "0%", "\u2014", relPkg)
+		return 0, 1, 0
 	}
 
 	currentVal, _ := strconv.ParseFloat(current, 64)
 	if actual > currentVal {
-		writeCovgate(covgateFile, actual)
-		fmt.Printf("%-6s  %7s%%  %7.1f%%  %s\n", "UP", current, actual, relPkg)
-		return 1, 0
+		if err := writeCovgate(covgateFile, actual); err != nil {
+			_, _ = fmt.Fprintf(
+				w, "%-6s  %7s%%  %7.1f%%  %s (%v)\n",
+				"FAIL", current, actual, relPkg, err,
+			)
+			return 0, 0, 1
+		}
+		_, _ = fmt.Fprintf(
+			w, "%-6s  %7s%%  %7.1f%%  %s\n",
+			"UP", current, actual, relPkg,
+		)
+		return 1, 0, 0
 	}
 
-	fmt.Printf("%-6s  %7s%%  %7.1f%%  %s\n", "OK", current, actual, relPkg)
-	return 0, 1
+	_, _ = fmt.Fprintf(w, "%-6s  %7s%%  %7.1f%%  %s\n", "OK", current, actual, relPkg)
+	return 0, 1, 0
 }
 
-func measureCoverage(pkg string, testPaths []string) float64 {
+func measureCoverage(pkg string, testPaths []string) (float64, error) {
 	tmpFile := "coverage.out"
 	args := []string{"test", "-coverprofile=" + tmpFile, "-coverpkg=" + pkg}
 	args = append(args, testPaths...)
@@ -93,11 +141,14 @@ func measureCoverage(pkg string, testPaths []string) float64 {
 	testCmd.Env = append(os.Environ(), "GOWORK=off")
 	testCmd.Stdout = nil
 	testCmd.Stderr = nil
-	_ = testCmd.Run()
+	if err := testCmd.Run(); err != nil {
+		_ = os.Remove(tmpFile)
+		return 0, fmt.Errorf("tests failed for %s: %w", pkg, err)
+	}
 
 	actual := gocover.ExtractCoverage(tmpFile)
 	_ = os.Remove(tmpFile)
-	return actual
+	return actual, nil
 }
 
 func readCovgate(path string) string {
@@ -108,7 +159,7 @@ func readCovgate(path string) string {
 	return strings.TrimSpace(strings.Split(string(data), "\n")[0])
 }
 
-func writeCovgate(path string, coverage float64) {
+func writeCovgate(path string, coverage float64) error {
 	content := fmt.Sprintf("%.1f\n", coverage)
-	_ = os.WriteFile(path, []byte(content), 0o644)
+	return os.WriteFile(path, []byte(content), 0o644)
 }

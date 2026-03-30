@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"os"
+
 	"github.com/mirurobotics/gotools/internal/services/covgate"
 
 	"github.com/spf13/cobra"
@@ -17,7 +19,10 @@ func NewCovgateCommand() *cobra.Command {
 		Long: "Discovers .covgate files, runs tests " +
 			"with coverage instrumentation, and checks " +
 			"per-package coverage against thresholds.",
-		RunE: func(_ *cobra.Command, _ []string) error { return covgate.Run(opts) },
+		RunE: func(_ *cobra.Command, _ []string) error {
+			opts.Out = os.Stdout
+			return covgate.Run(opts)
+		},
 	}
 
 	fl := cmd.Flags()

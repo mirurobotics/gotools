@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,6 +63,8 @@ type Config struct {
 	MaxNestDepth  int
 	MaxParamCount int
 	Exclude       map[Rule]bool
+	Out           io.Writer
+	Err           io.Writer
 }
 
 func (c Config) runRule(r Rule) bool { return !c.Exclude[r] }
@@ -158,6 +161,13 @@ func runChecks(in checkInput, cfg Config, includeFixable bool) []analysis.Diagno
 
 // Run processes all Go files under path. Returns (diagnosticCount, filesFixed, error).
 func Run(path string, doFix bool, cfg Config) (int, int, error) {
+	if cfg.Out == nil {
+		cfg.Out = os.Stdout
+	}
+	if cfg.Err == nil {
+		cfg.Err = os.Stderr
+	}
+
 	files, err := FindGoFiles(path)
 	if err != nil {
 		return 0, 0, err
@@ -169,7 +179,7 @@ func Run(path string, doFix bool, cfg Config) (int, int, error) {
 	for _, f := range files {
 		diags, fixed, err := ProcessFile(f, doFix, cfg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: %s: %v\n", f, err)
+			_, _ = fmt.Fprintf(cfg.Err, "warning: %s: %v\n", f, err)
 			continue
 		}
 		totalDiags += diags
@@ -243,13 +253,13 @@ func processFixMode(
 		if err := os.WriteFile(path, fixed, info.Mode()); err != nil {
 			return 0, false, err
 		}
-		fmt.Printf("fixed: %s\n", path)
+		_, _ = fmt.Fprintf(cfg.Out, "fixed: %s\n", path)
 	}
 
 	in := checkInput{fset, path, f, fixed}
 	diags := runChecks(in, cfg, false)
 	for _, d := range diags {
-		fmt.Println(d)
+		_, _ = fmt.Fprintln(cfg.Out, d)
 	}
 	return len(diags), didFix, nil
 }
@@ -300,7 +310,7 @@ func processCheckMode(
 		diags = append(diags, imports.Check(fset, path, src, blocks)...)
 	}
 	for _, d := range diags {
-		fmt.Println(d)
+		_, _ = fmt.Fprintln(cfg.Out, d)
 	}
 	return len(diags), false, nil
 }

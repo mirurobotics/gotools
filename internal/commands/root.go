@@ -6,10 +6,11 @@ import "github.com/spf13/cobra"
 // subcommands attached.
 func NewRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "miru",
-		Short: "Miru Go development tools",
-		Long: "A collection of Go development tools " +
-			"for Miru projects.",
+		Use:           "miru",
+		Short:         "Miru Go development tools",
+		Long:          "A collection of Go development tools for Miru projects.",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	cmd.AddCommand(NewLintCommand())

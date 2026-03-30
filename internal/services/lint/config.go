@@ -3,6 +3,7 @@ package lint
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter"
@@ -19,11 +20,20 @@ type CheckOpts struct {
 	MaxParamCount int
 	Exclude       string
 	Rule          string
+	Out           io.Writer
+	Err           io.Writer
 }
 
 // RunCheck runs the custom linter in standalone mode.
 // Returns the number of diagnostics and fixed files.
 func RunCheck(opts CheckOpts) (diags, fixed int, err error) {
+	if opts.Out == nil {
+		opts.Out = os.Stdout
+	}
+	if opts.Err == nil {
+		opts.Err = os.Stderr
+	}
+
 	cfg, err := BuildLinterConfig(
 		opts.Exclude, opts.Rule,
 		opts.MaxLineWidth, opts.TabWidth,
@@ -32,6 +42,8 @@ func RunCheck(opts CheckOpts) (diags, fixed int, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
+	cfg.Out = opts.Out
+	cfg.Err = opts.Err
 
 	diags, fixed, runErr := linter.Run(opts.Path, opts.DoFix, cfg)
 	if runErr != nil {
