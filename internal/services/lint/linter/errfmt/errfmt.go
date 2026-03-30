@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
@@ -43,9 +44,9 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		pos := fset.Position(lit.Pos())
 
 		// Check capitalization.
-		firstRune := rune(val[0])
+		firstRune, _ := utf8.DecodeRuneInString(val)
 		isUpper := unicode.IsUpper(firstRune)
-		if isUpper && !isAcronymStart(val) && !startsWithFormatVerb(val) {
+		if isUpper && !isAcronymStart(val) {
 			diags = append(diags, analysis.Diagnostic{
 				File:    filename,
 				Line:    pos.Line,
@@ -103,9 +104,6 @@ func isAcronymStart(s string) bool {
 	}
 	return true
 }
-
-// startsWithFormatVerb returns true if the string starts with a % format verb.
-func startsWithFormatVerb(s string) bool { return len(s) > 0 && s[0] == '%' }
 
 func firstWord(s string) string {
 	i := strings.IndexFunc(s, func(r rune) bool {

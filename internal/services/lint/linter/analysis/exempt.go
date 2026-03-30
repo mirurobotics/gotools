@@ -27,7 +27,7 @@ func IsGeneratedFile(src []byte) bool {
 // IsLintSource returns true if the file lives under the
 // linter's own source tree.
 func IsLintSource(filename string) bool {
-	return strings.Contains(filename, "tools/lint/")
+	return strings.Contains(filename, "services/lint/")
 }
 
 // IsCmdSource returns true if the file lives under a cmd/ directory.

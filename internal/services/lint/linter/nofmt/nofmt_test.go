@@ -91,8 +91,8 @@ func TestCheck(t *testing.T) {
 			wantMsg: "",
 		},
 		{
-			name:     "tools/lint exempt",
-			filename: "tools/lint/linter/check.go",
+			name:     "services/lint exempt",
+			filename: "internal/services/lint/linter/check.go",
 			src: `package linter; import "fmt"` +
 				`; func f() { fmt.Println("hi") }`,
 			wantN:   0,

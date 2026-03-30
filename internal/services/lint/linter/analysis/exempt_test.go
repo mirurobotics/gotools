@@ -56,8 +56,10 @@ func TestIsLintSource(t *testing.T) {
 		file string
 		want bool
 	}{
-		{"tools/lint/linter/foo.go", true},
+		{"internal/services/lint/linter/foo.go", true},
+		{"services/lint/config.go", true},
 		{"pkg/server/handler.go", false},
+		{"tools/lint/linter/foo.go", false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.file, func(t *testing.T) {

@@ -27,6 +27,10 @@ func Fix(fset *token.FileSet, src []byte, candidates []Candidate) []byte {
 		return iOff > jOff
 	})
 
+	// Filter overlapping candidates. Inner (higher-offset)
+	// candidates are kept; outer ones that overlap are dropped.
+	candidates = filterOverlapping(fset, candidates)
+
 	for _, c := range candidates {
 		startOff := fset.Position(c.Pos).Offset
 		endOff := fset.Position(c.End).Offset
@@ -39,6 +43,34 @@ func Fix(fset *token.FileSet, src []byte, candidates []Candidate) []byte {
 	}
 
 	return src
+}
+
+// filterOverlapping removes candidates whose byte range overlaps
+// with a previously kept candidate. Since candidates are sorted by
+// descending start offset, inner (nested) candidates are kept and
+// outer candidates that encompass them are dropped.
+func filterOverlapping(fset *token.FileSet, candidates []Candidate) []Candidate {
+	if len(candidates) <= 1 {
+		return candidates
+	}
+	kept := make([]Candidate, 0, len(candidates))
+	for _, c := range candidates {
+		cStart := fset.Position(c.Pos).Offset
+		cEnd := fset.Position(c.End).Offset
+		overlaps := false
+		for _, k := range kept {
+			kStart := fset.Position(k.Pos).Offset
+			kEnd := fset.Position(k.End).Offset
+			if cStart < kEnd && cEnd > kStart {
+				overlaps = true
+				break
+			}
+		}
+		if !overlaps {
+			kept = append(kept, c)
+		}
+	}
+	return kept
 }
 
 // CheckCandidates converts a slice of candidates into diagnostics,

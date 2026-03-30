@@ -119,8 +119,8 @@ func TestCheck(t *testing.T) {
 			wantMsg:   "",
 		},
 		{
-			name:     "tools/lint exempt",
-			filename: "tools/lint/check.go",
+			name:     "services/lint exempt",
+			filename: "internal/services/lint/check.go",
 			src: `package lint` +
 				`; func f(a, b, c, d, e, g int) {}`,
 			maxParams: 5,
