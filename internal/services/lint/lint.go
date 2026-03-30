@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -129,11 +130,14 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 	}
 
 	_, _ = fmt.Fprintln(out, "Checking gofumpt...")
-	cmdOut, err := exec.Command("go", "tool", "gofumpt", "-l", ".").CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("gofumpt failed: %w\n%s", err, cmdOut)
+	cmd := exec.Command("go", "tool", "gofumpt", "-l", ".")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("gofumpt failed: %w\n%s", err, stderr.String())
 	}
-	trimmed := strings.TrimSpace(string(cmdOut))
+	trimmed := strings.TrimSpace(stdout.String())
 	if trimmed != "" {
 		_, _ = fmt.Fprintln(out, "Files need formatting:")
 		_, _ = fmt.Fprintln(out, trimmed)
@@ -146,9 +150,13 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 // filtering output.
 func RunDeadcode(out io.Writer, excludePattern string) error {
 	_, _ = fmt.Fprintln(out, "Running deadcode...")
-	cmdOut, err := exec.Command("go", "tool", "deadcode", "-test", "./...").CombinedOutput()
+	cmd := exec.Command("go", "tool", "deadcode", "-test", "./...")
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = io.Discard
+	err := cmd.Run()
 
-	filtered := FilterDeadcodeOutput(string(cmdOut), excludePattern)
+	filtered := FilterDeadcodeOutput(stdout.String(), excludePattern)
 	if len(filtered) > 0 {
 		for _, line := range filtered {
 			_, _ = fmt.Fprintln(out, line)
