@@ -65,7 +65,13 @@ func ExtractCoverage(coverFile string) float64 {
 	if err != nil {
 		return 0.0
 	}
-	scanner := bufio.NewScanner(strings.NewReader(out))
+	return ParseCoverageOutput(out)
+}
+
+// ParseCoverageOutput extracts the total coverage
+// percentage from "go tool cover -func" output.
+func ParseCoverageOutput(text string) float64 {
+	scanner := bufio.NewScanner(strings.NewReader(text))
 	for scanner.Scan() {
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "total:") {

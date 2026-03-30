@@ -1,8 +1,10 @@
 package covratchet
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -50,6 +52,21 @@ func TestWriteCovgate(t *testing.T) {
 	}
 	if got := string(data); got != "85.5\n" {
 		t.Errorf("writeCovgate wrote %q, want %q", got, "85.5\n")
+	}
+}
+
+func TestPrintHeader(t *testing.T) {
+	var buf bytes.Buffer
+	printHeader(&buf)
+	out := buf.String()
+
+	for _, col := range []string{"STATUS", "PREVIOUS", "CURRENT", "PACKAGE"} {
+		if !strings.Contains(out, col) {
+			t.Errorf("output missing column %q", col)
+		}
+	}
+	if !strings.Contains(out, "------") {
+		t.Error("output missing separator line")
 	}
 }
 

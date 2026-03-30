@@ -96,6 +96,37 @@ func TestBuildTestPaths(t *testing.T) {
 	}
 }
 
+func TestParseCoverageOutput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  float64
+	}{
+		{
+			"normal output",
+			"pkg/foo/bar.go:10:\tFoo\t\t100.0%\n" +
+				"pkg/foo/baz.go:20:\tBaz\t\t75.0%\n" +
+				"total:\t\t\t(statements)\t85.5%\n",
+			85.5,
+		},
+		{"zero coverage", "total:\t(statements)\t0.0%\n", 0.0},
+		{"full coverage", "total:\t(statements)\t100.0%\n", 100.0},
+		{"no total line", "pkg/foo.go:1:\tFoo\t80.0%\n", 0.0},
+		{"empty input", "", 0.0},
+		{"total too few fields", "total:\n", 0.0},
+		{"malformed percentage", "total:\t(statements)\tabc%\n", 0.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseCoverageOutput(tt.input)
+			if got != tt.want {
+				t.Errorf("ParseCoverageOutput() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNonEmptyLines(t *testing.T) {
 	tests := []struct {
 		name  string
