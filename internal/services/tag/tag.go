@@ -103,10 +103,21 @@ func ParseNum(s string) (int, bool) {
 	return n, true
 }
 
+type runner struct {
+	gitTags    func(errW io.Writer) ([]string, error)
+	currentTag func(errW io.Writer) (string, error)
+}
+
 // Previous finds the most recent semver tag matching
 // <prefix>X.Y.Z with no pre-release suffix.
 func Previous(prefix string, errW io.Writer) (string, error) {
-	tags, err := GitTags(errW)
+	//nolint:exhaustruct // only gitTags needed
+	r := runner{gitTags: GitTags}
+	return r.previous(prefix, errW)
+}
+
+func (r *runner) previous(prefix string, errW io.Writer) (string, error) {
+	tags, err := r.gitTags(errW)
 	if err != nil {
 		return "", err
 	}
@@ -127,7 +138,13 @@ func Previous(prefix string, errW io.Writer) (string, error) {
 // Latest finds the latest tag matching <prefix>X.Y.Z
 // with optional pre-release suffix.
 func Latest(prefix string, errW io.Writer) (string, error) {
-	tags, err := GitTags(errW)
+	//nolint:exhaustruct // only gitTags needed
+	r := runner{gitTags: GitTags}
+	return r.latest(prefix, errW)
+}
+
+func (r *runner) latest(prefix string, errW io.Writer) (string, error) {
+	tags, err := r.gitTags(errW)
 	if err != nil {
 		return "", err
 	}
@@ -147,6 +164,14 @@ func Latest(prefix string, errW io.Writer) (string, error) {
 
 // Current returns the exact tag on HEAD.
 func Current(errW io.Writer) (string, error) {
+	//nolint:exhaustruct // only currentTag needed
+	r := runner{currentTag: defaultCurrentTag}
+	return r.current(errW)
+}
+
+func (r *runner) current(errW io.Writer) (string, error) { return r.currentTag(errW) }
+
+func defaultCurrentTag(errW io.Writer) (string, error) {
 	if errW == nil {
 		errW = os.Stderr
 	}
