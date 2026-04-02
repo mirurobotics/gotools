@@ -18,6 +18,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funclen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcsig"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/imports"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/mutableglobal"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/linelen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/nestdepth"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/nofmt"
@@ -44,7 +45,8 @@ const (
 	RuleImports    Rule = "imports"
 	RuleCollapse   Rule = "collapse"
 	RuleFuncSig    Rule = "funcsig"
-	RuleFuncInline Rule = "funcinline"
+	RuleFuncInline    Rule = "funcinline"
+	RuleMutableGlobal Rule = "mutableglobal"
 )
 
 // AllRules contains every valid rule name.
@@ -52,6 +54,7 @@ var AllRules = []Rule{
 	RulePkgName, RuleLineLen, RuleFuncLen, RuleNestDepth,
 	RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
 	RuleTypeAssert, RuleParamCount,
+	RuleMutableGlobal,
 	RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
 }
 
@@ -130,6 +133,9 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		}},
 		{RuleParamCount, false, func(in checkInput) []analysis.Diagnostic {
 			return paramcount.Check(in.fset, in.path, in.f, cfg.MaxParamCount)
+		}},
+		{RuleMutableGlobal, false, func(in checkInput) []analysis.Diagnostic {
+			return mutableglobal.Check(in.fset, in.path, in.f)
 		}},
 		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
 			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)
