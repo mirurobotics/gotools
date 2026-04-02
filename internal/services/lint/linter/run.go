@@ -49,13 +49,15 @@ const (
 	RuleMutableGlobal Rule = "mutableglobal"
 )
 
-// AllRules contains every valid rule name.
-var AllRules = []Rule{
-	RulePkgName, RuleLineLen, RuleFuncLen, RuleNestDepth,
-	RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
-	RuleTypeAssert, RuleParamCount,
-	RuleMutableGlobal,
-	RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
+// AllRules returns every valid rule name.
+func AllRules() []Rule {
+	return []Rule{
+		RulePkgName, RuleLineLen, RuleFuncLen, RuleNestDepth,
+		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
+		RuleTypeAssert, RuleParamCount,
+		RuleMutableGlobal,
+		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
+	}
 }
 
 // Config holds linter configuration.
@@ -74,8 +76,9 @@ func (c Config) runRule(r Rule) bool { return !c.Exclude[r] }
 
 // ValidateExclusions returns an error if any key in exclude is not a known rule name.
 func ValidateExclusions(exclude map[Rule]bool) error {
-	valid := make(map[Rule]bool, len(AllRules))
-	for _, r := range AllRules {
+	all := AllRules()
+	valid := make(map[Rule]bool, len(all))
+	for _, r := range all {
 		valid[r] = true
 	}
 	for r := range exclude {

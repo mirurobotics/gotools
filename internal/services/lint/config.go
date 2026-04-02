@@ -93,7 +93,7 @@ func BuildSingleRuleExclusions(name string) map[linter.Rule]bool {
 		return nil
 	}
 	excl := make(map[linter.Rule]bool)
-	for _, ar := range linter.AllRules {
+	for _, ar := range linter.AllRules() {
 		if ar != r {
 			excl[ar] = true
 		}

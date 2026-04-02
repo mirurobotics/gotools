@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/token"
 	"regexp"
+	"sync"
 	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
@@ -118,17 +119,21 @@ func isStructTagLine(trimmed string) bool {
 		strings.Contains(tag, `validate:"`)
 }
 
-// paramlessFuncSigRe matches a function signature whose own parameter list
-// is empty.  It skips the optional receiver and matches the func name
-// followed by "()" — avoiding false positives from func() callback types
-// that appear in parameter lists.
-var paramlessFuncSigRe = regexp.MustCompile(`^func\s+(?:\([^)]*\)\s+)?\w+\(\)`)
+// paramlessFuncSigRe returns a compiled regexp that matches a function
+// signature whose own parameter list is empty. It skips the optional
+// receiver and matches the func name followed by "()" — avoiding false
+// positives from func() callback types that appear in parameter lists.
+func paramlessFuncSigRe() *regexp.Regexp {
+	return sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^func\s+(?:\([^)]*\)\s+)?\w+\(\)`)
+	})()
+}
 
 // isParamlessFuncSig returns true if the trimmed line is a function
 // signature with no parameters (e.g. "func (r *Repo) LongName() error {").
 // Lines containing a complete function body (both { and }) are not exempt.
 func isParamlessFuncSig(trimmed string) bool {
-	if !paramlessFuncSigRe.MatchString(trimmed) {
+	if !paramlessFuncSigRe().MatchString(trimmed) {
 		return false
 	}
 	// If braces are balanced the line contains a complete single-line
