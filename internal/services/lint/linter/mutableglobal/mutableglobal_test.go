@@ -21,7 +21,8 @@ func TestCheck(t *testing.T) {
 
 const maxRetries = 3
 `,
-			wantN: 0,
+			wantN:   0,
+			wantMsg: "",
 		},
 		{
 			name:     "function is allowed",
@@ -30,7 +31,8 @@ const maxRetries = 3
 
 func GetConfig() int { return 42 }
 `,
-			wantN: 0,
+			wantN:   0,
+			wantMsg: "",
 		},
 		{
 			name:     "mutable var flagged",
@@ -49,7 +51,8 @@ var counter int
 
 var name = "hello"
 `,
-			wantN: 1,
+			wantN:   1,
+			wantMsg: "",
 		},
 		{
 			name:     "mutable map flagged",
@@ -58,7 +61,8 @@ var name = "hello"
 
 var cache = map[string]string{}
 `,
-			wantN: 1,
+			wantN:   1,
+			wantMsg: "",
 		},
 		{
 			name:     "error sentinel allowed",
@@ -69,7 +73,8 @@ import "errors"
 
 var ErrNotFound = errors.New("not found")
 `,
-			wantN: 0,
+			wantN:   0,
+			wantMsg: "",
 		},
 		{
 			name:     "fmt.Errorf sentinel allowed",
@@ -80,7 +85,8 @@ import "fmt"
 
 var ErrBadInput = fmt.Errorf("bad input: %s", "x")
 `,
-			wantN: 0,
+			wantN:   0,
+			wantMsg: "",
 		},
 		{
 			name:     "interface compliance check allowed",
@@ -92,7 +98,8 @@ type Bar interface{ Do() }
 
 var _ Bar = (*Foo)(nil)
 `,
-			wantN: 0,
+			wantN:   0,
+			wantMsg: "",
 		},
 		{
 			name:     "test file exempt",
@@ -101,7 +108,8 @@ var _ Bar = (*Foo)(nil)
 
 var testData = "hello"
 `,
-			wantN: 0,
+			wantN:   0,
+			wantMsg: "",
 		},
 		{
 			name:     "nolint comment on var block",
@@ -111,7 +119,8 @@ var testData = "hello"
 //nolint:mutableglobal
 var debug = false
 `,
-			wantN: 0,
+			wantN:   0,
+			wantMsg: "",
 		},
 		{
 			name:     "nolint inline comment",
@@ -120,7 +129,8 @@ var debug = false
 
 var debug = false //nolint:mutableglobal
 `,
-			wantN: 0,
+			wantN:   0,
+			wantMsg: "",
 		},
 		{
 			name:     "multiple vars in one decl",
@@ -135,7 +145,8 @@ var (
 	name string
 )
 `,
-			wantN: 2,
+			wantN:   2,
+			wantMsg: "",
 		},
 		{
 			name:     "regexp MustCompile flagged",
@@ -146,7 +157,8 @@ import "regexp"
 
 var re = regexp.MustCompile("^foo$")
 `,
-			wantN: 1,
+			wantN:   1,
+			wantMsg: "",
 		},
 		{
 			name:     "sync.Mutex flagged",
@@ -157,7 +169,8 @@ import "sync"
 
 var mu sync.Mutex
 `,
-			wantN: 1,
+			wantN:   1,
+			wantMsg: "",
 		},
 		{
 			name:     "nolint on grouped var",
@@ -172,7 +185,8 @@ var (
 	counter int
 )
 `,
-			wantN: 0,
+			wantN:   0,
+			wantMsg: "",
 		},
 		{
 			name:     "nolint on single spec in group",
@@ -185,7 +199,8 @@ var (
 	dirty = "also ok"
 )
 `,
-			wantN: 1,
+			wantN:   1,
+			wantMsg: "",
 		},
 		{
 			name:     "local var not flagged",
@@ -197,7 +212,8 @@ func f() {
 	_ = x
 }
 `,
-			wantN: 0,
+			wantN:   0,
+			wantMsg: "",
 		},
 		{
 			name:     "non-error call expression flagged",
@@ -208,7 +224,8 @@ import "os"
 
 var stdout = os.Stdout
 `,
-			wantN: 1,
+			wantN:   1,
+			wantMsg: "",
 		},
 	}
 
