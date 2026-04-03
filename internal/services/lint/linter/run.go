@@ -19,6 +19,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcsig"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/imports"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/linelen"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/mutableglobal"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/nestdepth"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/nofmt"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/paramcount"
@@ -31,28 +32,32 @@ import (
 type Rule string
 
 const (
-	RulePkgName    Rule = "pkgname"
-	RuleLineLen    Rule = "linelen"
-	RuleFuncLen    Rule = "funclen"
-	RuleNestDepth  Rule = "nestdepth"
-	RuleErrFmt     Rule = "errfmt"
-	RuleCtxPos     Rule = "ctxpos"
-	RuleNoFmt      Rule = "nofmt"
-	RuleRcvrName   Rule = "rcvrname"
-	RuleTypeAssert Rule = "typeassert"
-	RuleParamCount Rule = "paramcount"
-	RuleImports    Rule = "imports"
-	RuleCollapse   Rule = "collapse"
-	RuleFuncSig    Rule = "funcsig"
-	RuleFuncInline Rule = "funcinline"
+	RulePkgName       Rule = "pkgname"
+	RuleLineLen       Rule = "linelen"
+	RuleFuncLen       Rule = "funclen"
+	RuleNestDepth     Rule = "nestdepth"
+	RuleErrFmt        Rule = "errfmt"
+	RuleCtxPos        Rule = "ctxpos"
+	RuleNoFmt         Rule = "nofmt"
+	RuleRcvrName      Rule = "rcvrname"
+	RuleTypeAssert    Rule = "typeassert"
+	RuleParamCount    Rule = "paramcount"
+	RuleImports       Rule = "imports"
+	RuleCollapse      Rule = "collapse"
+	RuleFuncSig       Rule = "funcsig"
+	RuleFuncInline    Rule = "funcinline"
+	RuleMutableGlobal Rule = "mutableglobal"
 )
 
-// AllRules contains every valid rule name.
-var AllRules = []Rule{
-	RulePkgName, RuleLineLen, RuleFuncLen, RuleNestDepth,
-	RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
-	RuleTypeAssert, RuleParamCount,
-	RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
+// AllRules returns every valid rule name.
+func AllRules() []Rule {
+	return []Rule{
+		RulePkgName, RuleLineLen, RuleFuncLen, RuleNestDepth,
+		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
+		RuleTypeAssert, RuleParamCount,
+		RuleMutableGlobal,
+		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
+	}
 }
 
 // Config holds linter configuration.
@@ -71,8 +76,9 @@ func (c Config) runRule(r Rule) bool { return !c.Exclude[r] }
 
 // ValidateExclusions returns an error if any key in exclude is not a known rule name.
 func ValidateExclusions(exclude map[Rule]bool) error {
-	valid := make(map[Rule]bool, len(AllRules))
-	for _, r := range AllRules {
+	all := AllRules()
+	valid := make(map[Rule]bool, len(all))
+	for _, r := range all {
 		valid[r] = true
 	}
 	for r := range exclude {
@@ -130,6 +136,9 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		}},
 		{RuleParamCount, false, func(in checkInput) []analysis.Diagnostic {
 			return paramcount.Check(in.fset, in.path, in.f, cfg.MaxParamCount)
+		}},
+		{RuleMutableGlobal, false, func(in checkInput) []analysis.Diagnostic {
+			return mutableglobal.Check(in.fset, in.path, in.f)
 		}},
 		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
 			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)

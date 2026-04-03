@@ -8,21 +8,25 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// banned maps package.Function → true for all disallowed calls.
-var banned = map[string]bool{
-	"fmt.Print":   true,
-	"fmt.Println": true,
-	"fmt.Printf":  true,
-	"log.Print":   true,
-	"log.Println": true,
-	"log.Printf":  true,
-	"log.Fatal":   true,
-	"log.Fatalf":  true,
-	"log.Fatalln": true,
+// banned returns the set of package.Function names that are disallowed.
+func banned() map[string]bool {
+	return map[string]bool{
+		"fmt.Print":   true,
+		"fmt.Println": true,
+		"fmt.Printf":  true,
+		"log.Print":   true,
+		"log.Println": true,
+		"log.Printf":  true,
+		"log.Fatal":   true,
+		"log.Fatalf":  true,
+		"log.Fatalln": true,
+	}
 }
 
-// builtinBanned contains bare builtin print functions.
-var builtinBanned = map[string]bool{"print": true, "println": true}
+// builtinBanned returns the set of bare builtin print functions.
+func builtinBanned() map[string]bool {
+	return map[string]bool{"print": true, "println": true}
+}
 
 // Check reports diagnostics for bare print/log calls outside main, test files,
 // cmd/ directories, and the linter's own source.
@@ -62,7 +66,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			return true
 		}
 
-		if banned[name] || builtinBanned[name] {
+		if banned()[name] || builtinBanned()[name] {
 			if hasNolint(fset, f, call.Pos()) {
 				return true
 			}
