@@ -6,8 +6,8 @@ import (
 	"go/ast"
 	"go/token"
 	"regexp"
-	"sync"
 	"strings"
+	"sync"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )

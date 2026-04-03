@@ -33,7 +33,10 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		}
 
 		for _, spec := range gd.Specs {
-			vs := spec.(*ast.ValueSpec)
+			vs, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
 
 			if hasNolint(fset, f, vs) {
 				continue
@@ -62,9 +65,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 }
 
 // isInterfaceCheck returns true for var _ SomeInterface = ... patterns.
-func isInterfaceCheck(name *ast.Ident) bool {
-	return name.Name == "_"
-}
+func isInterfaceCheck(name *ast.Ident) bool { return name.Name == "_" }
 
 // isErrorSentinel returns true for expressions like errors.New(...),
 // fmt.Errorf(...), or any call to a function whose name starts with "New"

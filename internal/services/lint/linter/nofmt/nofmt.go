@@ -24,7 +24,9 @@ func banned() map[string]bool {
 }
 
 // builtinBanned returns the set of bare builtin print functions.
-func builtinBanned() map[string]bool { return map[string]bool{"print": true, "println": true} }
+func builtinBanned() map[string]bool {
+	return map[string]bool{"print": true, "println": true}
+}
 
 // Check reports diagnostics for bare print/log calls outside main, test files,
 // cmd/ directories, and the linter's own source.
