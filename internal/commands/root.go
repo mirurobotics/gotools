@@ -22,6 +22,7 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(NewTestCommand())
 	cmd.AddCommand(NewDepsCommand())
 	cmd.AddCommand(NewTagCommand())
+	cmd.AddCommand(NewHuntDocsCommand())
 
 	return cmd
 }

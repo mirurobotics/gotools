@@ -43,6 +43,7 @@ func TestNewRootCommand_Subcommands(t *testing.T) {
 		"test":       false,
 		"deps":       false,
 		"tag":        false,
+		"hunt-docs":  false,
 	}
 
 	for _, sub := range cmd.Commands() {
@@ -753,6 +754,87 @@ func TestNewDepsCommand_UpdateHasRunE(t *testing.T) {
 
 func TestNewDepsCommand_Help(t *testing.T) {
 	cmd := NewDepsCommand()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	err := cmd.Help()
+	if err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+	if buf.Len() == 0 {
+		t.Error("help output is empty")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Shared linter config flags (check + lint both bind them)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Hunt-docs command
+// ---------------------------------------------------------------------------
+
+func TestNewHuntDocsCommand_Metadata(t *testing.T) {
+	cmd := NewHuntDocsCommand()
+
+	if cmd.Use != "hunt-docs" {
+		t.Errorf("Use = %q, want %q", cmd.Use, "hunt-docs")
+	}
+	if cmd.Short == "" {
+		t.Error("Short description is empty")
+	}
+	if cmd.RunE == nil {
+		t.Error("RunE is nil")
+	}
+}
+
+func TestNewHuntDocsCommand_Flags(t *testing.T) {
+	cmd := NewHuntDocsCommand()
+	fl := cmd.Flags()
+
+	tests := []struct {
+		name     string
+		wantType string
+	}{
+		{"path", "string"},
+		{"min-severity", "string"},
+	}
+
+	for _, tc := range tests {
+		f := fl.Lookup(tc.name)
+		if f == nil {
+			t.Errorf("flag %q not registered", tc.name)
+			continue
+		}
+		if f.Value.Type() != tc.wantType {
+			t.Errorf("flag %q type = %q, want %q", tc.name, f.Value.Type(), tc.wantType)
+		}
+	}
+}
+
+func TestNewHuntDocsCommand_FlagDefaults(t *testing.T) {
+	cmd := NewHuntDocsCommand()
+	fl := cmd.Flags()
+
+	stringDefaults := map[string]string{
+		"path":         ".",
+		"min-severity": "high",
+	}
+	for name, want := range stringDefaults {
+		got, err := fl.GetString(name)
+		if err != nil {
+			t.Errorf("flag %q: %v", name, err)
+			continue
+		}
+		if got != want {
+			t.Errorf("flag %q default = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestNewHuntDocsCommand_Help(t *testing.T) {
+	cmd := NewHuntDocsCommand()
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
