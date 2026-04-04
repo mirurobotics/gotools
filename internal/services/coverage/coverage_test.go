@@ -35,7 +35,10 @@ func TestBuildTestArgs(t *testing.T) {
 		{
 			"subPkg without ext dir",
 			"foo", "pkg", dir, "cov.out",
-			[]string{"test", "-coverprofile=cov.out", "-coverpkg=./pkg/foo", "./pkg/foo"},
+			[]string{
+				"test", "-coverprofile=cov.out",
+				"-coverpkg=./pkg/foo", "./pkg/foo",
+			},
 		},
 		{
 			"subPkg with ext dir",
