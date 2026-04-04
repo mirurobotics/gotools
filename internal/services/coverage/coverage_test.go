@@ -27,15 +27,15 @@ func TestBuildTestArgs(t *testing.T) {
 			[]string{
 				"test",
 				"-coverprofile=cov.out",
-				"-coverpkg=pkg/...",
-				"pkg/...",
-				"tests/...",
+				"-coverpkg=./pkg/...",
+				"./pkg/...",
+				"./tests/...",
 			},
 		},
 		{
 			"subPkg without ext dir",
 			"foo", "pkg", dir, "cov.out",
-			[]string{"test", "-coverprofile=cov.out", "-coverpkg=pkg/foo", "pkg/foo"},
+			[]string{"test", "-coverprofile=cov.out", "-coverpkg=./pkg/foo", "./pkg/foo"},
 		},
 		{
 			"subPkg with ext dir",
@@ -43,9 +43,9 @@ func TestBuildTestArgs(t *testing.T) {
 			[]string{
 				"test",
 				"-coverprofile=cov.out",
-				"-coverpkg=pkg/bar",
-				"pkg/bar",
-				dir + "/bar",
+				"-coverpkg=./pkg/bar",
+				"./pkg/bar",
+				"./" + dir + "/bar",
 			},
 		},
 	}

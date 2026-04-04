@@ -55,9 +55,9 @@ func buildTestArgs(subPkg, srcPrefix, testPrefix, coverFile string) []string {
 		return []string{
 			"test",
 			"-coverprofile=" + coverFile,
-			"-coverpkg=" + srcPrefix + "/...",
-			srcPrefix + "/...",
-			testPrefix + "/...",
+			"-coverpkg=./" + srcPrefix + "/...",
+			"./" + srcPrefix + "/...",
+			"./" + testPrefix + "/...",
 		}
 	}
 
@@ -65,12 +65,12 @@ func buildTestArgs(subPkg, srcPrefix, testPrefix, coverFile string) []string {
 	args := []string{
 		"test",
 		"-coverprofile=" + coverFile,
-		"-coverpkg=" + srcPrefix + "/" + subPkg,
-		srcPrefix + "/" + subPkg,
+		"-coverpkg=./" + srcPrefix + "/" + subPkg,
+		"./" + srcPrefix + "/" + subPkg,
 	}
 
 	if info, err := os.Stat(extDir); err == nil && info.IsDir() {
-		args = append(args, testPrefix+"/"+subPkg)
+		args = append(args, "./"+testPrefix+"/"+subPkg)
 	}
 	return args
 }
