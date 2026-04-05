@@ -46,7 +46,9 @@ func TestCheckPackage_Pass(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{measure: fakeMeasure(85.0)}
 
-	ok := r.checkPackage(pkgName, modName, "", "", 80.0, &buf)
+	ok := r.checkPackage(pkgName, checkPackageCtx{
+		module: modName, threshold: 80.0, w: &buf,
+	})
 	if !ok {
 		t.Error("expected pass")
 	}
@@ -63,7 +65,9 @@ func TestCheckPackage_Fail_BelowThreshold(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{measure: fakeMeasure(85.0)}
 
-	ok := r.checkPackage(pkgName, modName, "", "", 80.0, &buf)
+	ok := r.checkPackage(pkgName, checkPackageCtx{
+		module: modName, threshold: 80.0, w: &buf,
+	})
 	if ok {
 		t.Error("expected fail")
 	}
@@ -84,7 +88,9 @@ func TestCheckPackage_Fail_TestError(t *testing.T) {
 		},
 	}
 
-	ok := r.checkPackage(pkgName, modName, "", "", 80.0, &buf)
+	ok := r.checkPackage(pkgName, checkPackageCtx{
+		module: modName, threshold: 80.0, w: &buf,
+	})
 	if ok {
 		t.Error("expected fail")
 	}
@@ -107,7 +113,9 @@ func TestCheckPackage_DefaultThreshold(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{measure: fakeMeasure(85.0)}
 
-	ok := r.checkPackage(pkgName, modName, "", "", 80.0, &buf)
+	ok := r.checkPackage(pkgName, checkPackageCtx{
+		module: modName, threshold: 80.0, w: &buf,
+	})
 	if !ok {
 		t.Error("expected pass with default threshold")
 	}

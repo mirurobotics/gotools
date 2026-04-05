@@ -57,13 +57,16 @@ func (r *runner) run(opts Opts) error {
 
 	printHeader(w)
 
+	ctx := checkPackageCtx{
+		module:    module,
+		srcPrefix: opts.SrcPrefix,
+		testDir:   opts.TestDir,
+		threshold: opts.DefaultThreshold,
+		w:         w,
+	}
 	hasFailures := false
 	for _, pkg := range pkgs {
-		ok := r.checkPackage(
-			pkg, module, opts.SrcPrefix,
-			opts.TestDir, opts.DefaultThreshold, w,
-		)
-		if !ok {
+		if !r.checkPackage(pkg, ctx) {
 			hasFailures = true
 		}
 	}
@@ -92,26 +95,32 @@ func printHeader(w io.Writer) {
 	)
 }
 
-func (r *runner) checkPackage(
-	pkg, module, srcPrefix, testDir string,
-	defaultThreshold float64, w io.Writer,
-) bool {
-	relPkg := gocover.RelPkg(pkg, module)
-	pkgDir := "./" + relPkg
-	threshold := gocover.GetThreshold(pkgDir, defaultThreshold)
+// checkPackageCtx holds the per-run constants passed to checkPackage.
+type checkPackageCtx struct {
+	module    string
+	srcPrefix string
+	testDir   string
+	threshold float64
+	w         io.Writer
+}
 
-	testPaths := gocover.BuildTestPaths(pkg, relPkg, srcPrefix, testDir)
+func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) bool {
+	relPkg := gocover.RelPkg(pkg, ctx.module)
+	pkgDir := "./" + relPkg
+	threshold := gocover.GetThreshold(pkgDir, ctx.threshold)
+
+	testPaths := gocover.BuildTestPaths(pkg, relPkg, ctx.srcPrefix, ctx.testDir)
 
 	coverage, output, testErr := r.measure(pkg, testPaths)
 	if testErr != nil {
 		_, _ = fmt.Fprintf(
-			w, "%-6s  %8s  %8s  %s\n",
+			ctx.w, "%-6s  %8s  %8s  %s\n",
 			"FAIL", "---", "---",
 			relPkg+" (tests failed)",
 		)
-		_, _ = fmt.Fprintln(w)
-		_, _ = fmt.Fprint(w, string(output))
-		_, _ = fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(ctx.w)
+		_, _ = fmt.Fprint(ctx.w, string(output))
+		_, _ = fmt.Fprintln(ctx.w)
 		return false
 	}
 
@@ -120,7 +129,7 @@ func (r *runner) checkPackage(
 		status = "FAIL"
 	}
 	_, _ = fmt.Fprintf(
-		w, "%-6s  %7.1f%%  %7.1f%%  %s\n",
+		ctx.w, "%-6s  %7.1f%%  %7.1f%%  %s\n",
 		status, coverage, threshold, relPkg,
 	)
 	return coverage >= threshold
