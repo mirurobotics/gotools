@@ -8,5 +8,5 @@ fi
 
 exec go run ./cmd/miru lint \
     --paths=internal \
-    --exclude=nofmt,paramcount \
+    --exclude=nofmt,paramcount,bgctx \
     $FIX

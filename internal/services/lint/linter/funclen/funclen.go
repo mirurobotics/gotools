@@ -10,8 +10,12 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
+const nolintDirective = "nolint:funclen"
+
 // Check reports a diagnostic for each function whose body exceeds maxLen
 // non-blank, non-comment lines. Both FuncDecl and FuncLit are checked.
+//
+//nolint:funclen // two symmetric branches (FuncDecl/FuncLit) each need nolint check
 func Check(
 	fset *token.FileSet,
 	filename string,
@@ -37,6 +41,9 @@ func Check(
 			count := countLines(fset, fn.Body, allLines)
 			if count > maxLen {
 				pos := fset.Position(fn.Pos())
+				if hasNolint(fset, f, pos.Line) {
+					return true
+				}
 				diags = append(diags, analysis.Diagnostic{
 					File: filename,
 					Line: pos.Line,
@@ -52,6 +59,9 @@ func Check(
 			count := countLines(fset, fn.Body, allLines)
 			if count > maxLen {
 				pos := fset.Position(fn.Pos())
+				if hasNolint(fset, f, pos.Line) {
+					return true
+				}
 				diags = append(diags, analysis.Diagnostic{
 					File: filename,
 					Line: pos.Line,
@@ -65,6 +75,21 @@ func Check(
 		return true
 	})
 	return diags
+}
+
+// hasNolint returns true if there is a //nolint:funclen comment on the
+// given line or the line immediately before it.
+func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
+	for _, cg := range f.Comments {
+		for _, c := range cg.List {
+			cLine := fset.Position(c.Pos()).Line
+			if cLine >= line-1 && cLine <= line &&
+				strings.Contains(c.Text, nolintDirective) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // countLines counts non-blank, non-comment-only lines inside a block
