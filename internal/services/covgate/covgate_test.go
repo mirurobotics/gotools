@@ -46,6 +46,7 @@ func TestCheckPackage_Pass(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{measure: fakeMeasure(85.0)}
 
+	//nolint:exhaustruct // test uses partial initialization
 	ok := r.checkPackage(pkgName, checkPackageCtx{
 		module: modName, threshold: 80.0, w: &buf,
 	})
@@ -65,6 +66,7 @@ func TestCheckPackage_Fail_BelowThreshold(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{measure: fakeMeasure(85.0)}
 
+	//nolint:exhaustruct // test uses partial initialization
 	ok := r.checkPackage(pkgName, checkPackageCtx{
 		module: modName, threshold: 80.0, w: &buf,
 	})
@@ -88,6 +90,7 @@ func TestCheckPackage_Fail_TestError(t *testing.T) {
 		},
 	}
 
+	//nolint:exhaustruct // test uses partial initialization
 	ok := r.checkPackage(pkgName, checkPackageCtx{
 		module: modName, threshold: 80.0, w: &buf,
 	})
@@ -113,6 +116,7 @@ func TestCheckPackage_DefaultThreshold(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{measure: fakeMeasure(85.0)}
 
+	//nolint:exhaustruct // test uses partial initialization
 	ok := r.checkPackage(pkgName, checkPackageCtx{
 		module: modName, threshold: 80.0, w: &buf,
 	})
