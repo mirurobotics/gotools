@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/bgctx"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/collapse"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/ctxpos"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/errfmt"
@@ -49,6 +50,7 @@ const (
 	RuleFuncInline    Rule = "funcinline"
 	RuleMutableGlobal Rule = "mutableglobal"
 	RuleImportAlias   Rule = "importalias"
+	RuleBgCtx         Rule = "bgctx"
 )
 
 // AllRules returns every valid rule name.
@@ -57,7 +59,7 @@ func AllRules() []Rule {
 		RulePkgName, RuleLineLen, RuleFuncLen, RuleNestDepth,
 		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
 		RuleTypeAssert, RuleParamCount,
-		RuleMutableGlobal, RuleImportAlias,
+		RuleMutableGlobal, RuleImportAlias, RuleBgCtx,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
 	}
 }
@@ -106,6 +108,8 @@ type ruleEntry struct {
 
 // ruleCheckers returns the dispatch table for all rules except
 // imports (which requires import blocks, handled separately).
+//
+//nolint:funclen // dispatch table grows with each new rule
 func ruleCheckers(cfg Config) []ruleEntry {
 	w, tw := cfg.MaxLineWidth, cfg.TabWidth
 	return []ruleEntry{
@@ -144,6 +148,9 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		}},
 		{RuleImportAlias, false, func(in checkInput) []analysis.Diagnostic {
 			return importalias.Check(in.fset, in.path, in.f)
+		}},
+		{RuleBgCtx, false, func(in checkInput) []analysis.Diagnostic {
+			return bgctx.Check(in.fset, in.path, in.f)
 		}},
 		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
 			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)

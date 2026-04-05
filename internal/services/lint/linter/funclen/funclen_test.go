@@ -123,6 +123,49 @@ func TestCheck(t *testing.T) {
 			wantN:   0,
 			wantMsg: "",
 		},
+		{
+			name:     "nolint:funclen on func line exempts FuncDecl",
+			filename: "foo.go",
+			src: "package foo\n\n" +
+				"//nolint:funclen\n" +
+				"func f() {\n" +
+				strings.Repeat("\tx := 1\n", 6) + "}\n",
+			maxLen:  5,
+			wantN:   0,
+			wantMsg: "",
+		},
+		{
+			name:     "nolint:funclen inline on func line exempts FuncDecl",
+			filename: "foo.go",
+			src: "package foo\n\n" +
+				"func f() { //nolint:funclen\n" +
+				strings.Repeat("\tx := 1\n", 6) + "}\n",
+			maxLen:  5,
+			wantN:   0,
+			wantMsg: "",
+		},
+		{
+			name:     "nolint:funclen on func literal line exempts FuncLit",
+			filename: "foo.go",
+			src: "package foo\n\n" +
+				"//nolint:funclen\n" +
+				"var f = func() {\n" +
+				strings.Repeat("\tx := 1\n", 6) + "}\n",
+			maxLen:  5,
+			wantN:   0,
+			wantMsg: "",
+		},
+		{
+			name:     "nolint other rule does not exempt FuncDecl",
+			filename: "foo.go",
+			src: "package foo\n\n" +
+				"//nolint:mutableglobal\n" +
+				"func f() {\n" +
+				strings.Repeat("\tx := 1\n", 6) + "}\n",
+			maxLen:  5,
+			wantN:   1,
+			wantMsg: "function f is 6 lines (limit 5)",
+		},
 	}
 
 	for _, tt := range tests {
