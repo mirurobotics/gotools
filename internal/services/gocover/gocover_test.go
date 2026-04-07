@@ -103,9 +103,10 @@ func TestBuildTestPaths(t *testing.T) {
 
 func TestParseCoverageOutput(t *testing.T) {
 	tests := []struct {
-		name  string
-		input string
-		want  float64
+		name    string
+		input   string
+		want    float64
+		wantErr bool
 	}{
 		{
 			"normal output",
@@ -113,18 +114,29 @@ func TestParseCoverageOutput(t *testing.T) {
 				"pkg/foo/baz.go:20:\tBaz\t\t75.0%\n" +
 				"total:\t\t\t(statements)\t85.5%\n",
 			85.5,
+			false,
 		},
-		{"zero coverage", "total:\t(statements)\t0.0%\n", 0.0},
-		{"full coverage", "total:\t(statements)\t100.0%\n", 100.0},
-		{"no total line", "pkg/foo.go:1:\tFoo\t80.0%\n", 0.0},
-		{"empty input", "", 0.0},
-		{"total too few fields", "total:\n", 0.0},
-		{"malformed percentage", "total:\t(statements)\tabc%\n", 0.0},
+		{"zero coverage", "total:\t(statements)\t0.0%\n", 0.0, false},
+		{"full coverage", "total:\t(statements)\t100.0%\n", 100.0, false},
+		{"no total line", "pkg/foo.go:1:\tFoo\t80.0%\n", 0.0, true},
+		{"empty input", "", 0.0, true},
+		{"total too few fields", "total:\n", 0.0, true},
+		{"malformed percentage", "total:\t(statements)\tabc%\n", 0.0, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ParseCoverageOutput(tt.input)
+			got, err := ParseCoverageOutput(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ParseCoverageOutput() error = nil, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("ParseCoverageOutput() unexpected error: %v", err)
+				return
+			}
 			if got != tt.want {
 				t.Errorf("ParseCoverageOutput() = %v, want %v", got, tt.want)
 			}

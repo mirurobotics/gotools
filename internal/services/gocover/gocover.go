@@ -68,12 +68,16 @@ func ExtractCoverage(coverFile string) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("go tool cover: %w", err)
 	}
-	return ParseCoverageOutput(out), nil
+	val, err := ParseCoverageOutput(out)
+	if err != nil {
+		return 0, fmt.Errorf("parse coverage output: %w", err)
+	}
+	return val, nil
 }
 
 // ParseCoverageOutput extracts the total coverage
 // percentage from "go tool cover -func" output.
-func ParseCoverageOutput(text string) float64 {
+func ParseCoverageOutput(text string) (float64, error) {
 	scanner := bufio.NewScanner(strings.NewReader(text))
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -87,10 +91,10 @@ func ParseCoverageOutput(text string) float64 {
 		pct := strings.TrimSuffix(fields[len(fields)-1], "%")
 		val, err := strconv.ParseFloat(pct, 64)
 		if err == nil {
-			return val
+			return val, nil
 		}
 	}
-	return 0.0
+	return 0, fmt.Errorf("no total coverage line found in output")
 }
 
 // BuildTestPaths returns the test package paths for a
