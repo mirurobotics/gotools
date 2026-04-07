@@ -265,7 +265,7 @@ var errInternal = pkg.New("x")
 var counter = pkg.New("x")
 `,
 			wantN:   1,
-			wantMsg: "",
+			wantMsg: "mutable global variable: use const or a function instead",
 		},
 		{
 			name:     "NewLowercase not treated as constructor",
@@ -275,7 +275,7 @@ var counter = pkg.New("x")
 var ErrBad = pkg.Newsletter("x")
 `,
 			wantN:   1,
-			wantMsg: "",
+			wantMsg: "mutable global variable: use const or a function instead",
 		},
 		{
 			name:     "exactly 3-char Err name allowed",
@@ -288,6 +288,16 @@ var Err = errors.New("x")
 			wantMsg: "",
 		},
 		{
+			name:     "exactly 3-char err name allowed",
+			filename: "foo.go",
+			src: `package foo
+
+var err = errors.New("x")
+`,
+			wantN:   0,
+			wantMsg: "",
+		},
+		{
 			name:     "less than 3-char er name flagged",
 			filename: "foo.go",
 			src: `package foo
@@ -295,7 +305,7 @@ var Err = errors.New("x")
 var Er = errors.New("x")
 `,
 			wantN:   1,
-			wantMsg: "",
+			wantMsg: "mutable global variable: use const or a function instead",
 		},
 		{
 			name:     "unqualified New not treated as constructor",
@@ -307,17 +317,17 @@ func New(s string) error { return nil }
 var ErrBad = New("x")
 `,
 			wantN:   1,
-			wantMsg: "",
+			wantMsg: "mutable global variable: use const or a function instead",
 		},
 		{
-			name:     "all-caps ERR does not match convention",
+			name:     "all-caps ERR prefix does not match Err or err",
 			filename: "foo.go",
 			src: `package foo
 
 var ERR = errors.New("x")
 `,
 			wantN:   1,
-			wantMsg: "",
+			wantMsg: "mutable global variable: use const or a function instead",
 		},
 	}
 
