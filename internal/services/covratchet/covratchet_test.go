@@ -242,6 +242,33 @@ func TestRatchetPackage_Up_WriteError(t *testing.T) {
 	}
 }
 
+func TestRatchetPackage_CorruptedCovgate(t *testing.T) {
+	dir := testutil.MakePkgDir(t, pkgRel)
+	testutil.WriteCovgateFile(t, dir, "notanumber\n")
+
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	r := runner{measure: fakeMeasure(85.0)}
+
+	u, unch, f := r.ratchetPackage(pkgName, modName, "", "", &buf)
+	if u != 0 || unch != 0 || f != 1 {
+		t.Errorf("got (%d,%d,%d), want (0,0,1)", u, unch, f)
+	}
+	if !strings.Contains(buf.String(), "FAIL") {
+		t.Errorf("missing FAIL in output: %s", buf.String())
+	}
+
+	covFile := filepath.Join(dir, ".covgate")
+	//nolint:gosec // G304: test file read
+	data, err := os.ReadFile(covFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(data); got != "notanumber\n" {
+		t.Errorf(".covgate was overwritten: got %q, want %q", got, "notanumber\n")
+	}
+}
+
 func TestRatchetPackage_Ok(t *testing.T) {
 	dir := testutil.MakePkgDir(t, pkgRel)
 	testutil.WriteCovgateFile(t, dir, "90.0\n")
