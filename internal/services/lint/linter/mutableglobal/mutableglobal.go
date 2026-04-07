@@ -47,7 +47,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 					continue
 				}
 
-				if i < len(vs.Values) && isErrorSentinel(vs.Values[i]) {
+				if i < len(vs.Values) && isErrorSentinel(name, vs.Values[i]) {
 					continue
 				}
 
@@ -67,10 +67,23 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 // isInterfaceCheck returns true for var _ SomeInterface = ... patterns.
 func isInterfaceCheck(name *ast.Ident) bool { return name.Name == "_" }
 
-// isErrorSentinel returns true for expressions like errors.New(...),
-// fmt.Errorf(...), or any call to a function whose name starts with "New"
-// and returns an error-like value, where the var name starts with Err or err.
-func isErrorSentinel(expr ast.Expr) bool {
+// isErrVarName returns true when name follows the Go convention for error
+// sentinels: it must start with "Err" (exported) or "err" (unexported) and
+// be at least 3 characters long (so the bare string "er" is not matched).
+func isErrVarName(name string) bool {
+	if len(name) < 3 {
+		return false
+	}
+	return strings.HasPrefix(name, "Err") || strings.HasPrefix(name, "err")
+}
+
+// isErrorSentinel returns true when varName follows the error-sentinel naming
+// convention (starts with "Err" or "err") AND expr is a call to a recognised
+// error constructor: any pkg.NewXxx or any pkg.XxxErrorf.
+func isErrorSentinel(varName *ast.Ident, expr ast.Expr) bool {
+	if !isErrVarName(varName.Name) {
+		return false
+	}
 	call, ok := expr.(*ast.CallExpr)
 	if !ok {
 		return false
@@ -78,22 +91,27 @@ func isErrorSentinel(expr ast.Expr) bool {
 	return isErrorConstructor(call)
 }
 
-// isErrorConstructor checks if a call expression is errors.New or fmt.Errorf.
+// isErrorConstructor returns true for qualified calls that are conventional
+// error constructors:
+//   - pkg.New(...)       — exact name "New"
+//   - pkg.NewFoo(...)    — name starts with "New"
+//   - pkg.Errorf(...)    — name ends with "Errorf"
+//
+// This covers errors.New, fmt.Errorf, grpc.Errorf, myerrors.NewNotFound, etc.
 func isErrorConstructor(call *ast.CallExpr) bool {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
 		return false
 	}
-	ident, ok := sel.X.(*ast.Ident)
+	_, ok = sel.X.(*ast.Ident)
 	if !ok {
 		return false
 	}
-
-	pkg, fn := ident.Name, sel.Sel.Name
-	if pkg == "errors" && fn == "New" {
+	fn := sel.Sel.Name
+	if strings.HasPrefix(fn, "New") {
 		return true
 	}
-	if pkg == "fmt" && fn == "Errorf" {
+	if strings.HasSuffix(fn, "Errorf") {
 		return true
 	}
 	return false
