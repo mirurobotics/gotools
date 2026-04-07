@@ -156,7 +156,7 @@ func RunDeadcode(out io.Writer, errW io.Writer, excludePattern string) error {
 	}
 	if err != nil {
 		_, _ = fmt.Fprintf(errW, "deadcode failed: %v\n%s", err, stderr.String())
-		return fmt.Errorf("deadcode: %w\n%s", err, stderr.String())
+		return fmt.Errorf("deadcode: %w", err)
 	}
 	return nil
 }
