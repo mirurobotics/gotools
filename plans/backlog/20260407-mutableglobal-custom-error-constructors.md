@@ -435,7 +435,7 @@ The change is complete when **all** of the following are true:
    - `var counter = pkg.New("x")` → 1 diagnostic
    - `var Err = errors.New("x")` → 0 diagnostics (exactly "Err", len=3, passes the `>= 3` guard)
    - `var errFoo = errors.New("x")` → 0 diagnostics
-   - `var error = errors.New("x")` → 1 diagnostic (does not start with "Err"/"err")
+   - `var errorVal = errors.New("x")` → 1 diagnostic (does not start with "Err"/"err"; `error` is a predeclared identifier, not a reserved keyword, but the name doesn't match the `Err`/`err` convention)
    - `var myErr = errors.New("x")` → 1 diagnostic (does not start with "Err"/"err")
    - Pre-existing test cases `"error sentinel allowed"` and `"fmt.Errorf sentinel allowed"` still pass.
 
