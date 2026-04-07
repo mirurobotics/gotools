@@ -94,7 +94,7 @@ func isErrorSentinel(varName *ast.Ident, expr ast.Expr) bool {
 // isErrorConstructor returns true for qualified calls that are conventional
 // error constructors:
 //   - pkg.New(...)       — exact name "New"
-//   - pkg.NewFoo(...)    — name starts with "New"
+//   - pkg.NewFoo(...)    — "New" followed by uppercase letter
 //   - pkg.Errorf(...)    — name ends with "Errorf"
 //
 // This covers errors.New, fmt.Errorf, grpc.Errorf, myerrors.NewNotFound, etc.
@@ -108,7 +108,7 @@ func isErrorConstructor(call *ast.CallExpr) bool {
 		return false
 	}
 	fn := sel.Sel.Name
-	if strings.HasPrefix(fn, "New") {
+	if fn == "New" || (len(fn) > 3 && fn[:3] == "New" && fn[3] >= 'A' && fn[3] <= 'Z') {
 		return true
 	}
 	if strings.HasSuffix(fn, "Errorf") {
