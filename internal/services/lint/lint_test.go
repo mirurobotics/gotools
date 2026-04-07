@@ -137,7 +137,8 @@ func TestRunDeadcode_NonexistentPackage_ErrorWrittenToErrW(t *testing.T) {
 	// RunDeadcode always runs against ./..., so instead we verify the contract
 	// by injecting a guaranteed-fail scenario: call the underlying helper with a
 	// bad subcommand to confirm fmt.Fprintf writes to errW on non-zero exit.
-	err := RunExternal(&out, &errBuf, "go", "tool", "deadcode", "--bad-flag-that-does-not-exist")
+	err := RunExternal(&out, &errBuf,
+		"go", "tool", "deadcode", "--bad-flag-that-does-not-exist")
 	if err == nil {
 		t.Skip("expected deadcode to reject unknown flag, but it did not")
 	}
