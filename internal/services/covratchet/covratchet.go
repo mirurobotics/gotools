@@ -107,21 +107,17 @@ func (r *runner) ratchetPackage(
 	}
 
 	if current == "" {
-		if err := writeCovgate(covgateFile, actual); err != nil {
-			_, _ = fmt.Fprintf(
-				w, "%-6s  %8s  %7.1f%%  %s (%v)\n",
-				"FAIL", "\u2014", actual, relPkg, err,
-			)
-			return 0, 0, 1
-		}
-		_, _ = fmt.Fprintf(
-			w, "%-6s  %8s  %7.1f%%  %s\n",
-			"NEW", "\u2014", actual, relPkg,
-		)
-		return 1, 0, 0
+		return writeNewCovgate(covgateFile, actual, relPkg, w)
 	}
 
-	currentVal, _ := strconv.ParseFloat(current, 64)
+	currentVal, err := strconv.ParseFloat(current, 64)
+	if err != nil {
+		_, _ = fmt.Fprintf(
+			w, "%-6s  %7s%%  %7.1f%%  %s (parse .covgate: %v)\n",
+			"FAIL", current, actual, relPkg, err,
+		)
+		return 0, 0, 1
+	}
 	if actual > currentVal {
 		if err := writeCovgate(covgateFile, actual); err != nil {
 			_, _ = fmt.Fprintf(
@@ -139,6 +135,20 @@ func (r *runner) ratchetPackage(
 
 	_, _ = fmt.Fprintf(w, "%-6s  %7s%%  %7.1f%%  %s\n", "OK", current, actual, relPkg)
 	return 0, 1, 0
+}
+
+func writeNewCovgate(
+	covgateFile string, actual float64, relPkg string, w io.Writer,
+) (updated, unchanged, failed int) {
+	if err := writeCovgate(covgateFile, actual); err != nil {
+		_, _ = fmt.Fprintf(
+			w, "%-6s  %8s  %7.1f%%  %s (%v)\n",
+			"FAIL", "\u2014", actual, relPkg, err,
+		)
+		return 0, 0, 1
+	}
+	_, _ = fmt.Fprintf(w, "%-6s  %8s  %7.1f%%  %s\n", "NEW", "\u2014", actual, relPkg)
+	return 1, 0, 0
 }
 
 func readCovgate(path string) string {
