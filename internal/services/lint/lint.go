@@ -60,7 +60,7 @@ func RunLint(opts LintOpts) error {
 	}
 
 	if opts.Deadcode {
-		if err := RunDeadcode(opts.Out, opts.DeadcodeExclude); err != nil {
+		if err := RunDeadcode(opts.Out, opts.Err, opts.DeadcodeExclude); err != nil {
 			failures = append(failures, "deadcode")
 		}
 	}
@@ -139,7 +139,7 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 
 // RunDeadcode runs the deadcode checker, optionally
 // filtering output.
-func RunDeadcode(out io.Writer, excludePattern string) error {
+func RunDeadcode(out io.Writer, errW io.Writer, excludePattern string) error {
 	_, _ = fmt.Fprintln(out, "Running deadcode...")
 	cmd := cmdutil.GoCommand("tool", "deadcode", "-test", "./...")
 	var stdout, stderr bytes.Buffer
@@ -155,6 +155,7 @@ func RunDeadcode(out io.Writer, excludePattern string) error {
 		return fmt.Errorf("deadcode found issues")
 	}
 	if err != nil {
+		_, _ = fmt.Fprintf(errW, "deadcode failed: %v\n%s", err, stderr.String())
 		return fmt.Errorf("deadcode: %w\n%s", err, stderr.String())
 	}
 	return nil
