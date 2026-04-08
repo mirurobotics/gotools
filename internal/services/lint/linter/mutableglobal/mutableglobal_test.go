@@ -227,6 +227,108 @@ var stdout = os.Stdout
 			wantN:   1,
 			wantMsg: "",
 		},
+		{
+			name:     "custom NewFoo sentinel allowed",
+			filename: "foo.go",
+			src: `package foo
+
+var ErrNotFound = myerrors.NewNotFound("x")
+`,
+			wantN:   0,
+			wantMsg: "",
+		},
+		{
+			name:     "Errorf suffix sentinel allowed",
+			filename: "foo.go",
+			src: `package foo
+
+var ErrUnavailable = grpc.Errorf("unavailable")
+`,
+			wantN:   0,
+			wantMsg: "",
+		},
+		{
+			name:     "lowercase err prefix with pkg.New allowed",
+			filename: "foo.go",
+			src: `package foo
+
+var errInternal = pkg.New("x")
+`,
+			wantN:   0,
+			wantMsg: "",
+		},
+		{
+			name:     "non-Err var with pkg.New still flagged",
+			filename: "foo.go",
+			src: `package foo
+
+var counter = pkg.New("x")
+`,
+			wantN:   1,
+			wantMsg: "mutable global variable: use const or a function instead",
+		},
+		{
+			name:     "NewLowercase not treated as constructor",
+			filename: "foo.go",
+			src: `package foo
+
+var ErrBad = pkg.Newsletter("x")
+`,
+			wantN:   1,
+			wantMsg: "mutable global variable: use const or a function instead",
+		},
+		{
+			name:     "exactly 3-char Err name allowed",
+			filename: "foo.go",
+			src: `package foo
+
+var Err = errors.New("x")
+`,
+			wantN:   0,
+			wantMsg: "",
+		},
+		{
+			name:     "exactly 3-char err name allowed",
+			filename: "foo.go",
+			src: `package foo
+
+var err = errors.New("x")
+`,
+			wantN:   0,
+			wantMsg: "",
+		},
+		{
+			name:     "less than 3-char er name flagged",
+			filename: "foo.go",
+			src: `package foo
+
+var Er = errors.New("x")
+`,
+			wantN:   1,
+			wantMsg: "mutable global variable: use const or a function instead",
+		},
+		{
+			name:     "unqualified New not treated as constructor",
+			filename: "foo.go",
+			src: `package foo
+
+func New(s string) error { return nil }
+
+var ErrBad = New("x")
+`,
+			wantN:   1,
+			wantMsg: "mutable global variable: use const or a function instead",
+		},
+		{
+			name:     "all-caps ERR prefix does not match Err or err",
+			filename: "foo.go",
+			src: `package foo
+
+var ERR = errors.New("x")
+`,
+			wantN:   1,
+			wantMsg: "mutable global variable: use const or a function instead",
+		},
 	}
 
 	for _, tt := range tests {
