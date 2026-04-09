@@ -37,6 +37,10 @@ func NewCovratchetCommand() *cobra.Command {
 		&opts.TestDir, "test-dir", "",
 		"external test directory (empty = none)",
 	)
+	fl.IntVarP(
+		&opts.Parallelism, "parallelism", "p", 0,
+		"max concurrent package measurements (0 = NumCPU)",
+	)
 
 	return cmd
 }

@@ -342,6 +342,7 @@ func TestNewCovgateCommand_Flags(t *testing.T) {
 		{"src-prefix", "string"},
 		{"test-dir", "string"},
 		{"default-threshold", "float64"},
+		{"parallelism", "int"},
 	}
 
 	for _, tc := range tests {
@@ -381,6 +382,13 @@ func TestNewCovgateCommand_FlagDefaults(t *testing.T) {
 		t.Errorf("flag default-threshold: %v", err)
 	} else if got != 80.0 {
 		t.Errorf("flag default-threshold default = %f, want %f", got, 80.0)
+	}
+
+	gotP, errP := fl.GetInt("parallelism")
+	if errP != nil {
+		t.Errorf("flag parallelism: %v", errP)
+	} else if gotP != 0 {
+		t.Errorf("flag parallelism default = %d, want 0", gotP)
 	}
 }
 
@@ -428,6 +436,7 @@ func TestNewCovratchetCommand_Flags(t *testing.T) {
 		{"packages", "string"},
 		{"src-prefix", "string"},
 		{"test-dir", "string"},
+		{"parallelism", "int"},
 	}
 
 	for _, tc := range tests {
@@ -460,6 +469,13 @@ func TestNewCovratchetCommand_FlagDefaults(t *testing.T) {
 		if got != want {
 			t.Errorf("flag %q default = %q, want %q", name, got, want)
 		}
+	}
+
+	gotP, errP := fl.GetInt("parallelism")
+	if errP != nil {
+		t.Errorf("flag parallelism: %v", errP)
+	} else if gotP != 0 {
+		t.Errorf("flag parallelism default = %d, want 0", gotP)
 	}
 }
 

@@ -4,18 +4,21 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/mirurobotics/gotools/internal/services/gocover"
 )
 
 // Opts holds the options for the covratchet service.
 type Opts struct {
-	Packages  string
-	SrcPrefix string
-	TestDir   string
-	Out       io.Writer
+	Packages    string
+	SrcPrefix   string
+	TestDir     string
+	Parallelism int
+	Out         io.Writer
 }
 
 type runner struct {
@@ -40,6 +43,11 @@ func (r *runner) run(opts Opts) error {
 	}
 	w := opts.Out
 
+	parallelism := opts.Parallelism
+	if parallelism <= 0 {
+		parallelism = runtime.NumCPU()
+	}
+
 	_, _ = fmt.Fprintln(w, "Updating .covgate files (ratchet up only)...")
 	_, _ = fmt.Fprintln(w)
 
@@ -55,15 +63,29 @@ func (r *runner) run(opts Opts) error {
 
 	printHeader(w)
 
+	results := make([]ratchetResult, len(pkgs))
+	sem := make(chan struct{}, parallelism)
+	var wg sync.WaitGroup
+
+	for i, pkg := range pkgs {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int, p string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			results[idx] = r.ratchetPackage(p, module, opts.SrcPrefix, opts.TestDir)
+		}(i, pkg)
+	}
+	wg.Wait()
+
 	updated := 0
 	unchanged := 0
 	failed := 0
-
-	for _, pkg := range pkgs {
-		u, unch, f := r.ratchetPackage(pkg, module, opts.SrcPrefix, opts.TestDir, w)
-		updated += u
-		unchanged += unch
-		failed += f
+	for _, res := range results {
+		_, _ = fmt.Fprint(w, res.output)
+		updated += res.updated
+		unchanged += res.unchanged
+		failed += res.failed
 	}
 
 	_, _ = fmt.Fprintln(w)
@@ -88,9 +110,15 @@ func printHeader(w io.Writer) {
 	)
 }
 
-func (r *runner) ratchetPackage(
-	pkg, module, srcPrefix, testDir string, w io.Writer,
-) (updated, unchanged, failed int) {
+// ratchetResult holds the output and counts for a single package ratchet.
+type ratchetResult struct {
+	output    string
+	updated   int
+	unchanged int
+	failed    int
+}
+
+func (r *runner) ratchetPackage(pkg, module, srcPrefix, testDir string) ratchetResult {
 	relPkg := gocover.RelPkg(pkg, module)
 	pkgDir := "./" + relPkg
 	covgateFile := pkgDir + "/.covgate"
@@ -99,56 +127,48 @@ func (r *runner) ratchetPackage(
 	testPaths := gocover.BuildTestPaths(pkg, relPkg, srcPrefix, testDir)
 	actual, _, err := r.measure(pkg, testPaths)
 	if err != nil {
-		_, _ = fmt.Fprintf(
-			w, "%-6s  %8s  %8s  %s\n",
-			"FAIL", "\u2014", "\u2014", relPkg,
-		)
-		return 0, 0, 1
+		line := fmt.Sprintf("%-6s  %8s  %8s  %s\n", "FAIL", "\u2014", "\u2014", relPkg)
+		return ratchetResult{output: line, updated: 0, unchanged: 0, failed: 1}
 	}
 
 	if current == "" {
-		return writeNewCovgate(covgateFile, actual, relPkg, w)
+		return writeNewCovgate(covgateFile, actual, relPkg)
 	}
 
 	currentVal, err := strconv.ParseFloat(current, 64)
 	if err != nil {
-		_, _ = fmt.Fprintf(
-			w, "%-6s  %7s%%  %7.1f%%  %s (parse .covgate: %v)\n",
+		line := fmt.Sprintf(
+			"%-6s  %7s%%  %7.1f%%  %s (parse .covgate: %v)\n",
 			"FAIL", current, actual, relPkg, err,
 		)
-		return 0, 0, 1
+		return ratchetResult{output: line, updated: 0, unchanged: 0, failed: 1}
 	}
 	if actual > currentVal {
 		if err := writeCovgate(covgateFile, actual); err != nil {
-			_, _ = fmt.Fprintf(
-				w, "%-6s  %7s%%  %7.1f%%  %s (%v)\n",
+			line := fmt.Sprintf(
+				"%-6s  %7s%%  %7.1f%%  %s (%v)\n",
 				"FAIL", current, actual, relPkg, err,
 			)
-			return 0, 0, 1
+			return ratchetResult{output: line, updated: 0, unchanged: 0, failed: 1}
 		}
-		_, _ = fmt.Fprintf(
-			w, "%-6s  %7s%%  %7.1f%%  %s\n",
-			"UP", current, actual, relPkg,
-		)
-		return 1, 0, 0
+		line := fmt.Sprintf("%-6s  %7s%%  %7.1f%%  %s\n", "UP", current, actual, relPkg)
+		return ratchetResult{output: line, updated: 1, unchanged: 0, failed: 0}
 	}
 
-	_, _ = fmt.Fprintf(w, "%-6s  %7s%%  %7.1f%%  %s\n", "OK", current, actual, relPkg)
-	return 0, 1, 0
+	line := fmt.Sprintf("%-6s  %7s%%  %7.1f%%  %s\n", "OK", current, actual, relPkg)
+	return ratchetResult{output: line, updated: 0, unchanged: 1, failed: 0}
 }
 
-func writeNewCovgate(
-	covgateFile string, actual float64, relPkg string, w io.Writer,
-) (updated, unchanged, failed int) {
+func writeNewCovgate(covgateFile string, actual float64, relPkg string) ratchetResult {
 	if err := writeCovgate(covgateFile, actual); err != nil {
-		_, _ = fmt.Fprintf(
-			w, "%-6s  %8s  %7.1f%%  %s (%v)\n",
+		line := fmt.Sprintf(
+			"%-6s  %8s  %7.1f%%  %s (%v)\n",
 			"FAIL", "\u2014", actual, relPkg, err,
 		)
-		return 0, 0, 1
+		return ratchetResult{output: line, updated: 0, unchanged: 0, failed: 1}
 	}
-	_, _ = fmt.Fprintf(w, "%-6s  %8s  %7.1f%%  %s\n", "NEW", "\u2014", actual, relPkg)
-	return 1, 0, 0
+	line := fmt.Sprintf("%-6s  %8s  %7.1f%%  %s\n", "NEW", "\u2014", actual, relPkg)
+	return ratchetResult{output: line, updated: 1, unchanged: 0, failed: 0}
 }
 
 func readCovgate(path string) string {
