@@ -40,6 +40,10 @@ func NewCovgateCommand() *cobra.Command {
 		&opts.DefaultThreshold, "default-threshold", 80.0,
 		"fallback threshold when no .covgate exists",
 	)
+	fl.IntVarP(
+		&opts.Parallelism, "parallelism", "p", 0,
+		"max concurrent package measurements (0 = NumCPU)",
+	)
 
 	return cmd
 }

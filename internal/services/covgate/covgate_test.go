@@ -42,19 +42,16 @@ func TestCheckPackage_Pass(t *testing.T) {
 	dir := testutil.MakePkgDir(t, pkgRel)
 	testutil.WriteCovgateFile(t, dir, "75.0\n")
 
-	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{measure: fakeMeasure(85.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	ok := r.checkPackage(pkgName, checkPackageCtx{
-		module: modName, threshold: 80.0, w: &buf,
-	})
-	if !ok {
+	res := r.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
+	if !res.passed {
 		t.Error("expected pass")
 	}
-	if !strings.Contains(buf.String(), "PASS") {
-		t.Errorf("output missing PASS: %s", buf.String())
+	if !strings.Contains(res.output, "PASS") {
+		t.Errorf("output missing PASS: %s", res.output)
 	}
 }
 
@@ -62,26 +59,22 @@ func TestCheckPackage_Fail_BelowThreshold(t *testing.T) {
 	dir := testutil.MakePkgDir(t, pkgRel)
 	testutil.WriteCovgateFile(t, dir, "90.0\n")
 
-	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{measure: fakeMeasure(85.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	ok := r.checkPackage(pkgName, checkPackageCtx{
-		module: modName, threshold: 80.0, w: &buf,
-	})
-	if ok {
+	res := r.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
+	if res.passed {
 		t.Error("expected fail")
 	}
-	if !strings.Contains(buf.String(), "FAIL") {
-		t.Errorf("output missing FAIL: %s", buf.String())
+	if !strings.Contains(res.output, "FAIL") {
+		t.Errorf("output missing FAIL: %s", res.output)
 	}
 }
 
 func TestCheckPackage_Fail_TestError(t *testing.T) {
 	testutil.MakePkgDir(t, pkgRel)
 
-	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{
 		measure: func(string, []string) (float64, []byte, error) {
@@ -91,40 +84,34 @@ func TestCheckPackage_Fail_TestError(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	ok := r.checkPackage(pkgName, checkPackageCtx{
-		module: modName, threshold: 80.0, w: &buf,
-	})
-	if ok {
+	res := r.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
+	if res.passed {
 		t.Error("expected fail")
 	}
-	out := buf.String()
-	if !strings.Contains(out, "FAIL") {
-		t.Errorf("output missing FAIL: %s", out)
+	if !strings.Contains(res.output, "FAIL") {
+		t.Errorf("output missing FAIL: %s", res.output)
 	}
-	if !strings.Contains(out, "tests failed") {
-		t.Errorf("missing 'tests failed': %s", out)
+	if !strings.Contains(res.output, "tests failed") {
+		t.Errorf("missing 'tests failed': %s", res.output)
 	}
-	if !strings.Contains(out, "compile error") {
-		t.Errorf("missing test output: %s", out)
+	if !strings.Contains(res.output, "compile error") {
+		t.Errorf("missing test output: %s", res.output)
 	}
 }
 
 func TestCheckPackage_DefaultThreshold(t *testing.T) {
 	testutil.MakePkgDir(t, pkgRel)
 
-	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{measure: fakeMeasure(85.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	ok := r.checkPackage(pkgName, checkPackageCtx{
-		module: modName, threshold: 80.0, w: &buf,
-	})
-	if !ok {
+	res := r.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
+	if !res.passed {
 		t.Error("expected pass with default threshold")
 	}
-	if !strings.Contains(buf.String(), "80.0%") {
-		t.Errorf("missing default threshold 80.0%%: %s", buf.String())
+	if !strings.Contains(res.output, "80.0%") {
+		t.Errorf("missing default threshold 80.0%%: %s", res.output)
 	}
 }
 
@@ -172,6 +159,78 @@ func TestRun_WithFailure(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "ERROR: One or more") {
 		t.Errorf("missing error msg: %s", buf.String())
+	}
+}
+
+func TestRun_Parallelism(t *testing.T) {
+	// Use a single temp dir so all three packages share the same cwd.
+	tmp := t.TempDir()
+	t.Chdir(tmp)
+	for _, rel := range []string{"pkg/a", "pkg/b", "pkg/c"} {
+		//nolint:gosec // G301: test directory
+		if err := os.MkdirAll(filepath.Join(tmp, rel), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	r := runner{
+		goModule: func() (string, error) { return modName, nil },
+		goListPackages: func(string) ([]string, error) {
+			return []string{
+				modName + "/pkg/a",
+				modName + "/pkg/b",
+				modName + "/pkg/c",
+			}, nil
+		},
+		measure: fakeMeasure(90.0),
+	}
+
+	//nolint:exhaustruct // test uses partial initialization
+	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "pkg/a") {
+		t.Errorf("output missing pkg/a: %s", out)
+	}
+	if !strings.Contains(out, "pkg/b") {
+		t.Errorf("output missing pkg/b: %s", out)
+	}
+	if !strings.Contains(out, "pkg/c") {
+		t.Errorf("output missing pkg/c: %s", out)
+	}
+	// Verify output order is preserved: a before b before c.
+	idxA := strings.Index(out, "pkg/a")
+	idxB := strings.Index(out, "pkg/b")
+	idxC := strings.Index(out, "pkg/c")
+	if idxA >= idxB || idxB >= idxC {
+		t.Errorf(
+			"output order not preserved: a=%d b=%d c=%d\n%s",
+			idxA, idxB, idxC, out,
+		)
+	}
+}
+
+func TestRun_Parallelism_DefaultsToNumCPU(t *testing.T) {
+	testutil.MakePkgDir(t, "pkg/a")
+
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	r := runner{
+		goModule: func() (string, error) { return modName, nil },
+		goListPackages: func(string) ([]string, error) {
+			return []string{modName + "/pkg/a"}, nil
+		},
+		measure: fakeMeasure(90.0),
+	}
+
+	//nolint:exhaustruct // test uses partial initialization
+	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 0})
+	if err != nil {
+		t.Fatalf("unexpected error with Parallelism=0 (NumCPU): %v", err)
 	}
 }
 

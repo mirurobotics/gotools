@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
+	"strings"
+	"sync"
 
 	"github.com/mirurobotics/gotools/internal/services/gocover"
 )
@@ -14,6 +17,7 @@ type Opts struct {
 	SrcPrefix        string
 	TestDir          string
 	DefaultThreshold float64
+	Parallelism      int
 	Out              io.Writer
 }
 
@@ -39,6 +43,11 @@ func (r *runner) run(opts Opts) error {
 	}
 	w := opts.Out
 
+	parallelism := opts.Parallelism
+	if parallelism <= 0 {
+		parallelism = runtime.NumCPU()
+	}
+
 	_, _ = fmt.Fprintf(
 		w, "Checking per-package coverage "+
 			"(default minimum: %.1f%%)...\n\n",
@@ -62,11 +71,37 @@ func (r *runner) run(opts Opts) error {
 		srcPrefix: opts.SrcPrefix,
 		testDir:   opts.TestDir,
 		threshold: opts.DefaultThreshold,
-		w:         w,
 	}
+
+	results := r.runPackages(pkgs, ctx, parallelism)
+	return r.printResults(w, results)
+}
+
+func (r *runner) runPackages(
+	pkgs []string, ctx checkPackageCtx, parallelism int,
+) []checkResult {
+	results := make([]checkResult, len(pkgs))
+	sem := make(chan struct{}, parallelism)
+	var wg sync.WaitGroup
+
+	for i, pkg := range pkgs {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int, p string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			results[idx] = r.checkPackage(p, ctx)
+		}(i, pkg)
+	}
+	wg.Wait()
+	return results
+}
+
+func (r *runner) printResults(w io.Writer, results []checkResult) error {
 	hasFailures := false
-	for _, pkg := range pkgs {
-		if !r.checkPackage(pkg, ctx) {
+	for _, res := range results {
+		_, _ = fmt.Fprint(w, res.output)
+		if !res.passed {
 			hasFailures = true
 		}
 	}
@@ -95,33 +130,39 @@ func printHeader(w io.Writer) {
 	)
 }
 
+// checkResult holds the output and pass/fail status for a single package check.
+type checkResult struct {
+	output string // formatted line(s) to print
+	passed bool
+}
+
 // checkPackageCtx holds the per-run constants passed to checkPackage.
 type checkPackageCtx struct {
 	module    string
 	srcPrefix string
 	testDir   string
 	threshold float64
-	w         io.Writer
 }
 
-func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) bool {
+func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 	relPkg := gocover.RelPkg(pkg, ctx.module)
 	pkgDir := "./" + relPkg
 	threshold := gocover.GetThreshold(pkgDir, ctx.threshold)
 
 	testPaths := gocover.BuildTestPaths(pkg, relPkg, ctx.srcPrefix, ctx.testDir)
 
+	var b strings.Builder
 	coverage, output, testErr := r.measure(pkg, testPaths)
 	if testErr != nil {
 		_, _ = fmt.Fprintf(
-			ctx.w, "%-6s  %8s  %8s  %s\n",
+			&b, "%-6s  %8s  %8s  %s\n",
 			"FAIL", "---", "---",
 			relPkg+" (tests failed)",
 		)
-		_, _ = fmt.Fprintln(ctx.w)
-		_, _ = fmt.Fprint(ctx.w, string(output))
-		_, _ = fmt.Fprintln(ctx.w)
-		return false
+		_, _ = fmt.Fprintln(&b)
+		_, _ = fmt.Fprint(&b, string(output))
+		_, _ = fmt.Fprintln(&b)
+		return checkResult{output: b.String(), passed: false}
 	}
 
 	status := "PASS"
@@ -129,8 +170,8 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) bool {
 		status = "FAIL"
 	}
 	_, _ = fmt.Fprintf(
-		ctx.w, "%-6s  %7.1f%%  %7.1f%%  %s\n",
+		&b, "%-6s  %7.1f%%  %7.1f%%  %s\n",
 		status, coverage, threshold, relPkg,
 	)
-	return coverage >= threshold
+	return checkResult{output: b.String(), passed: coverage >= threshold}
 }
