@@ -136,6 +136,7 @@ func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTimin
 		gcR = result{
 			timing: stepTiming{"golangci-lint", time.Since(start)},
 			failed: err != nil,
+			outBuf: "",
 		}
 	}()
 	go func() {
