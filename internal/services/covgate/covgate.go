@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mirurobotics/gotools/internal/services/gocover"
 )
@@ -99,14 +100,16 @@ func (r *runner) runPackages(
 
 func (r *runner) printResults(w io.Writer, results []checkResult) error {
 	hasFailures := false
+	var total time.Duration
 	for _, res := range results {
 		_, _ = fmt.Fprint(w, res.output)
+		total += res.duration
 		if !res.passed {
 			hasFailures = true
 		}
 	}
 
-	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintf(w, "\nTotal time: %s\n", fmtDuration(total))
 	if hasFailures {
 		_, _ = fmt.Fprintln(
 			w, "ERROR: One or more packages failed "+
@@ -121,19 +124,20 @@ func (r *runner) printResults(w io.Writer, results []checkResult) error {
 
 func printHeader(w io.Writer) {
 	_, _ = fmt.Fprintf(
-		w, "%-6s  %8s  %8s  %s\n",
-		"STATUS", "COVERAGE", "REQUIRED", "PACKAGE",
+		w, "%-6s  %8s  %8s  %8s  %s\n",
+		"STATUS", "COVERAGE", "REQUIRED", "TIME", "PACKAGE",
 	)
 	_, _ = fmt.Fprintf(
-		w, "%-6s  %8s  %8s  %s\n",
-		"------", "--------", "--------", "-------",
+		w, "%-6s  %8s  %8s  %8s  %s\n",
+		"------", "--------", "--------", "--------", "-------",
 	)
 }
 
 // checkResult holds the output and pass/fail status for a single package check.
 type checkResult struct {
-	output string // formatted line(s) to print
-	passed bool
+	output   string // formatted line(s) to print
+	passed   bool
+	duration time.Duration
 }
 
 // checkPackageCtx holds the per-run constants passed to checkPackage.
@@ -151,18 +155,23 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 
 	testPaths := gocover.BuildTestPaths(pkg, relPkg, ctx.srcPrefix, ctx.testDir)
 
-	var b strings.Builder
+	start := time.Now()
 	coverage, output, testErr := r.measure(pkg, testPaths)
+	elapsed := time.Since(start)
+
+	var b strings.Builder
 	if testErr != nil {
 		_, _ = fmt.Fprintf(
-			&b, "%-6s  %8s  %8s  %s\n",
-			"FAIL", "---", "---",
+			&b, "%-6s  %8s  %8s  %8s  %s\n",
+			"FAIL", "---", "---", fmtDuration(elapsed),
 			relPkg+" (tests failed)",
 		)
 		_, _ = fmt.Fprintln(&b)
 		_, _ = fmt.Fprint(&b, string(output))
 		_, _ = fmt.Fprintln(&b)
-		return checkResult{output: b.String(), passed: false}
+		return checkResult{
+			output: b.String(), passed: false, duration: elapsed,
+		}
 	}
 
 	status := "PASS"
@@ -170,8 +179,20 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 		status = "FAIL"
 	}
 	_, _ = fmt.Fprintf(
-		&b, "%-6s  %7.1f%%  %7.1f%%  %s\n",
-		status, coverage, threshold, relPkg,
+		&b, "%-6s  %7.1f%%  %7.1f%%  %8s  %s\n",
+		status, coverage, threshold, fmtDuration(elapsed), relPkg,
 	)
-	return checkResult{output: b.String(), passed: coverage >= threshold}
+	return checkResult{
+		output: b.String(), passed: coverage >= threshold, duration: elapsed,
+	}
+}
+
+func fmtDuration(d time.Duration) string {
+	d = d.Round(100 * time.Millisecond)
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	m := int(d.Minutes())
+	s := d - time.Duration(m)*time.Minute
+	return fmt.Sprintf("%dm%02.0fs", m, s.Seconds())
 }
