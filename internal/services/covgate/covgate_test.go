@@ -420,6 +420,32 @@ func TestRun_OutputContainsTiming(t *testing.T) {
 	}
 }
 
+func TestPrintResults_UsesWallTime(t *testing.T) {
+	// Each result claims 5s duration, but the wall-clock parameter is only 3s.
+	// The printed total must show 3.0s (wall time), not 15.0s (sum of durations).
+	results := []checkResult{
+		{output: "line1\n", passed: true, duration: 5 * time.Second},
+		{output: "line2\n", passed: true, duration: 5 * time.Second},
+		{output: "line3\n", passed: true, duration: 5 * time.Second},
+	}
+
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	r := runner{}
+	err := r.printResults(&buf, results, 3*time.Second)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Total time: 3.0s") {
+		t.Errorf("expected wall-clock total 3.0s, got: %s", out)
+	}
+	if strings.Contains(out, "15.0s") {
+		t.Errorf("total should not be sum of durations (15.0s): %s", out)
+	}
+}
+
 func TestCheckPackage_OutputContainsTime(t *testing.T) {
 	testutil.MakePkgDir(t, pkgRel)
 

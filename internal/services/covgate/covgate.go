@@ -74,8 +74,10 @@ func (r *runner) run(opts Opts) error {
 		threshold: opts.DefaultThreshold,
 	}
 
+	start := time.Now()
 	results := r.runPackages(pkgs, ctx, parallelism)
-	return r.printResults(w, results)
+	wallTime := time.Since(start)
+	return r.printResults(w, results, wallTime)
 }
 
 func (r *runner) runPackages(
@@ -98,18 +100,18 @@ func (r *runner) runPackages(
 	return results
 }
 
-func (r *runner) printResults(w io.Writer, results []checkResult) error {
+func (r *runner) printResults(
+	w io.Writer, results []checkResult, totalTime time.Duration,
+) error {
 	hasFailures := false
-	var total time.Duration
 	for _, res := range results {
 		_, _ = fmt.Fprint(w, res.output)
-		total += res.duration
 		if !res.passed {
 			hasFailures = true
 		}
 	}
 
-	_, _ = fmt.Fprintf(w, "\nTotal time: %s\n", fmtDuration(total))
+	_, _ = fmt.Fprintf(w, "\nTotal time: %s\n", fmtDuration(totalTime))
 	if hasFailures {
 		_, _ = fmt.Fprintln(
 			w, "ERROR: One or more packages failed "+
