@@ -44,7 +44,7 @@ func bindLintFlags(cmd *cobra.Command, opts *lint.LintOpts) {
 		"auto-fix violations (false for CI check-only mode)",
 	)
 	bindLinterConfigFlags(fl, &opts.LinterFlags)
-	fl.BoolVar(&opts.Deadcode, "deadcode", false, "run deadcode checker")
+	fl.BoolVar(&opts.Deadcode, "deadcode", true, "run deadcode checker")
 	fl.StringVar(
 		&opts.DeadcodeExclude, "deadcode-exclude", "",
 		"grep-v pattern for deadcode false positives",

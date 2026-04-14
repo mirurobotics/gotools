@@ -265,7 +265,7 @@ func TestNewLintCommand_FlagDefaults(t *testing.T) {
 
 	boolDefaults := map[string]bool{
 		"fix":         true, // lint defaults to fix=true
-		"deadcode":    false,
+		"deadcode":    true,
 		"no-gofumpt":  false,
 		"no-golangci": false,
 	}

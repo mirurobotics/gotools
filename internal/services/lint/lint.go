@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mirurobotics/gotools/internal/services/cmdutil"
@@ -81,25 +82,87 @@ func runLintSteps(
 		}
 	}
 
-	if !opts.NoGolangci {
+	f, t := runAnalyzers(opts)
+	failures = append(failures, f...)
+	timings = append(timings, t...)
+	return failures, timings, nil
+}
+
+// runAnalyzers runs golangci-lint and deadcode. When both
+// are enabled they run concurrently; deadcode output is
+// buffered to avoid interleaving with golangci-lint.
+func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
+	runGolangci := !opts.NoGolangci
+	runDeadcode := opts.Deadcode
+
+	if runGolangci && runDeadcode {
+		return runAnalyzersParallel(opts)
+	}
+	if runGolangci {
 		start := time.Now()
-		err := RunGolangci(opts.Out, opts.Err, opts.NewFromRev)
-		timings = append(timings, stepTiming{"golangci-lint", time.Since(start)})
-		if err != nil {
+		if err := RunGolangci(opts.Out, opts.Err, opts.NewFromRev); err != nil {
 			failures = append(failures, "golangci-lint")
 		}
+		timings = append(timings, stepTiming{"golangci-lint", time.Since(start)})
 	}
-
-	if opts.Deadcode {
+	if runDeadcode {
 		start := time.Now()
-		err := RunDeadcode(opts.Out, opts.Err, opts.DeadcodeExclude)
-		timings = append(timings, stepTiming{"deadcode", time.Since(start)})
-		if err != nil {
+		if err := RunDeadcode(opts.Out, opts.Err, opts.DeadcodeExclude); err != nil {
 			failures = append(failures, "deadcode")
 		}
+		timings = append(timings, stepTiming{"deadcode", time.Since(start)})
+	}
+	return failures, timings
+}
+
+func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTiming) {
+	type result struct {
+		timing stepTiming
+		failed bool
+		outBuf string
 	}
 
-	return failures, timings, nil
+	var (
+		wg  sync.WaitGroup
+		gcR result
+		dcR result
+	)
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		start := time.Now()
+		err := RunGolangci(opts.Out, opts.Err, opts.NewFromRev)
+		gcR = result{
+			timing: stepTiming{"golangci-lint", time.Since(start)},
+			failed: err != nil,
+			outBuf: "",
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		var buf bytes.Buffer
+		start := time.Now()
+		err := RunDeadcode(&buf, opts.Err, opts.DeadcodeExclude)
+		dcR = result{
+			timing: stepTiming{"deadcode", time.Since(start)},
+			failed: err != nil,
+			outBuf: buf.String(),
+		}
+	}()
+	wg.Wait()
+
+	if dcR.outBuf != "" {
+		_, _ = fmt.Fprint(opts.Out, dcR.outBuf)
+	}
+	timings = append(timings, gcR.timing, dcR.timing)
+	if gcR.failed {
+		failures = append(failures, "golangci-lint")
+	}
+	if dcR.failed {
+		failures = append(failures, "deadcode")
+	}
+	return failures, timings
 }
 
 func printTimings(w io.Writer, timings []stepTiming, total time.Duration) {
