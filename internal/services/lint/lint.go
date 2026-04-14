@@ -43,17 +43,29 @@ func RunLint(opts LintOpts) error {
 	}
 
 	totalStart := time.Now()
-	var failures []string
-	var timings []stepTiming
+	failures, timings, fatal := runLintSteps(opts)
+	printTimings(opts.Out, timings, time.Since(totalStart))
 
+	if fatal != nil {
+		return fatal
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("lint failed: %s", strings.Join(failures, ", "))
+	}
+
+	_, _ = fmt.Fprintln(opts.Out, "Lint complete")
+	return nil
+}
+
+func runLintSteps(
+	opts LintOpts,
+) (failures []string, timings []stepTiming, fatal error) {
 	if opts.Paths != "" {
 		start := time.Now()
 		hadIssues, err := runCustomLinter(opts)
-		timings = append(timings, stepTiming{
-			"custom linter", time.Since(start),
-		})
+		timings = append(timings, stepTiming{"custom linter", time.Since(start)})
 		if err != nil {
-			return err
+			return failures, timings, err
 		}
 		if hadIssues {
 			failures = append(failures, "custom linter")
@@ -63,20 +75,16 @@ func RunLint(opts LintOpts) error {
 	if !opts.NoGofumpt {
 		start := time.Now()
 		err := RunGofumpt(opts.Out, opts.Err, opts.DoFix)
-		timings = append(timings, stepTiming{
-			"gofumpt", time.Since(start),
-		})
+		timings = append(timings, stepTiming{"gofumpt", time.Since(start)})
 		if err != nil {
-			return fmt.Errorf("gofumpt: %w", err)
+			return failures, timings, fmt.Errorf("gofumpt: %w", err)
 		}
 	}
 
 	if !opts.NoGolangci {
 		start := time.Now()
 		err := RunGolangci(opts.Out, opts.Err, opts.NewFromRev)
-		timings = append(timings, stepTiming{
-			"golangci-lint", time.Since(start),
-		})
+		timings = append(timings, stepTiming{"golangci-lint", time.Since(start)})
 		if err != nil {
 			failures = append(failures, "golangci-lint")
 		}
@@ -85,22 +93,13 @@ func RunLint(opts LintOpts) error {
 	if opts.Deadcode {
 		start := time.Now()
 		err := RunDeadcode(opts.Out, opts.Err, opts.DeadcodeExclude)
-		timings = append(timings, stepTiming{
-			"deadcode", time.Since(start),
-		})
+		timings = append(timings, stepTiming{"deadcode", time.Since(start)})
 		if err != nil {
 			failures = append(failures, "deadcode")
 		}
 	}
 
-	printTimings(opts.Out, timings, time.Since(totalStart))
-
-	if len(failures) > 0 {
-		return fmt.Errorf("lint failed: %s", strings.Join(failures, ", "))
-	}
-
-	_, _ = fmt.Fprintln(opts.Out, "Lint complete")
-	return nil
+	return failures, timings, nil
 }
 
 func printTimings(w io.Writer, timings []stepTiming, total time.Duration) {

@@ -169,9 +169,7 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 		_, _ = fmt.Fprintln(&b)
 		_, _ = fmt.Fprint(&b, string(output))
 		_, _ = fmt.Fprintln(&b)
-		return checkResult{
-			output: b.String(), passed: false, duration: elapsed,
-		}
+		return checkResult{b.String(), false, elapsed}
 	}
 
 	status := "PASS"
@@ -182,9 +180,7 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 		&b, "%-6s  %7.1f%%  %7.1f%%  %8s  %s\n",
 		status, coverage, threshold, fmtDuration(elapsed), relPkg,
 	)
-	return checkResult{
-		output: b.String(), passed: coverage >= threshold, duration: elapsed,
-	}
+	return checkResult{b.String(), coverage >= threshold, elapsed}
 }
 
 func fmtDuration(d time.Duration) string {

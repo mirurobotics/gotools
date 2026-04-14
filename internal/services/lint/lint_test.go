@@ -266,14 +266,3 @@ func TestPrintTimings(t *testing.T) {
 		t.Error("missing total timing")
 	}
 }
-
-func TestRunGolangci_NewFromRev_ArgsBuilt(t *testing.T) {
-	// We can't run actual golangci-lint in tests, but we
-	// can verify the function signature compiles and
-	// accepts the new parameter. A more thorough test
-	// would mock RunExternal.
-	var f func(io.Writer, io.Writer, string) error = RunGolangci
-	if f == nil {
-		t.Error("RunGolangci should not be nil")
-	}
-}
