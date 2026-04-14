@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mirurobotics/gotools/internal/services/cmdutil"
@@ -81,7 +82,66 @@ func runLintSteps(
 		}
 	}
 
-	if !opts.NoGolangci {
+	runGolangci := !opts.NoGolangci
+	runDeadcode := opts.Deadcode
+
+	// When both are enabled, run them in parallel. Deadcode
+	// output is buffered so it doesn't interleave with
+	// golangci-lint's streaming output.
+	if runGolangci && runDeadcode {
+		type result struct {
+			name    string
+			timing  stepTiming
+			failed  bool
+			outBuf  string
+		}
+
+		var (
+			wg  sync.WaitGroup
+			gcR result
+			dcR result
+		)
+
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			start := time.Now()
+			err := RunGolangci(opts.Out, opts.Err, opts.NewFromRev)
+			gcR = result{
+				name:   "golangci-lint",
+				timing: stepTiming{"golangci-lint", time.Since(start)},
+				failed: err != nil,
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			var buf bytes.Buffer
+			start := time.Now()
+			err := RunDeadcode(&buf, opts.Err, opts.DeadcodeExclude)
+			dcR = result{
+				name:   "deadcode",
+				timing: stepTiming{"deadcode", time.Since(start)},
+				failed: err != nil,
+				outBuf: buf.String(),
+			}
+		}()
+		wg.Wait()
+
+		if dcR.outBuf != "" {
+			_, _ = fmt.Fprint(opts.Out, dcR.outBuf)
+		}
+
+		timings = append(timings, gcR.timing, dcR.timing)
+		if gcR.failed {
+			failures = append(failures, gcR.name)
+		}
+		if dcR.failed {
+			failures = append(failures, dcR.name)
+		}
+		return failures, timings, nil
+	}
+
+	if runGolangci {
 		start := time.Now()
 		err := RunGolangci(opts.Out, opts.Err, opts.NewFromRev)
 		timings = append(timings, stepTiming{"golangci-lint", time.Since(start)})
@@ -90,7 +150,7 @@ func runLintSteps(
 		}
 	}
 
-	if opts.Deadcode {
+	if runDeadcode {
 		start := time.Now()
 		err := RunDeadcode(opts.Out, opts.Err, opts.DeadcodeExclude)
 		timings = append(timings, stepTiming{"deadcode", time.Since(start)})

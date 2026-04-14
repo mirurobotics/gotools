@@ -245,6 +245,33 @@ func TestFmtDuration_Minutes(t *testing.T) {
 	}
 }
 
+func TestRunLint_ParallelGolangciAndDeadcode(t *testing.T) {
+	var out bytes.Buffer
+	//nolint:exhaustruct // testing parallel path
+	err := RunLint(LintOpts{
+		Deadcode:   true,
+		NoGofumpt:  true,
+		NoGolangci: false,
+		Out:        &out,
+		Err:        io.Discard,
+	})
+	// Both golangci-lint and deadcode run against ./... in the
+	// current module. Either or both may report issues — we only
+	// care that the parallel execution produces timing output for
+	// both steps without panicking.
+	s := out.String()
+	if !strings.Contains(s, "golangci-lint") {
+		t.Error("expected golangci-lint in timing output")
+	}
+	if !strings.Contains(s, "deadcode") {
+		t.Error("expected deadcode in timing output")
+	}
+	if !strings.Contains(s, "Timings") {
+		t.Error("expected Timings header")
+	}
+	_ = err // lint failures are acceptable in this test
+}
+
 func TestPrintTimings(t *testing.T) {
 	var buf bytes.Buffer
 	timings := []stepTiming{
