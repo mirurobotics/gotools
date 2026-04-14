@@ -170,9 +170,9 @@ func printTimings(w io.Writer, timings []stepTiming, total time.Duration) {
 	_, _ = fmt.Fprintln(w, "Timings")
 	_, _ = fmt.Fprintln(w, "-------")
 	for _, t := range timings {
-		_, _ = fmt.Fprintf(w, "  %-16s %s\n", t.name, fmtDuration(t.duration))
+		_, _ = fmt.Fprintf(w, "%-16s %7s\n", t.name, fmtDuration(t.duration))
 	}
-	_, _ = fmt.Fprintf(w, "  %-16s %s\n", "total", fmtDuration(total))
+	_, _ = fmt.Fprintf(w, "%-16s %7s\n", "total", fmtDuration(total))
 }
 
 func fmtDuration(d time.Duration) string {
