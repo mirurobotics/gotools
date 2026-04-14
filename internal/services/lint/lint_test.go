@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestFilterDeadcodeOutput(t *testing.T) {
@@ -92,8 +93,15 @@ func TestRunLint_AllSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(out.String(), "Lint complete") {
-		t.Errorf("expected 'Lint complete' in output, got %q", out.String())
+	s := out.String()
+	if !strings.Contains(s, "Lint complete") {
+		t.Errorf("expected 'Lint complete' in output, got %q", s)
+	}
+	if !strings.Contains(s, "Timings") {
+		t.Errorf("expected timing summary in output, got %q", s)
+	}
+	if !strings.Contains(s, "total") {
+		t.Errorf("expected total timing in output, got %q", s)
 	}
 }
 
@@ -194,10 +202,67 @@ func TestRunLint_EmptyPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if strings.Contains(out.String(), "custom linter") {
+	s := out.String()
+	if strings.Contains(s, "custom linter") {
 		t.Error("custom linter should not have run with empty Paths")
 	}
-	if !strings.Contains(out.String(), "Lint complete") {
-		t.Errorf("expected 'Lint complete' in output, got %q", out.String())
+	if !strings.Contains(s, "Lint complete") {
+		t.Errorf("expected 'Lint complete' in output, got %q", s)
+	}
+}
+
+func TestFmtDuration_Seconds(t *testing.T) {
+	tests := []struct {
+		d    time.Duration
+		want string
+	}{
+		{0, "0.0s"},
+		{500 * time.Millisecond, "0.5s"},
+		{3200 * time.Millisecond, "3.2s"},
+		{59*time.Second + 900*time.Millisecond, "59.9s"},
+	}
+	for _, tt := range tests {
+		got := fmtDuration(tt.d)
+		if got != tt.want {
+			t.Errorf("fmtDuration(%v) = %q, want %q", tt.d, got, tt.want)
+		}
+	}
+}
+
+func TestFmtDuration_Minutes(t *testing.T) {
+	tests := []struct {
+		d    time.Duration
+		want string
+	}{
+		{60 * time.Second, "1m00s"},
+		{7*time.Minute + 45*time.Second, "7m45s"},
+	}
+	for _, tt := range tests {
+		got := fmtDuration(tt.d)
+		if got != tt.want {
+			t.Errorf("fmtDuration(%v) = %q, want %q", tt.d, got, tt.want)
+		}
+	}
+}
+
+func TestPrintTimings(t *testing.T) {
+	var buf bytes.Buffer
+	timings := []stepTiming{
+		{"gofumpt", 400 * time.Millisecond},
+		{"golangci-lint", 7*time.Minute + 45*time.Second},
+	}
+	printTimings(&buf, timings, 8*time.Minute+10*time.Second)
+	s := buf.String()
+	if !strings.Contains(s, "Timings") {
+		t.Error("missing Timings header")
+	}
+	if !strings.Contains(s, "gofumpt") {
+		t.Error("missing gofumpt timing")
+	}
+	if !strings.Contains(s, "golangci-lint") {
+		t.Error("missing golangci-lint timing")
+	}
+	if !strings.Contains(s, "total") {
+		t.Error("missing total timing")
 	}
 }

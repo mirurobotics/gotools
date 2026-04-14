@@ -51,6 +51,10 @@ func bindLintFlags(cmd *cobra.Command, opts *lint.LintOpts) {
 	)
 	fl.BoolVar(&opts.NoGofumpt, "no-gofumpt", false, "skip gofumpt")
 	fl.BoolVar(&opts.NoGolangci, "no-golangci", false, "skip golangci-lint")
+	fl.StringVar(
+		&opts.NewFromRev, "new-from-rev", "",
+		"only report new golangci-lint issues since this git revision",
+	)
 }
 
 // bindLinterConfigFlags binds the shared linter configuration

@@ -7,10 +7,16 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/mirurobotics/gotools/internal/services/cmdutil"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter"
 )
+
+type stepTiming struct {
+	name     string
+	duration time.Duration
+}
 
 // LintOpts holds the options for the lint orchestrator.
 type LintOpts struct {
@@ -21,6 +27,7 @@ type LintOpts struct {
 	DeadcodeExclude string
 	NoGofumpt       bool
 	NoGolangci      bool
+	NewFromRev      string
 	Out             io.Writer
 	Err             io.Writer
 }
@@ -35,12 +42,30 @@ func RunLint(opts LintOpts) error {
 		opts.Err = os.Stderr
 	}
 
-	var failures []string
+	totalStart := time.Now()
+	failures, timings, fatal := runLintSteps(opts)
+	printTimings(opts.Out, timings, time.Since(totalStart))
 
+	if fatal != nil {
+		return fatal
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("lint failed: %s", strings.Join(failures, ", "))
+	}
+
+	_, _ = fmt.Fprintln(opts.Out, "Lint complete")
+	return nil
+}
+
+func runLintSteps(
+	opts LintOpts,
+) (failures []string, timings []stepTiming, fatal error) {
 	if opts.Paths != "" {
+		start := time.Now()
 		hadIssues, err := runCustomLinter(opts)
+		timings = append(timings, stepTiming{"custom linter", time.Since(start)})
 		if err != nil {
-			return err
+			return failures, timings, err
 		}
 		if hadIssues {
 			failures = append(failures, "custom linter")
@@ -48,29 +73,53 @@ func RunLint(opts LintOpts) error {
 	}
 
 	if !opts.NoGofumpt {
-		if err := RunGofumpt(opts.Out, opts.Err, opts.DoFix); err != nil {
-			return fmt.Errorf("gofumpt: %w", err)
+		start := time.Now()
+		err := RunGofumpt(opts.Out, opts.Err, opts.DoFix)
+		timings = append(timings, stepTiming{"gofumpt", time.Since(start)})
+		if err != nil {
+			return failures, timings, fmt.Errorf("gofumpt: %w", err)
 		}
 	}
 
 	if !opts.NoGolangci {
-		if err := RunGolangci(opts.Out, opts.Err); err != nil {
+		start := time.Now()
+		err := RunGolangci(opts.Out, opts.Err, opts.NewFromRev)
+		timings = append(timings, stepTiming{"golangci-lint", time.Since(start)})
+		if err != nil {
 			failures = append(failures, "golangci-lint")
 		}
 	}
 
 	if opts.Deadcode {
-		if err := RunDeadcode(opts.Out, opts.Err, opts.DeadcodeExclude); err != nil {
+		start := time.Now()
+		err := RunDeadcode(opts.Out, opts.Err, opts.DeadcodeExclude)
+		timings = append(timings, stepTiming{"deadcode", time.Since(start)})
+		if err != nil {
 			failures = append(failures, "deadcode")
 		}
 	}
 
-	if len(failures) > 0 {
-		return fmt.Errorf("lint failed: %s", strings.Join(failures, ", "))
-	}
+	return failures, timings, nil
+}
 
-	_, _ = fmt.Fprintln(opts.Out, "\nLint complete")
-	return nil
+func printTimings(w io.Writer, timings []stepTiming, total time.Duration) {
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "Timings")
+	_, _ = fmt.Fprintln(w, "-------")
+	for _, t := range timings {
+		_, _ = fmt.Fprintf(w, "  %-16s %s\n", t.name, fmtDuration(t.duration))
+	}
+	_, _ = fmt.Fprintf(w, "  %-16s %s\n", "total", fmtDuration(total))
+}
+
+func fmtDuration(d time.Duration) string {
+	d = d.Round(100 * time.Millisecond)
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	m := int(d.Minutes())
+	s := d - time.Duration(m)*time.Minute
+	return fmt.Sprintf("%dm%02.0fs", m, s.Seconds())
 }
 
 func runCustomLinter(opts LintOpts) (bool, error) {
@@ -103,10 +152,16 @@ func runCustomLinter(opts LintOpts) (bool, error) {
 	return totalDiags > 0, nil
 }
 
-// RunGolangci runs golangci-lint.
-func RunGolangci(out io.Writer, errW io.Writer) error {
+// RunGolangci runs golangci-lint. If newFromRev is
+// non-empty, only new issues since that revision are
+// reported.
+func RunGolangci(out io.Writer, errW io.Writer, newFromRev string) error {
 	_, _ = fmt.Fprintln(out, "Running golangci-lint...")
-	if err := RunExternal(out, errW, "go", "tool", "golangci-lint", "run"); err != nil {
+	args := []string{"tool", "golangci-lint", "run"}
+	if newFromRev != "" {
+		args = append(args, "--new-from-rev="+newFromRev)
+	}
+	if err := RunExternal(out, errW, "go", args...); err != nil {
 		_, _ = fmt.Fprintf(errW, "golangci-lint failed: %v\n", err)
 		return err
 	}
