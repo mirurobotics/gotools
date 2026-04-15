@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 set -euo pipefail
 
 # Local validation script that mirrors CI (lint + covgate + surface lint).
