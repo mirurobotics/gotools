@@ -474,6 +474,36 @@ func TestCheckPackage_Loose_Fires(t *testing.T) {
 	}
 }
 
+func TestCheckPackage_Loose_RecommendationRounding(t *testing.T) {
+	dir := testutil.MakePkgDir(t, pkgRel)
+	testutil.WriteCovgateFile(t, dir, "10.0\n")
+
+	//nolint:exhaustruct // test uses partial initialization
+	r := runner{measure: fakeMeasure(80.0)}
+
+	//nolint:exhaustruct // test uses partial initialization
+	res := r.checkPackage(pkgName, checkPackageCtx{
+		module:             modName,
+		threshold:          50.0,
+		tightnessEnabled:   true,
+		tightnessTolerance: 0.06,
+	})
+	if res.passed {
+		t.Error("expected fail for loose threshold")
+	}
+	if !strings.Contains(res.output, "LOOSE") {
+		t.Errorf("output missing LOOSE: %s", res.output)
+	}
+	// Without the ceil fix, %.1f would format 79.94 as 79.9 which
+	// still violates the 0.06 tolerance. The fix ceils to 80.0.
+	if !strings.Contains(res.output, ">= 80.0") {
+		t.Errorf(
+			"recommendation should be ceiled to 80.0, got: %s",
+			res.output,
+		)
+	}
+}
+
 func TestCheckPackage_Loose_WithinTolerance(t *testing.T) {
 	dir := testutil.MakePkgDir(t, pkgRel)
 	testutil.WriteCovgateFile(t, dir, "79.6\n")

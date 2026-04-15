@@ -3,6 +3,7 @@ package covgate
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"runtime"
 	"strings"
@@ -197,6 +198,7 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 		gap := coverage - threshold
 		if gap > ctx.tightnessTolerance {
 			recommended := coverage - ctx.tightnessTolerance
+			recommended = math.Ceil(recommended*10) / 10
 			_, _ = fmt.Fprintf(
 				&b, "%-6s  %7.1f%%  %7.1f%%  %8s  "+
 					"%s (required lags actual by %.1fpp; "+
