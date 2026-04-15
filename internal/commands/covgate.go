@@ -44,6 +44,16 @@ func NewCovgateCommand() *cobra.Command {
 		&opts.Parallelism, "parallelism", "p", 0,
 		"max concurrent package measurements (0 = NumCPU)",
 	)
+	fl.BoolVar(
+		&opts.TightnessEnabled, "tightness", true,
+		"fail when required threshold lags actual coverage "+
+			"by more than --tightness-tolerance",
+	)
+	fl.Float64Var(
+		&opts.TightnessTolerance, "tightness-tolerance", 0.5,
+		"max allowed gap in percentage points between "+
+			"actual coverage and required threshold",
+	)
 
 	return cmd
 }

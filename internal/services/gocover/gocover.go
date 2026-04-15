@@ -41,21 +41,31 @@ func GoListPackages(pattern string) ([]string, error) {
 	return NonEmptyLines(out), nil
 }
 
-// GetThreshold reads the coverage threshold from a
-// .covgate file, falling back to the default.
-func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
+// LookupThreshold reads the coverage threshold from a
+// .covgate file. The second return value is true when an
+// explicit .covgate file exists and parses successfully.
+func LookupThreshold(pkgDir string) (float64, bool) {
 	covFile := filepath.Join(pkgDir, ".covgate")
 	//nolint:gosec // G304: trusted file path
 	data, err := os.ReadFile(covFile)
 	if err != nil {
-		return defaultThreshold
+		return 0, false
 	}
 	line := strings.TrimSpace(strings.Split(string(data), "\n")[0])
 	val, err := strconv.ParseFloat(line, 64)
 	if err != nil {
-		return defaultThreshold
+		return 0, false
 	}
-	return val
+	return val, true
+}
+
+// GetThreshold reads the coverage threshold from a
+// .covgate file, falling back to the default.
+func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
+	if v, ok := LookupThreshold(pkgDir); ok {
+		return v
+	}
+	return defaultThreshold
 }
 
 // ExtractCoverage parses the total coverage percentage

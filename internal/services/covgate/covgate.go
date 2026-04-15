@@ -14,12 +14,14 @@ import (
 
 // Opts holds the options for the covgate service.
 type Opts struct {
-	Packages         string
-	SrcPrefix        string
-	TestDir          string
-	DefaultThreshold float64
-	Parallelism      int
-	Out              io.Writer
+	Packages           string
+	SrcPrefix          string
+	TestDir            string
+	DefaultThreshold   float64
+	Parallelism        int
+	TightnessEnabled   bool
+	TightnessTolerance float64
+	Out                io.Writer
 }
 
 type runner struct {
@@ -68,10 +70,12 @@ func (r *runner) run(opts Opts) error {
 	printHeader(w)
 
 	ctx := checkPackageCtx{
-		module:    module,
-		srcPrefix: opts.SrcPrefix,
-		testDir:   opts.TestDir,
-		threshold: opts.DefaultThreshold,
+		module:             module,
+		srcPrefix:          opts.SrcPrefix,
+		testDir:            opts.TestDir,
+		threshold:          opts.DefaultThreshold,
+		tightnessEnabled:   opts.TightnessEnabled,
+		tightnessTolerance: opts.TightnessTolerance,
 	}
 
 	start := time.Now()
@@ -115,7 +119,8 @@ func (r *runner) printResults(
 	if hasFailures {
 		_, _ = fmt.Fprintln(
 			w, "ERROR: One or more packages failed "+
-				"tests or are below their minimum coverage",
+				"tests, are below their minimum coverage, "+
+				"or have loose .covgate thresholds",
 		)
 		return fmt.Errorf("coverage gate failed")
 	}
@@ -144,16 +149,22 @@ type checkResult struct {
 
 // checkPackageCtx holds the per-run constants passed to checkPackage.
 type checkPackageCtx struct {
-	module    string
-	srcPrefix string
-	testDir   string
-	threshold float64
+	module             string
+	srcPrefix          string
+	testDir            string
+	threshold          float64
+	tightnessEnabled   bool
+	tightnessTolerance float64
 }
 
 func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 	relPkg := gocover.RelPkg(pkg, ctx.module)
 	pkgDir := "./" + relPkg
-	threshold := gocover.GetThreshold(pkgDir, ctx.threshold)
+	explicit, hasExplicitCovgate := gocover.LookupThreshold(pkgDir)
+	threshold := ctx.threshold
+	if hasExplicitCovgate {
+		threshold = explicit
+	}
 
 	testPaths := gocover.BuildTestPaths(pkg, relPkg, ctx.srcPrefix, ctx.testDir)
 
@@ -174,15 +185,34 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 		return checkResult{b.String(), false, elapsed}
 	}
 
-	status := "PASS"
 	if coverage < threshold {
-		status = "FAIL"
+		_, _ = fmt.Fprintf(
+			&b, "%-6s  %7.1f%%  %7.1f%%  %8s  %s\n",
+			"FAIL", coverage, threshold, fmtDuration(elapsed), relPkg,
+		)
+		return checkResult{b.String(), false, elapsed}
 	}
+
+	if ctx.tightnessEnabled && hasExplicitCovgate && coverage > 0 {
+		gap := coverage - threshold
+		if gap > ctx.tightnessTolerance {
+			recommended := coverage - ctx.tightnessTolerance
+			_, _ = fmt.Fprintf(
+				&b, "%-6s  %7.1f%%  %7.1f%%  %8s  "+
+					"%s (required lags actual by %.1fpp; "+
+					"update .covgate to >= %.1f)\n",
+				"LOOSE", coverage, threshold, fmtDuration(elapsed),
+				relPkg, gap, recommended,
+			)
+			return checkResult{b.String(), false, elapsed}
+		}
+	}
+
 	_, _ = fmt.Fprintf(
 		&b, "%-6s  %7.1f%%  %7.1f%%  %8s  %s\n",
-		status, coverage, threshold, fmtDuration(elapsed), relPkg,
+		"PASS", coverage, threshold, fmtDuration(elapsed), relPkg,
 	)
-	return checkResult{b.String(), coverage >= threshold, elapsed}
+	return checkResult{b.String(), true, elapsed}
 }
 
 func fmtDuration(d time.Duration) string {

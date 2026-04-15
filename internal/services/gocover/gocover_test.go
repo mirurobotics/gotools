@@ -46,6 +46,52 @@ func TestGetThreshold(t *testing.T) {
 	}
 }
 
+func TestLookupThreshold_Present(t *testing.T) {
+	dir := t.TempDir()
+	covFile := filepath.Join(dir, ".covgate")
+	//nolint:gosec // G306: test file
+	if err := os.WriteFile(covFile, []byte("61.5\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	val, ok := LookupThreshold(dir)
+	if !ok {
+		t.Fatal("expected ok=true for present .covgate")
+	}
+	if val != 61.5 {
+		t.Errorf("LookupThreshold() = %v, want 61.5", val)
+	}
+}
+
+func TestLookupThreshold_Missing(t *testing.T) {
+	dir := t.TempDir()
+
+	val, ok := LookupThreshold(dir)
+	if ok {
+		t.Error("expected ok=false for missing .covgate")
+	}
+	if val != 0 {
+		t.Errorf("LookupThreshold() = %v, want 0", val)
+	}
+}
+
+func TestLookupThreshold_Malformed(t *testing.T) {
+	dir := t.TempDir()
+	covFile := filepath.Join(dir, ".covgate")
+	//nolint:gosec // G306: test file
+	if err := os.WriteFile(covFile, []byte("not-a-number\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	val, ok := LookupThreshold(dir)
+	if ok {
+		t.Error("expected ok=false for malformed .covgate")
+	}
+	if val != 0 {
+		t.Errorf("LookupThreshold() = %v, want 0", val)
+	}
+}
+
 func TestRelPkg(t *testing.T) {
 	tests := []struct {
 		name   string
