@@ -97,68 +97,55 @@ Preflight (`scripts/preflight.sh`) runs `lint.sh`, `covgate.sh`, and `lint-surfa
 
 ### Milestone 1 — Service logic
 
-Edit `internal/services/covgate/covgate.go`:
+In `internal/services/gocover/gocover.go`, add `LookupThreshold(pkgDir) (float64, bool)` and refactor `GetThreshold` to delegate:
 
-1. Extend `Opts` with two new fields:
+    func LookupThreshold(pkgDir string) (float64, bool) {
+        covFile := filepath.Join(pkgDir, ".covgate")
+        data, err := os.ReadFile(covFile)
+        if err != nil {
+            return 0, false
+        }
+        line := strings.TrimSpace(strings.Split(string(data), "\n")[0])
+        val, err := strconv.ParseFloat(line, 64)
+        if err != nil {
+            return 0, false
+        }
+        return val, true
+    }
 
-       TightnessEnabled   bool    // default true (see Opts constructor discussion below)
-       TightnessTolerance float64 // default 0.5
+    func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
+        if v, ok := LookupThreshold(pkgDir); ok {
+            return v
+        }
+        return defaultThreshold
+    }
 
-   Because Go zero-values default `bool` to `false`, the cobra layer must set the default to `true`. Document this in a comment on the field.
+In `internal/services/covgate/covgate.go`:
 
-2. Extend `checkPackageCtx` with the same two fields; populate them in `run()` where `checkPackageCtx` is constructed. Also thread them from `opts` into the context.
+- Extend `Opts` with `TightnessEnabled bool` and `TightnessTolerance float64`. Because Go zero-values `bool` to `false`, the cobra layer must explicitly set the default to `true`.
+- Extend `checkPackageCtx` with matching fields and thread them from `opts` into the context inside `run()`.
+- In `checkPackage()`, call `LookupThreshold` to distinguish explicit `.covgate` from default fallback. After the existing `coverage < threshold` FAIL branch, add:
 
-3. In `checkPackage()`, after the existing `coverage < threshold` branch, add a tightness branch:
+      if ctx.tightnessEnabled && hasExplicitCovgate && coverage > 0 {
+          gap := coverage - threshold
+          if gap > ctx.tightnessTolerance {
+              // LOOSE row, passed = false
+          }
+      }
 
-       // Tightness check: required must not lag actual by more than tolerance.
-       // Only applies when actual > 0 (a zero-coverage package can legitimately
-       // have required 0) and when an explicit .covgate file exists for the
-       // package (otherwise we're using DefaultThreshold, which is a global
-       // fallback, not a per-package declaration — tightening that would be
-       // a different feature).
-       if ctx.tightnessEnabled && coverage > 0 {
-           gap := coverage - threshold
-           if gap > ctx.tightnessTolerance {
-               // LOOSE: format output and mark not-passed.
-           }
-       }
+  Output row format (reusing the existing column layout; status column reads `LOOSE`):
 
-   To know whether `GetThreshold` fell back to the default, add a new `LookupThreshold(pkgDir) (float64, bool)` in `internal/services/gocover/gocover.go` and have `GetThreshold` delegate to it:
+      %-6s  %7.1f%%  %7.1f%%  %8s  %s (required lags actual by %.1fpp; update .covgate to >= %.1f)\n
 
-       func LookupThreshold(pkgDir string) (float64, bool) {
-           covFile := filepath.Join(pkgDir, ".covgate")
-           data, err := os.ReadFile(covFile)
-           if err != nil {
-               return 0, false
-           }
-           line := strings.TrimSpace(strings.Split(string(data), "\n")[0])
-           val, err := strconv.ParseFloat(line, 64)
-           if err != nil {
-               return 0, false
-           }
-           return val, true
-       }
+  The recommended floor is `actual - tolerance`, one decimal.
 
-       func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
-           if v, ok := LookupThreshold(pkgDir); ok {
-               return v
-           }
-           return defaultThreshold
-       }
+- Update `printResults()` error message from
 
-4. In `checkPackage()`, when the tightness branch fires, emit a `LOOSE` status row and set `passed = false`. The output must include the gap in `pp` and the recommended floor (`actual - tolerance`, rounded to one decimal). Example format (reusing the existing column layout):
+      ERROR: One or more packages failed tests or are below their minimum coverage
 
-       %-6s  %7.1f%%  %7.1f%%  %8s  %s (required lags actual by %.1fpp; update .covgate to >= %.1f)\n
+  to
 
-   The status column should read `LOOSE`.
-
-5. Update `printResults()` error message from:
-
-       ERROR: One or more packages failed tests or are below their minimum coverage
-
-   to:
-
-       ERROR: One or more packages failed tests, are below their minimum coverage, or have loose .covgate thresholds
+      ERROR: One or more packages failed tests, are below their minimum coverage, or have loose .covgate thresholds
 
 ### Milestone 2 — CLI wiring
 
