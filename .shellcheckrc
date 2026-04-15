@@ -1,0 +1,7 @@
+# Treat all scripts as POSIX sh (matches the #!/bin/sh shebangs in scripts/).
+# Without this, shellcheck defaults to bash dialect and produces false positives.
+shell=sh
+
+# SC1091: Not following sourced files — the linter cannot resolve paths for
+# files sourced at runtime, producing false positives.
+disable=SC1091
