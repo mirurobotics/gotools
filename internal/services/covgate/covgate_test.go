@@ -497,10 +497,7 @@ func TestCheckPackage_Loose_RecommendationRounding(t *testing.T) {
 	// Without the ceil fix, %.1f would format 79.94 as 79.9 which
 	// still violates the 0.06 tolerance. The fix ceils to 80.0.
 	if !strings.Contains(res.output, ">= 80.0") {
-		t.Errorf(
-			"recommendation should be ceiled to 80.0, got: %s",
-			res.output,
-		)
+		t.Errorf("recommendation should be ceiled to 80.0, got: %s", res.output)
 	}
 }
 
