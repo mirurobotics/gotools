@@ -53,6 +53,10 @@ The check is always on, with `--tightness-tolerance` (default `0.5`) to tune the
   Rationale: A package with no executable tests can legitimately have `required = 0`, `actual = 0`. The gap is `0`, so strict `>` would not fire anyway, but we document the case explicitly to protect against future signed-arithmetic regressions.
   Date/Author: 2026-04-14, planning subagent.
 
+- Decision: Do not fire for packages without an explicit `.covgate` file (i.e., those using `--default-threshold` fallback).
+  Rationale: `--default-threshold` is a global floor applied project-wide, not a per-package declaration. Tightening it per-package would silently flag every package not explicitly configured, which is noise rather than signal. Tightness only applies to values an operator deliberately wrote down.
+  Date/Author: 2026-04-14, planning subagent.
+
 - Decision: New status label `LOOSE`, not a reused `FAIL`.
   Rationale: Distinguishes "required is too loose" from "coverage is below required". Both cause non-zero exit, but operators need to see at a glance which is which.
   Date/Author: 2026-04-14, planning subagent.
@@ -119,12 +123,7 @@ Edit `internal/services/covgate/covgate.go`:
            }
        }
 
-   The guard "explicit .covgate file exists" means we must know whether `GetThreshold` fell back to the default. Options:
-
-   - (a) Call `gocover.GetThreshold` as today, then also stat `<pkgDir>/.covgate` to decide. Simple, one extra stat.
-   - (b) Add a new `gocover.LookupThreshold(pkgDir) (float64, bool)` that returns `(value, found)`. Cleaner but requires a new exported function.
-
-   Choose (b). Add `LookupThreshold` in `internal/services/gocover/gocover.go`, and have `GetThreshold` delegate to it:
+   To know whether `GetThreshold` fell back to the default, add a new `LookupThreshold(pkgDir) (float64, bool)` in `internal/services/gocover/gocover.go` and have `GetThreshold` delegate to it:
 
        func LookupThreshold(pkgDir string) (float64, bool) {
            covFile := filepath.Join(pkgDir, ".covgate")
