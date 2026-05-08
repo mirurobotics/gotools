@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -215,7 +216,7 @@ func TestRun_Parallelism(t *testing.T) {
 	}
 }
 
-func TestRun_Parallelism_DefaultsToNumCPU(t *testing.T) {
+func TestRun_Parallelism_DefaultsToGOMAXPROCS(t *testing.T) {
 	testutil.MakePkgDir(t, "pkg/a")
 
 	var buf bytes.Buffer
@@ -231,7 +232,29 @@ func TestRun_Parallelism_DefaultsToNumCPU(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 0})
 	if err != nil {
-		t.Fatalf("unexpected error with Parallelism=0 (NumCPU): %v", err)
+		t.Fatalf("unexpected error with Parallelism=0 (GOMAXPROCS): %v", err)
+	}
+}
+
+func TestEffectiveParallelism(t *testing.T) {
+	//nolint:exhaustruct // test uses partial initialization
+	if got := effectiveParallelism(Opts{Parallelism: 4}); got != 4 {
+		t.Errorf("effectiveParallelism(4) = %d, want 4", got)
+	}
+	want := runtime.GOMAXPROCS(0)
+	//nolint:exhaustruct // test uses partial initialization
+	if got := effectiveParallelism(Opts{Parallelism: 0}); got != want {
+		t.Errorf("effectiveParallelism(0) = %d, want %d", got, want)
+	}
+}
+
+func TestChildGOMAXPROCS(t *testing.T) {
+	if got := childGOMAXPROCS(1 << 30); got != 1 {
+		t.Errorf("childGOMAXPROCS(1<<30) = %d, want 1 (clamped)", got)
+	}
+	want := runtime.GOMAXPROCS(0)
+	if got := childGOMAXPROCS(1); got != want {
+		t.Errorf("childGOMAXPROCS(1) = %d, want %d", got, want)
 	}
 }
 
@@ -335,6 +358,54 @@ func TestRun_PublicWrapper(t *testing.T) {
 	err := Run(Opts{Out: &buf})
 	if err == nil {
 		t.Fatal("expected error (no go module)")
+	}
+}
+
+func TestRun_PublicWrapper_HappyPath(t *testing.T) {
+	tmp := t.TempDir()
+	t.Chdir(tmp)
+
+	goMod := "module testmod\n\ngo 1.23\n"
+	//nolint:gosec // G306: test file
+	err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte(goMod), 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := filepath.Join(tmp, "mypkg")
+	//nolint:gosec // G301: test directory
+	if err := os.MkdirAll(pkg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lib := "package mypkg\n\n" +
+		"func Add(a, b int) int { return a + b }\n"
+	//nolint:gosec // G306: test file
+	err = os.WriteFile(filepath.Join(pkg, "lib.go"), []byte(lib), 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testSrc := "package mypkg\n\n" +
+		"import \"testing\"\n\n" +
+		"func TestAdd(t *testing.T) {\n" +
+		"\tif Add(1, 2) != 3 { t.Fatal(\"Add broken\") }\n}\n"
+	//nolint:gosec // G306: test file
+	err = os.WriteFile(filepath.Join(pkg, "lib_test.go"), []byte(testSrc), 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	err = Run(Opts{
+		Packages:         "testmod/...",
+		DefaultThreshold: 80.0,
+		Out:              &buf,
+		Parallelism:      1,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v\n%s", err, buf.String())
+	}
+	if !strings.Contains(buf.String(), "All packages meet") {
+		t.Errorf("missing success msg: %s", buf.String())
 	}
 }
 

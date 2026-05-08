@@ -131,6 +131,18 @@ func BuildTestPaths(pkg, relPkg, srcPrefix, testDir string) []string {
 // Uses a temp file for the coverage profile, cleaned up
 // automatically.
 func Measure(pkg string, testPaths []string) (float64, []byte, error) {
+	return MeasureWithEnv(pkg, testPaths, nil)
+}
+
+// MeasureWithEnv is like Measure but appends extraEnv to
+// the test subprocess environment when non-empty.
+// Entries in extraEnv override earlier definitions of the
+// same key (os/exec uses last-wins).
+// This lets callers inject variables such as GOMAXPROCS
+// into the child go test invocation.
+func MeasureWithEnv(
+	pkg string, testPaths []string, extraEnv []string,
+) (float64, []byte, error) {
 	tmpFile, err := os.CreateTemp("", "miru-coverage-*.out")
 	if err != nil {
 		return 0, nil, fmt.Errorf("create temp file: %w", err)
@@ -144,6 +156,9 @@ func Measure(pkg string, testPaths []string) (float64, []byte, error) {
 	args = append(args, testPaths...)
 
 	testCmd := cmdutil.GoCommand(args...)
+	if len(extraEnv) > 0 {
+		testCmd.Env = append(testCmd.Env, extraEnv...)
+	}
 	output, testErr := testCmd.CombinedOutput()
 	if testErr != nil {
 		return 0, output, testErr

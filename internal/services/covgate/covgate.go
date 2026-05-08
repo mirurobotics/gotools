@@ -28,14 +28,37 @@ type runner struct {
 	goModule       func() (string, error)
 	goListPackages func(string) ([]string, error)
 	measure        func(pkg string, testPaths []string) (float64, []byte, error)
+	parallelism    int
+}
+
+// effectiveParallelism and childGOMAXPROCS are intentionally
+// duplicated in covratchet; keep them in sync.
+func effectiveParallelism(opts Opts) int {
+	if opts.Parallelism > 0 {
+		return opts.Parallelism
+	}
+	return runtime.GOMAXPROCS(0)
+}
+
+func childGOMAXPROCS(parallelism int) int {
+	n := runtime.GOMAXPROCS(0) / parallelism
+	if n < 1 {
+		return 1
+	}
+	return n
 }
 
 // Run checks per-package coverage against thresholds.
 func Run(opts Opts) error {
+	parallelism := effectiveParallelism(opts)
+	extraEnv := []string{fmt.Sprintf("GOMAXPROCS=%d", childGOMAXPROCS(parallelism))}
 	r := runner{
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
-		measure:        gocover.Measure,
+		measure: func(pkg string, testPaths []string) (float64, []byte, error) {
+			return gocover.MeasureWithEnv(pkg, testPaths, extraEnv)
+		},
+		parallelism: parallelism,
 	}
 	return r.run(opts)
 }
@@ -46,9 +69,9 @@ func (r *runner) run(opts Opts) error {
 	}
 	w := opts.Out
 
-	parallelism := opts.Parallelism
+	parallelism := r.parallelism
 	if parallelism <= 0 {
-		parallelism = runtime.NumCPU()
+		parallelism = effectiveParallelism(opts)
 	}
 
 	_, _ = fmt.Fprintf(
