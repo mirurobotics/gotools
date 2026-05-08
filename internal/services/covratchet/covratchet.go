@@ -25,8 +25,10 @@ type runner struct {
 	goModule       func() (string, error)
 	goListPackages func(string) ([]string, error)
 	measure        func(pkg string, testPaths []string) (float64, []byte, error)
+	parallelism    int
 }
 
+// effectiveParallelism and childGOMAXPROCS are intentionally duplicated in covgate; keep them in sync.
 func effectiveParallelism(opts Opts) int {
 	if opts.Parallelism > 0 {
 		return opts.Parallelism
@@ -49,7 +51,8 @@ func Run(opts Opts) error {
 	r := runner{
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
-		measure: func(pkg string, testPaths []string) (float64, []byte, error) { return gocover.MeasureWithEnv(pkg, testPaths, extraEnv) },
+		measure:        func(pkg string, testPaths []string) (float64, []byte, error) { return gocover.MeasureWithEnv(pkg, testPaths, extraEnv) },
+		parallelism:    parallelism,
 	}
 	return r.run(opts)
 }
@@ -60,7 +63,10 @@ func (r *runner) run(opts Opts) error {
 	}
 	w := opts.Out
 
-	parallelism := effectiveParallelism(opts)
+	parallelism := r.parallelism
+	if parallelism <= 0 {
+		parallelism = effectiveParallelism(opts)
+	}
 
 	_, _ = fmt.Fprintln(w, "Updating .covgate files (ratchet up only)...")
 	_, _ = fmt.Fprintln(w)

@@ -135,9 +135,11 @@ func Measure(pkg string, testPaths []string) (float64, []byte, error) {
 }
 
 // MeasureWithEnv is like Measure but appends extraEnv to
-// the test subprocess environment when non-empty. This lets
-// callers inject variables such as GOMAXPROCS into the
-// child go test invocation.
+// the test subprocess environment when non-empty.
+// Entries in extraEnv override earlier definitions of the
+// same key (os/exec uses last-wins).
+// This lets callers inject variables such as GOMAXPROCS
+// into the child go test invocation.
 func MeasureWithEnv(pkg string, testPaths []string, extraEnv []string) (float64, []byte, error) {
 	tmpFile, err := os.CreateTemp("", "miru-coverage-*.out")
 	if err != nil {
