@@ -67,7 +67,7 @@ The reader is assumed to have only the gotools working tree.
 
 **Lint:** `LINT_FIX=0 ./scripts/lint.sh` invokes `go run ./cmd/miru lint --paths=internal --exclude=nofmt,bgctx --fix=false`. The custom **collapse** linter (in `internal/services/lint/linter/collapse/`) flags multi-line literals or signatures that would fit on one line. Two collapse-relevant pitfalls in this change:
 
-- The extraEnv slice literal must be one line: `extraEnv := []string{fmt.Sprintf("GOMAXPROCS=%d", childGOMAXPROCS(parallelism))}`.
+- The extraEnv slice literal must be one line: `extraEnv := []string{fmt.Sprintf("GOMAXPROCS=%d", childGOMAXPROCS(parallelism))}`. Both `covgate.go` and `covratchet.go` already import `"fmt"`, so no import-block change is needed.
 - The closure signature must stay on one line: `measure: func(pkg string, testPaths []string) (float64, []byte, error) { ... }`.
 
 **Why this change is needed (problem statement):** outer parallelism `runtime.NumCPU()` × inherited inner GOMAXPROCS ≈ NumCPU² on a constrained CI runner. With zero `t.Parallel` callsites in the repo, the inner GOMAXPROCS does no test-execution work; it only matters for compile/build. Capping it lets us collapse the product back to ≈ available CPUs without giving up build parallelism on machines with explicit per-process capacity.
@@ -88,7 +88,7 @@ The work is structured as four milestones, each ending in one git commit.
 
 This preserves every existing caller (covratchet's runner.measure assignment, gocover_test.go's `TestMeasure` and `TestMeasure_TestFailure`) without signature changes.
 
-In `internal/services/gocover/gocover_test.go`, add `TestMeasureWithEnv_AppliesExtraEnv`. Use `makeGoProject(t)` to set up a tiny temp module, then call `MeasureWithEnv("./mypkg", []string{"./mypkg"}, []string{"GOMAXPROCS=1"})` and assert the call succeeds and returns a coverage value. The test exists primarily to cover the new branch (the `.covgate` threshold is `92.1`).
+In `internal/services/gocover/gocover_test.go`, add `TestMeasureWithEnv_AppliesExtraEnv`. Use `makeGoProject(t)` to set up a tiny temp module, then call `MeasureWithEnv("testmod/mypkg", []string{"testmod/mypkg"}, []string{"GOMAXPROCS=1"})` and assert the call succeeds and returns a coverage value. The test exists primarily to cover the new branch (the `.covgate` threshold is `92.1`).
 
 **Milestone 2 — Update covgate.** In `internal/services/covgate/covgate.go`, add two package-private helpers near the top of the file:
 
@@ -225,7 +225,7 @@ All commands run from `/home/ben/miru/workbench5/repos/gotools`.
 - `go test ./...` exits 0 with all packages PASS.
 - `./scripts/covgate.sh` exits 0 and ends with `All packages meet minimum coverage requirement`.
 - `LINT_FIX=0 ./scripts/lint.sh` exits 0 and ends with `Lint complete`.
-- Behavioral acceptance: with `--parallelism=0` on an N-CPU runner, the outer semaphore is sized to `runtime.GOMAXPROCS(0)` and each spawned `go test` subprocess receives `GOMAXPROCS=1` in its environment. With `--parallelism=2` on an 8-CPU runner, child subprocesses receive `GOMAXPROCS=4`. (The `MeasureWithEnv` test plus the public-wrapper end-to-end tests cover this contract.)
+- Behavioral acceptance (verified by tests, not commands): `TestEffectiveParallelism` asserts that `--parallelism=0` resolves to `runtime.GOMAXPROCS(0)` and explicit values pass through. `TestChildGOMAXPROCS` asserts oversubscribed parallelism returns 1 and that on an 8-CPU runner with `parallelism=2` the child cap is 4. `TestMeasureWithEnv_AppliesExtraEnv` plus the per-service `TestRun_PublicWrapper_PassesThrough` assert the child subprocess actually observes the injected `GOMAXPROCS` env var. All four (in covgate, covratchet, and gocover packages) must PASS under `go test ./...`.
 - Preflight must report `clean` before changes are published. Do not push the feature branch or open a PR until preflight is clean.
 
 ## Idempotence and Recovery
