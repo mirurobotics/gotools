@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -411,9 +412,10 @@ func TestEffectiveParallelism(t *testing.T) {
 	if got := effectiveParallelism(Opts{Parallelism: 4}); got != 4 {
 		t.Errorf("effectiveParallelism(4) = %d, want 4", got)
 	}
+	want := runtime.GOMAXPROCS(0)
 	//nolint:exhaustruct // test uses partial initialization
-	if got := effectiveParallelism(Opts{Parallelism: 0}); got <= 0 {
-		t.Errorf("effectiveParallelism(0) = %d, want > 0", got)
+	if got := effectiveParallelism(Opts{Parallelism: 0}); got != want {
+		t.Errorf("effectiveParallelism(0) = %d, want %d", got, want)
 	}
 }
 
@@ -421,12 +423,13 @@ func TestChildGOMAXPROCS(t *testing.T) {
 	if got := childGOMAXPROCS(1 << 30); got != 1 {
 		t.Errorf("childGOMAXPROCS(1<<30) = %d, want 1 (clamped)", got)
 	}
-	if got := childGOMAXPROCS(1); got < 1 {
-		t.Errorf("childGOMAXPROCS(1) = %d, want >= 1", got)
+	want := runtime.GOMAXPROCS(0)
+	if got := childGOMAXPROCS(1); got != want {
+		t.Errorf("childGOMAXPROCS(1) = %d, want %d", got, want)
 	}
 }
 
-func TestRun_PublicWrapper_PassesThrough(t *testing.T) {
+func TestRun_PublicWrapper_HappyPath(t *testing.T) {
 	tmp := t.TempDir()
 	t.Chdir(tmp)
 
