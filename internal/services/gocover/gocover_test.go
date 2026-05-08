@@ -288,6 +288,22 @@ func TestMeasure(t *testing.T) {
 	}
 }
 
+func TestMeasureWithEnv_AppliesExtraEnv(t *testing.T) {
+	makeGoProject(t)
+
+	cov, _, err := MeasureWithEnv(
+		"testmod/mypkg",
+		[]string{"testmod/mypkg"},
+		[]string{"GOMAXPROCS=1"},
+	)
+	if err != nil {
+		t.Fatalf("MeasureWithEnv: %v", err)
+	}
+	if cov < 100.0 {
+		t.Errorf("expected 100%%, got %.1f%%", cov)
+	}
+}
+
 func TestMeasure_TestFailure(t *testing.T) {
 	tmp := t.TempDir()
 	t.Chdir(tmp)

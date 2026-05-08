@@ -140,7 +140,9 @@ func Measure(pkg string, testPaths []string) (float64, []byte, error) {
 // same key (os/exec uses last-wins).
 // This lets callers inject variables such as GOMAXPROCS
 // into the child go test invocation.
-func MeasureWithEnv(pkg string, testPaths []string, extraEnv []string) (float64, []byte, error) {
+func MeasureWithEnv(
+	pkg string, testPaths []string, extraEnv []string,
+) (float64, []byte, error) {
 	tmpFile, err := os.CreateTemp("", "miru-coverage-*.out")
 	if err != nil {
 		return 0, nil, fmt.Errorf("create temp file: %w", err)

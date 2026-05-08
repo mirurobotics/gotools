@@ -28,7 +28,8 @@ type runner struct {
 	parallelism    int
 }
 
-// effectiveParallelism and childGOMAXPROCS are intentionally duplicated in covgate; keep them in sync.
+// effectiveParallelism and childGOMAXPROCS are intentionally
+// duplicated in covgate; keep them in sync.
 func effectiveParallelism(opts Opts) int {
 	if opts.Parallelism > 0 {
 		return opts.Parallelism
@@ -51,8 +52,10 @@ func Run(opts Opts) error {
 	r := runner{
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
-		measure:        func(pkg string, testPaths []string) (float64, []byte, error) { return gocover.MeasureWithEnv(pkg, testPaths, extraEnv) },
-		parallelism:    parallelism,
+		measure: func(pkg string, testPaths []string) (float64, []byte, error) {
+			return gocover.MeasureWithEnv(pkg, testPaths, extraEnv)
+		},
+		parallelism: parallelism,
 	}
 	return r.run(opts)
 }
