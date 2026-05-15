@@ -18,7 +18,7 @@ After this change, `writeCovgate` writes to a tempfile in the same directory and
 
 ## Progress
 
-- [ ] Milestone 1: replace `writeCovgate` body with tempfile + rename.
+- [x] Milestone 1: replace `writeCovgate` body with tempfile + rename. (2026-05-15)
 - [ ] Milestone 2: add two new tests, update one existing test.
 
 ## Surprises & Discoveries

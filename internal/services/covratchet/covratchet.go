@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -203,8 +204,33 @@ func readCovgate(path string) string {
 	return strings.TrimSpace(strings.Split(string(data), "\n")[0])
 }
 
-func writeCovgate(path string, coverage float64) error {
+func writeCovgate(path string, coverage float64) (err error) {
 	content := fmt.Sprintf("%.1f\n", coverage)
+	dir := filepath.Dir(path)
+	tmpFile, err := os.CreateTemp(dir, ".covgate.tmp-*")
+	if err != nil {
+		return fmt.Errorf("create tempfile for %s: %w", path, err)
+	}
+	tmpName := tmpFile.Name()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(tmpName)
+		}
+	}()
 	//nolint:gosec // G306: intentional 0644
-	return os.WriteFile(path, []byte(content), 0o644)
+	if err = tmpFile.Chmod(0o644); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("chmod tempfile %s: %w", tmpName, err)
+	}
+	if _, err = tmpFile.WriteString(content); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("write tempfile %s: %w", tmpName, err)
+	}
+	if err = tmpFile.Close(); err != nil {
+		return fmt.Errorf("close tempfile %s: %w", tmpName, err)
+	}
+	if err = os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("rename tempfile to %s: %w", path, err)
+	}
+	return nil
 }
