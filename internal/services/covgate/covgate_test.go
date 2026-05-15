@@ -178,13 +178,14 @@ func TestRun_Exclude(t *testing.T) {
 		lookup         map[string][]string
 		wantContains   []string
 		wantNotContain []string
+		extra          func(t *testing.T, out string)
 	}{
 		{
 			name:           "NoExclude",
 			exclude:        "",
 			lookup:         map[string][]string{"./...": allThree},
 			wantContains:   []string{"pkg/a", "pkg/b", "pkg/c"},
-			wantNotContain: []string{"Excluded"},
+			wantNotContain: []string{"Excluded", "SKIPPED"},
 		},
 		{
 			name:    "Subset",
@@ -192,10 +193,13 @@ func TestRun_Exclude(t *testing.T) {
 			lookup:  map[string][]string{"./...": allThree, "./pkg/b": {pkgB}},
 			wantContains: []string{
 				"pkg/a",
+				"pkg/b",
 				"pkg/c",
+				"SKIPPED",
 				"Excluded 1 package(s) from coverage measurement",
+				"All packages meet minimum coverage requirement",
 			},
-			wantNotContain: []string{"pkg/b"},
+			wantNotContain: []string{"FAIL"},
 		},
 		{
 			name:    "NoOpPattern",
@@ -205,7 +209,7 @@ func TestRun_Exclude(t *testing.T) {
 				"./does-not-exist/...": {},
 			},
 			wantContains:   []string{"pkg/a", "pkg/b", "pkg/c"},
-			wantNotContain: []string{"Excluded"},
+			wantNotContain: []string{"Excluded", "SKIPPED"},
 		},
 		{
 			// Includes empty entries before, between, and after
@@ -219,21 +223,83 @@ func TestRun_Exclude(t *testing.T) {
 				"./pkg/c": {pkgC},
 			},
 			wantContains: []string{
+				"pkg/a",
 				"pkg/b",
+				"pkg/c",
+				"SKIPPED",
 				"Excluded 2 package(s) from coverage measurement",
 			},
-			wantNotContain: []string{"pkg/a", "pkg/c"},
+			wantNotContain: []string{"FAIL"},
 		},
 		{
 			name:    "AllPackages",
 			exclude: "./...",
 			lookup:  map[string][]string{"./...": allThree},
 			wantContains: []string{
+				"pkg/a",
+				"pkg/b",
+				"pkg/c",
+				"SKIPPED",
 				"Excluded 3 package(s) from coverage measurement",
 				"All packages meet minimum coverage requirement",
 				"Total time:",
 			},
-			wantNotContain: []string{"pkg/a", "pkg/b", "pkg/c"},
+			wantNotContain: []string{"FAIL"},
+		},
+		{
+			name:    "OrderingAndCount",
+			exclude: "./pkg/b",
+			lookup:  map[string][]string{"./...": allThree, "./pkg/b": {pkgB}},
+			wantContains: []string{
+				"pkg/a",
+				"pkg/b",
+				"pkg/c",
+				"SKIPPED",
+			},
+			wantNotContain: []string{"FAIL"},
+			extra: func(t *testing.T, out string) {
+				t.Helper()
+				idxSkipped := strings.Index(out, "SKIPPED")
+				idxA := strings.Index(out, "pkg/a")
+				idxC := strings.Index(out, "pkg/c")
+				if idxA < 0 || idxC < 0 || idxSkipped < 0 {
+					t.Fatalf("expected pkg/a, pkg/c, and SKIPPED in output:\n%s", out)
+				}
+				if idxA >= idxSkipped {
+					t.Errorf(
+						"expected measured pkg/a row (%d) before SKIPPED block (%d):\n%s",
+						idxA, idxSkipped, out,
+					)
+				}
+				if idxC >= idxSkipped {
+					t.Errorf(
+						"expected measured pkg/c row (%d) before SKIPPED block (%d):\n%s",
+						idxC, idxSkipped, out,
+					)
+				}
+				if got := strings.Count(out, "SKIPPED"); got != 1 {
+					t.Errorf("expected exactly 1 SKIPPED, got %d:\n%s", got, out)
+				}
+				var skippedLine string
+				for _, line := range strings.Split(out, "\n") {
+					if strings.Contains(line, "pkg/b") {
+						skippedLine = line
+						break
+					}
+				}
+				if skippedLine == "" {
+					t.Fatalf("no line contained pkg/b:\n%s", out)
+				}
+				if !strings.Contains(skippedLine, "SKIPPED") {
+					t.Errorf("pkg/b line missing SKIPPED: %q", skippedLine)
+				}
+				if strings.Count(skippedLine, "---") != 3 {
+					t.Errorf(
+						"pkg/b SKIPPED line expected 3 '---' placeholders, got %d: %q",
+						strings.Count(skippedLine, "---"), skippedLine,
+					)
+				}
+			},
 		},
 	}
 
@@ -275,6 +341,9 @@ func TestRun_Exclude(t *testing.T) {
 				if strings.Contains(out, unwanted) {
 					t.Errorf("output unexpectedly contains %q:\n%s", unwanted, out)
 				}
+			}
+			if tc.extra != nil {
+				tc.extra(t, out)
 			}
 		})
 	}
@@ -655,7 +724,7 @@ func TestPrintResults_UsesWallTime(t *testing.T) {
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{}
-	err := r.printResults(&buf, results, 3*time.Second)
+	err := r.printResults(&buf, results, nil, modName, 3*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
