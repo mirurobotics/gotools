@@ -62,6 +62,61 @@ func TestWriteCovgate(t *testing.T) {
 	}
 }
 
+func TestWriteCovgate_NoLeftoverTempfile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".covgate")
+	if err := writeCovgate(path, 42.5); err != nil {
+		t.Fatalf("writeCovgate: %v", err)
+	}
+	//nolint:gosec // G304: test file read
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read .covgate: %v", err)
+	}
+	if string(content) != "42.5\n" {
+		t.Fatalf("got %q, want %q", string(content), "42.5\n")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read dir: %v", err)
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".covgate.tmp-") {
+			t.Fatalf("tempfile leaked: %s", e.Name())
+		}
+	}
+}
+
+func TestWriteCovgate_PreservesExistingOnFailure(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".covgate")
+	//nolint:gosec // G306: test file
+	if err := os.WriteFile(path, []byte("55.0\n"), 0o644); err != nil {
+		t.Fatalf("seed .covgate: %v", err)
+	}
+	//nolint:gosec // G302: test file permissions
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatalf("chmod dir: %v", err)
+	}
+	//nolint:gosec // G302: test file permissions
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	if err := writeCovgate(path, 99.9); err == nil {
+		t.Fatalf("expected error on read-only dir, got nil")
+	}
+	//nolint:gosec // G302: test file permissions
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatalf("restore dir mode: %v", err)
+	}
+	//nolint:gosec // G304: test file read
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read .covgate: %v", err)
+	}
+	if string(content) != "55.0\n" {
+		t.Fatalf("original .covgate clobbered: got %q, want %q", string(content), "55.0\n")
+	}
+}
+
 func TestPrintHeader(t *testing.T) {
 	var buf bytes.Buffer
 	printHeader(&buf)
@@ -217,13 +272,12 @@ func TestRatchetPackage_Up_WriteError(t *testing.T) {
 	dir := testutil.MakePkgDir(t, pkgRel)
 	testutil.WriteCovgateFile(t, dir, "70.0\n")
 
-	covFile := filepath.Join(dir, ".covgate")
 	//nolint:gosec // G302: test file permissions
-	if err := os.Chmod(covFile, 0o444); err != nil {
+	if err := os.Chmod(dir, 0o555); err != nil {
 		t.Fatal(err)
 	}
 	//nolint:gosec // G302: test file permissions
-	t.Cleanup(func() { _ = os.Chmod(covFile, 0o644) })
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
 
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{measure: fakeMeasure(85.0)}
