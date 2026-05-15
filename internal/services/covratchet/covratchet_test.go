@@ -100,8 +100,12 @@ func TestWriteCovgate_PreservesExistingOnFailure(t *testing.T) {
 	}
 	//nolint:gosec // G302: test file permissions
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
-	if err := writeCovgate(path, 99.9); err == nil {
+	err := writeCovgate(path, 99.9)
+	if err == nil {
 		t.Fatalf("expected error on read-only dir, got nil")
+	}
+	if !strings.Contains(err.Error(), "create tempfile") {
+		t.Errorf("error %q does not mention create tempfile", err)
 	}
 	//nolint:gosec // G302: test file permissions
 	if err := os.Chmod(dir, 0o755); err != nil {
