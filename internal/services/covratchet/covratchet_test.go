@@ -117,7 +117,32 @@ func TestWriteCovgate_PreservesExistingOnFailure(t *testing.T) {
 		t.Fatalf("read .covgate: %v", err)
 	}
 	if string(content) != "55.0\n" {
-		t.Fatalf("original .covgate clobbered: got %q, want %q", string(content), "55.0\n")
+		t.Fatalf("original .covgate clobbered: got %q", string(content))
+	}
+}
+
+func TestWriteCovgate_RenameFails(t *testing.T) {
+	parent := t.TempDir()
+	path := filepath.Join(parent, ".covgate")
+	//nolint:gosec // G301: test dir
+	if err := os.Mkdir(path, 0o755); err != nil {
+		t.Fatalf("mkdir target dir: %v", err)
+	}
+	err := writeCovgate(path, 42.0)
+	if err == nil {
+		t.Fatalf("expected error renaming over directory, got nil")
+	}
+	if !strings.Contains(err.Error(), "rename") {
+		t.Errorf("error %q does not mention rename", err)
+	}
+	entries, readErr := os.ReadDir(parent)
+	if readErr != nil {
+		t.Fatalf("read parent dir: %v", readErr)
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".covgate.tmp-") {
+			t.Fatalf("tempfile leaked after failed rename: %s", e.Name())
+		}
 	}
 }
 
