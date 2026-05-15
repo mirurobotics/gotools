@@ -164,6 +164,158 @@ func TestRun_WithFailure(t *testing.T) {
 	}
 }
 
+func TestRun_Exclude(t *testing.T) {
+	const (
+		pkgA = "example.com/mod/pkg/a"
+		pkgB = "example.com/mod/pkg/b"
+		pkgC = "example.com/mod/pkg/c"
+	)
+	allThree := []string{pkgA, pkgB, pkgC}
+
+	cases := []struct {
+		name           string
+		exclude        string
+		lookup         map[string][]string
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name:           "NoExclude",
+			exclude:        "",
+			lookup:         map[string][]string{"./...": allThree},
+			wantContains:   []string{"pkg/a", "pkg/b", "pkg/c"},
+			wantNotContain: []string{"Excluded"},
+		},
+		{
+			name:    "Subset",
+			exclude: "./pkg/b",
+			lookup:  map[string][]string{"./...": allThree, "./pkg/b": {pkgB}},
+			wantContains: []string{
+				"pkg/a",
+				"pkg/c",
+				"Excluded 1 package(s) from coverage measurement",
+			},
+			wantNotContain: []string{"pkg/b"},
+		},
+		{
+			name:    "NoOpPattern",
+			exclude: "./does-not-exist/...",
+			lookup: map[string][]string{
+				"./...":                allThree,
+				"./does-not-exist/...": {},
+			},
+			wantContains:   []string{"pkg/a", "pkg/b", "pkg/c"},
+			wantNotContain: []string{"Excluded"},
+		},
+		{
+			// Includes empty entries before, between, and after
+			// non-empty ones so the trim/skip-empty path is
+			// exercised end-to-end.
+			name:    "MultiplePatternsWithWhitespace",
+			exclude: ", ./pkg/a, , ./pkg/c,",
+			lookup: map[string][]string{
+				"./...":   allThree,
+				"./pkg/a": {pkgA},
+				"./pkg/c": {pkgC},
+			},
+			wantContains: []string{
+				"pkg/b",
+				"Excluded 2 package(s) from coverage measurement",
+			},
+			wantNotContain: []string{"pkg/a", "pkg/c"},
+		},
+		{
+			name:    "AllPackages",
+			exclude: "./...",
+			lookup:  map[string][]string{"./...": allThree},
+			wantContains: []string{
+				"Excluded 3 package(s) from coverage measurement",
+				"All packages meet minimum coverage requirement",
+				"Total time:",
+			},
+			wantNotContain: []string{"pkg/a", "pkg/b", "pkg/c"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			lookup := tc.lookup
+			var buf bytes.Buffer
+			//nolint:exhaustruct // test uses partial initialization
+			r := runner{
+				goModule: func() (string, error) { return modName, nil },
+				goListPackages: func(pattern string) ([]string, error) {
+					out, ok := lookup[pattern]
+					if !ok {
+						return nil, fmt.Errorf("unexpected pattern %q", pattern)
+					}
+					return out, nil
+				},
+				measure: fakeMeasure(90.0),
+			}
+
+			//nolint:exhaustruct // test uses partial initialization
+			err := r.run(Opts{
+				Out:              &buf,
+				DefaultThreshold: 80.0,
+				Packages:         "./...",
+				Exclude:          tc.exclude,
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			out := buf.String()
+			for _, want := range tc.wantContains {
+				if !strings.Contains(out, want) {
+					t.Errorf("output missing %q:\n%s", want, out)
+				}
+			}
+			for _, unwanted := range tc.wantNotContain {
+				if strings.Contains(out, unwanted) {
+					t.Errorf("output unexpectedly contains %q:\n%s", unwanted, out)
+				}
+			}
+		})
+	}
+}
+
+func TestRun_Exclude_GoListError(t *testing.T) {
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	r := runner{
+		goModule: func() (string, error) { return modName, nil },
+		goListPackages: func(pattern string) ([]string, error) {
+			if pattern == "./..." {
+				return []string{"example.com/mod/pkg/a"}, nil
+			}
+			return nil, fmt.Errorf("list failed")
+		},
+		measure: fakeMeasure(90.0),
+	}
+
+	//nolint:exhaustruct // test uses partial initialization
+	err := r.run(Opts{
+		Out:              &buf,
+		DefaultThreshold: 80.0,
+		Packages:         "./...",
+		Exclude:          "./pkg/bogus",
+	})
+	if err == nil {
+		t.Fatal("expected error from exclude pattern resolution")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "./pkg/bogus") {
+		t.Errorf("error missing pattern %q: %v", "./pkg/bogus", err)
+	}
+	if !strings.Contains(msg, "list failed") {
+		t.Errorf("error missing wrapped cause %q: %v", "list failed", err)
+	}
+	if !strings.Contains(msg, "resolve exclude") {
+		t.Errorf("error missing context prefix %q: %v", "resolve exclude", err)
+	}
+}
+
 func TestRun_Parallelism(t *testing.T) {
 	// Use a single temp dir so all three packages share the same cwd.
 	tmp := t.TempDir()

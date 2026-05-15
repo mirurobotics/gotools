@@ -29,6 +29,10 @@ func NewCovgateCommand() *cobra.Command {
 	fl := cmd.Flags()
 	fl.StringVar(&opts.Packages, "packages", "./...", "Go package pattern for go list")
 	fl.StringVar(
+		&opts.Exclude, "exclude", "",
+		"comma-separated list of Go list patterns to exclude from coverage measurement",
+	)
+	fl.StringVar(
 		&opts.SrcPrefix, "src-prefix", "pkg",
 		"source prefix for mapping external test dirs",
 	)
