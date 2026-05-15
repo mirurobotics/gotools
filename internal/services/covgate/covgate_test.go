@@ -186,6 +186,7 @@ func TestRun_Exclude(t *testing.T) {
 			lookup:         map[string][]string{"./...": allThree},
 			wantContains:   []string{"pkg/a", "pkg/b", "pkg/c"},
 			wantNotContain: []string{"Excluded", "SKIPPED"},
+			extra:          nil,
 		},
 		{
 			name:    "Subset",
@@ -200,6 +201,7 @@ func TestRun_Exclude(t *testing.T) {
 				"All packages meet minimum coverage requirement",
 			},
 			wantNotContain: []string{"FAIL"},
+			extra:          nil,
 		},
 		{
 			name:    "NoOpPattern",
@@ -210,6 +212,7 @@ func TestRun_Exclude(t *testing.T) {
 			},
 			wantContains:   []string{"pkg/a", "pkg/b", "pkg/c"},
 			wantNotContain: []string{"Excluded", "SKIPPED"},
+			extra:          nil,
 		},
 		{
 			// Includes empty entries before, between, and after
@@ -230,6 +233,7 @@ func TestRun_Exclude(t *testing.T) {
 				"Excluded 2 package(s) from coverage measurement",
 			},
 			wantNotContain: []string{"FAIL"},
+			extra:          nil,
 		},
 		{
 			name:    "AllPackages",
@@ -245,17 +249,13 @@ func TestRun_Exclude(t *testing.T) {
 				"Total time:",
 			},
 			wantNotContain: []string{"FAIL"},
+			extra:          nil,
 		},
 		{
-			name:    "OrderingAndCount",
-			exclude: "./pkg/b",
-			lookup:  map[string][]string{"./...": allThree, "./pkg/b": {pkgB}},
-			wantContains: []string{
-				"pkg/a",
-				"pkg/b",
-				"pkg/c",
-				"SKIPPED",
-			},
+			name:           "OrderingAndCount",
+			exclude:        "./pkg/b",
+			lookup:         map[string][]string{"./...": allThree, "./pkg/b": {pkgB}},
+			wantContains:   []string{"pkg/a", "pkg/b", "pkg/c", "SKIPPED"},
 			wantNotContain: []string{"FAIL"},
 			extra: func(t *testing.T, out string) {
 				t.Helper()
