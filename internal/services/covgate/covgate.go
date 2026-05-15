@@ -14,7 +14,11 @@ import (
 
 // Opts holds the options for the covgate service.
 type Opts struct {
-	Packages           string
+	Packages string
+	// Exclude is a comma-separated list of Go list patterns whose
+	// matched import paths are removed from the measurement set
+	// before tests run. Empty means no exclusion.
+	Exclude            string
 	SrcPrefix          string
 	TestDir            string
 	DefaultThreshold   float64
@@ -90,6 +94,11 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
+	pkgs, err = r.applyExclude(pkgs, opts.Exclude, w)
+	if err != nil {
+		return err
+	}
+
 	printHeader(w)
 
 	ctx := checkPackageCtx{
@@ -105,6 +114,50 @@ func (r *runner) run(opts Opts) error {
 	results := r.runPackages(pkgs, ctx, parallelism)
 	wallTime := time.Since(start)
 	return r.printResults(w, results, wallTime)
+}
+
+// applyExclude removes packages matched by the comma-separated
+// exclude patterns from pkgs. It preserves the original order of
+// pkgs and prints a one-line notice to w when any package is
+// actually removed. An empty (or whitespace-only) exclude string
+// returns pkgs unchanged with no output.
+func (r *runner) applyExclude(
+	pkgs []string, exclude string, w io.Writer,
+) ([]string, error) {
+	if strings.TrimSpace(exclude) == "" {
+		return pkgs, nil
+	}
+
+	excluded := make(map[string]struct{})
+	for _, raw := range strings.Split(exclude, ",") {
+		entry := strings.TrimSpace(raw)
+		if entry == "" {
+			continue
+		}
+		matched, err := r.goListPackages(entry)
+		if err != nil {
+			return nil, fmt.Errorf("resolve exclude %q: %w", entry, err)
+		}
+		for _, p := range matched {
+			excluded[p] = struct{}{}
+		}
+	}
+
+	kept := make([]string, 0, len(pkgs))
+	for _, p := range pkgs {
+		if _, drop := excluded[p]; drop {
+			continue
+		}
+		kept = append(kept, p)
+	}
+
+	if removed := len(pkgs) - len(kept); removed > 0 {
+		_, _ = fmt.Fprintf(
+			w, "Excluded %d package(s) from coverage measurement\n",
+			removed,
+		)
+	}
+	return kept, nil
 }
 
 func (r *runner) runPackages(
