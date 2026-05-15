@@ -42,15 +42,19 @@ Key user-visible properties:
 
 ## Progress
 
-- [ ] Milestone 1 — Service: thread excluded list through the run and emit `SKIPPED` rows; ignore skipped packages in the failure tally.
-- [ ] Milestone 2 — Tests: update `TestRun_Exclude` cases to assert `SKIPPED` rows and tally behavior; add an all-excluded case; verify summary line still prints.
-- [ ] Milestone 3 — Validation: run `./scripts/preflight.sh`; iterate until it reports `=== All checks passed ===`.
+- [x] Milestone 1 — Service: thread excluded list through the run and emit `SKIPPED` rows; ignore skipped packages in the failure tally. (2026-05-15)
+- [x] Milestone 2 — Tests: update `TestRun_Exclude` cases to assert `SKIPPED` rows and tally behavior; add an all-excluded case; verify summary line still prints. (2026-05-15)
+- [x] Milestone 3 — Validation: run `./scripts/preflight.sh`; iterate until it reports `=== All checks passed ===`. (2026-05-15)
 
 Use timestamps as steps are completed. Split partially completed work into "done" and "remaining" as needed.
 
 ## Surprises & Discoveries
 
-(Add entries as work proceeds.)
+- 2026-05-15: `TestPrintResults_UsesWallTime` in `covgate_test.go` directly calls `r.printResults(...)` with the old 3-arg signature. The plan focused on the table-driven `TestRun_Exclude` tests, but the signature change required updating this test too (added `nil` for `excluded` and `modName` for `module`). No behavior change.
+- 2026-05-15: Preflight surfaced two lint issues on the new test code that the plan didn't anticipate:
+  - `exhaustruct` linter required the new `extra` field to be explicitly set on every case (added `extra: nil` on the five non-`OrderingAndCount` cases).
+  - The custom `collapse` linter flagged a 4-element string slice spread across multiple lines; collapsed to one line.
+  Both are stylistic fixes — landed in a follow-up `chore(covgate): preflight fixes` commit per the plan's idempotence note.
 
 ## Decision Log
 
@@ -72,7 +76,11 @@ Use timestamps as steps are completed. Split partially completed work into "done
 
 ## Outcomes & Retrospective
 
-(Summarize at completion or major milestones.)
+- 2026-05-15: All three milestones complete. `./scripts/preflight.sh` reports `=== All checks passed ===`. Commits on `feat/covgate-skipped-rows`:
+  - `70ee0ee` feat(covgate): render --exclude packages as SKIPPED rows
+  - `6d185db` test(covgate): assert SKIPPED rows render for --exclude and don't fail the run
+  - `a029d2e` chore(covgate): preflight fixes
+  The behavior change is purely visual: excluded packages now appear as `SKIPPED` rows at the end of the per-package table with `---` placeholders for COVERAGE/REQUIRED/TIME; STATUS column widened from 6→7 chars for `SKIPPED` alignment; failure tally unchanged (SKIPPED packages do not flip it).
 
 ## Context and Orientation
 
