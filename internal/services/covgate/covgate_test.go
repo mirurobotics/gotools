@@ -180,21 +180,16 @@ func TestRun_Exclude(t *testing.T) {
 		wantNotContain []string
 	}{
 		{
-			name:    "NoExclude",
-			exclude: "",
-			lookup: map[string][]string{
-				"./...": allThree,
-			},
+			name:           "NoExclude",
+			exclude:        "",
+			lookup:         map[string][]string{"./...": allThree},
 			wantContains:   []string{"pkg/a", "pkg/b", "pkg/c"},
 			wantNotContain: []string{"Excluded"},
 		},
 		{
 			name:    "Subset",
 			exclude: "./pkg/b",
-			lookup: map[string][]string{
-				"./...":   allThree,
-				"./pkg/b": {pkgB},
-			},
+			lookup:  map[string][]string{"./...": allThree, "./pkg/b": {pkgB}},
 			wantContains: []string{
 				"pkg/a",
 				"pkg/c",
@@ -213,8 +208,11 @@ func TestRun_Exclude(t *testing.T) {
 			wantNotContain: []string{"Excluded"},
 		},
 		{
+			// Includes empty entries before, between, and after
+			// non-empty ones so the trim/skip-empty path is
+			// exercised end-to-end.
 			name:    "MultiplePatternsWithWhitespace",
-			exclude: "./pkg/a, ./pkg/c",
+			exclude: ", ./pkg/a, , ./pkg/c,",
 			lookup: map[string][]string{
 				"./...":   allThree,
 				"./pkg/a": {pkgA},
@@ -229,9 +227,7 @@ func TestRun_Exclude(t *testing.T) {
 		{
 			name:    "AllPackages",
 			exclude: "./...",
-			lookup: map[string][]string{
-				"./...": allThree,
-			},
+			lookup:  map[string][]string{"./...": allThree},
 			wantContains: []string{
 				"Excluded 3 package(s) from coverage measurement",
 				"All packages meet minimum coverage requirement",
