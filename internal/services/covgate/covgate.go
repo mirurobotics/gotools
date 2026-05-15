@@ -94,7 +94,7 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
-	pkgs, err = r.applyExclude(pkgs, opts.Exclude, w)
+	pkgs, excluded, err := r.applyExclude(pkgs, opts.Exclude, w)
 	if err != nil {
 		return err
 	}
@@ -113,51 +113,54 @@ func (r *runner) run(opts Opts) error {
 	start := time.Now()
 	results := r.runPackages(pkgs, ctx, parallelism)
 	wallTime := time.Since(start)
-	return r.printResults(w, results, wallTime)
+	return r.printResults(w, results, excluded, module, wallTime)
 }
 
 // applyExclude removes packages matched by the comma-separated
 // exclude patterns from pkgs. It preserves the original order of
-// pkgs and prints a one-line notice to w when any package is
-// actually removed. An empty (or whitespace-only) exclude string
-// returns pkgs unchanged with no output.
+// pkgs in both returned slices and prints a one-line notice to w
+// when any package is actually removed. An empty (or
+// whitespace-only) exclude string returns pkgs unchanged, a nil
+// excluded slice, and no output.
 func (r *runner) applyExclude(
 	pkgs []string, exclude string, w io.Writer,
-) ([]string, error) {
+) (kept []string, excluded []string, err error) {
 	if strings.TrimSpace(exclude) == "" {
-		return pkgs, nil
+		return pkgs, nil, nil
 	}
 
-	excluded := make(map[string]struct{})
+	excludedSet := make(map[string]struct{})
 	for _, raw := range strings.Split(exclude, ",") {
 		entry := strings.TrimSpace(raw)
 		if entry == "" {
 			continue
 		}
-		matched, err := r.goListPackages(entry)
-		if err != nil {
-			return nil, fmt.Errorf("resolve exclude %q: %w", entry, err)
+		matched, listErr := r.goListPackages(entry)
+		if listErr != nil {
+			return nil, nil, fmt.Errorf("resolve exclude %q: %w", entry, listErr)
 		}
 		for _, p := range matched {
-			excluded[p] = struct{}{}
+			excludedSet[p] = struct{}{}
 		}
 	}
 
-	kept := make([]string, 0, len(pkgs))
+	kept = make([]string, 0, len(pkgs))
+	excluded = make([]string, 0, len(excludedSet))
 	for _, p := range pkgs {
-		if _, drop := excluded[p]; drop {
+		if _, drop := excludedSet[p]; drop {
+			excluded = append(excluded, p)
 			continue
 		}
 		kept = append(kept, p)
 	}
 
-	if removed := len(pkgs) - len(kept); removed > 0 {
+	if len(excluded) > 0 {
 		_, _ = fmt.Fprintf(
 			w, "Excluded %d package(s) from coverage measurement\n",
-			removed,
+			len(excluded),
 		)
 	}
-	return kept, nil
+	return kept, excluded, nil
 }
 
 func (r *runner) runPackages(
@@ -181,7 +184,11 @@ func (r *runner) runPackages(
 }
 
 func (r *runner) printResults(
-	w io.Writer, results []checkResult, totalTime time.Duration,
+	w io.Writer,
+	results []checkResult,
+	excluded []string,
+	module string,
+	totalTime time.Duration,
 ) error {
 	hasFailures := false
 	for _, res := range results {
@@ -189,6 +196,10 @@ func (r *runner) printResults(
 		if !res.passed {
 			hasFailures = true
 		}
+	}
+
+	for _, pkg := range excluded {
+		_, _ = fmt.Fprint(w, skippedRow(gocover.RelPkg(pkg, module)))
 	}
 
 	_, _ = fmt.Fprintf(w, "\nTotal time: %s\n", fmtDuration(totalTime))
@@ -207,12 +218,12 @@ func (r *runner) printResults(
 
 func printHeader(w io.Writer) {
 	_, _ = fmt.Fprintf(
-		w, "%-6s  %8s  %8s  %8s  %s\n",
+		w, "%-7s  %8s  %8s  %8s  %s\n",
 		"STATUS", "COVERAGE", "REQUIRED", "TIME", "PACKAGE",
 	)
 	_, _ = fmt.Fprintf(
-		w, "%-6s  %8s  %8s  %8s  %s\n",
-		"------", "--------", "--------", "--------", "-------",
+		w, "%-7s  %8s  %8s  %8s  %s\n",
+		"-------", "--------", "--------", "--------", "-------",
 	)
 }
 
@@ -251,7 +262,7 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 	var b strings.Builder
 	if testErr != nil {
 		_, _ = fmt.Fprintf(
-			&b, "%-6s  %8s  %8s  %8s  %s\n",
+			&b, "%-7s  %8s  %8s  %8s  %s\n",
 			"FAIL", "---", "---", fmtDuration(elapsed),
 			relPkg+" (tests failed)",
 		)
@@ -263,7 +274,7 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 
 	if coverage < threshold {
 		_, _ = fmt.Fprintf(
-			&b, "%-6s  %7.1f%%  %7.1f%%  %8s  %s\n",
+			&b, "%-7s  %7.1f%%  %7.1f%%  %8s  %s\n",
 			"FAIL", coverage, threshold, fmtDuration(elapsed), relPkg,
 		)
 		return checkResult{b.String(), false, elapsed}
@@ -274,7 +285,7 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 		if gap > ctx.tightnessTolerance {
 			recommended := coverage - ctx.tightnessTolerance
 			_, _ = fmt.Fprintf(
-				&b, "%-6s  %7.1f%%  %7.1f%%  %8s  "+
+				&b, "%-7s  %7.1f%%  %7.1f%%  %8s  "+
 					"%s (required lags actual by %.1fpp; "+
 					"update .covgate to >= %.1f)\n",
 				"LOOSE", coverage, threshold, fmtDuration(elapsed),
@@ -285,10 +296,21 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 	}
 
 	_, _ = fmt.Fprintf(
-		&b, "%-6s  %7.1f%%  %7.1f%%  %8s  %s\n",
+		&b, "%-7s  %7.1f%%  %7.1f%%  %8s  %s\n",
 		"PASS", coverage, threshold, fmtDuration(elapsed), relPkg,
 	)
 	return checkResult{b.String(), true, elapsed}
+}
+
+// skippedRow formats a single SKIPPED row using the same column
+// widths as PASS/FAIL/LOOSE. relPkg is the module-relative import
+// path. Used for packages removed by --exclude so the user can see
+// which ones were skipped.
+func skippedRow(relPkg string) string {
+	return fmt.Sprintf(
+		"%-7s  %8s  %8s  %8s  %s\n",
+		"SKIPPED", "---", "---", "---", relPkg,
+	)
 }
 
 func fmtDuration(d time.Duration) string {
