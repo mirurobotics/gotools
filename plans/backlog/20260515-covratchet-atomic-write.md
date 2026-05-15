@@ -71,7 +71,7 @@ Replace the body of `writeCovgate` in `internal/services/covratchet/covratchet.g
 6. `os.Rename(tmpFile.Name(), path)`.
 7. On any error after the tempfile is created, `os.Remove(tmpFile.Name())` before returning. Wrap the returned error with `fmt.Errorf("... %w", err)` so callers see context. Use a `defer` with a named return error, or an explicit cleanup branch — either is fine; pick whichever keeps the function short.
 
-The function signature stays `func writeCovgate(path string, coverage float64) error`. No callers change. No new imports beyond `path/filepath` (already imported in this file — verify before adding).
+The function signature stays `func writeCovgate(path string, coverage float64) error`. No callers change. Add `"path/filepath"` to the import block — it is not currently imported in `covratchet.go` (the existing imports are `fmt`, `io`, `os`, `runtime`, `strconv`, `strings`, `sync`, and `github.com/mirurobotics/gotools/internal/services/gocover`).
 
 ### Milestone 2 — tests
 
@@ -124,7 +124,7 @@ All commands run from the repo root `/home/ben/miru/workbench1/repos/gotools` un
                 return nil
         }
 
-   Verify `path/filepath` is already imported at the top of the file before relying on it. If absent, add it to the import block.
+   Add `"path/filepath"` to the import block at the top of `covratchet.go`; it is not currently imported (existing imports: `fmt`, `io`, `os`, `runtime`, `strconv`, `strings`, `sync`, plus the internal `gocover` package). Place it alphabetically between `"os"` and `"runtime"`.
 
 2. Run the covratchet package tests:
 
@@ -151,6 +151,7 @@ All commands run from the repo root `/home/ben/miru/workbench1/repos/gotools` un
                 if err := writeCovgate(path, 42.5); err != nil {
                         t.Fatalf("writeCovgate: %v", err)
                 }
+                //nolint:gosec // G304: test file read
                 content, err := os.ReadFile(path)
                 if err != nil {
                         t.Fatalf("read .covgate: %v", err)
@@ -174,19 +175,24 @@ All commands run from the repo root `/home/ben/miru/workbench1/repos/gotools` un
         func TestWriteCovgate_PreservesExistingOnFailure(t *testing.T) {
                 dir := t.TempDir()
                 path := filepath.Join(dir, ".covgate")
+                //nolint:gosec // G306: test file
                 if err := os.WriteFile(path, []byte("55.0\n"), 0o644); err != nil {
                         t.Fatalf("seed .covgate: %v", err)
                 }
+                //nolint:gosec // G302: test file permissions
                 if err := os.Chmod(dir, 0o555); err != nil {
                         t.Fatalf("chmod dir: %v", err)
                 }
+                //nolint:gosec // G302: test file permissions
                 t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
                 if err := writeCovgate(path, 99.9); err == nil {
                         t.Fatalf("expected error on read-only dir, got nil")
                 }
+                //nolint:gosec // G302: test file permissions
                 if err := os.Chmod(dir, 0o755); err != nil {
                         t.Fatalf("restore dir mode: %v", err)
                 }
+                //nolint:gosec // G304: test file read
                 content, err := os.ReadFile(path)
                 if err != nil {
                         t.Fatalf("read .covgate: %v", err)
@@ -196,19 +202,26 @@ All commands run from the repo root `/home/ben/miru/workbench1/repos/gotools` un
                 }
         }
 
-   Add `"strings"` to the test file's import block if not already present.
+   `"strings"` is already imported in the test file (line 9) — no import change needed.
 
-2. Update `TestRatchetPackage_Up_WriteError` (lines 216–238). Replace the line that chmods the `.covgate` file with one that chmods the package directory, mirroring `TestRatchetPackage_New_WriteError`:
+2. Update `TestRatchetPackage_Up_WriteError` (lines 216–238). The existing test uses local variables `dir` (the package directory from `testutil.MakePkgDir`) and `covFile` (the joined `.covgate` path). Replace the two-line chmod of `covFile` (lines 221–222) and its cleanup (lines 225–226) so the chmod targets `dir` instead, mirroring `TestRatchetPackage_New_WriteError`:
 
         // before:
-        // if err := os.Chmod(covgatePath, 0o444); err != nil { ... }
+        // //nolint:gosec // G302: test file permissions
+        // if err := os.Chmod(covFile, 0o444); err != nil {
+        //         t.Fatal(err)
+        // }
+        // //nolint:gosec // G302: test file permissions
+        // t.Cleanup(func() { _ = os.Chmod(covFile, 0o644) })
         // after:
-        if err := os.Chmod(pkgDir, 0o555); err != nil {
-                t.Fatalf("chmod pkgDir: %v", err)
+        //nolint:gosec // G302: test file permissions
+        if err := os.Chmod(dir, 0o555); err != nil {
+                t.Fatal(err)
         }
-        t.Cleanup(func() { _ = os.Chmod(pkgDir, 0o755) })
+        //nolint:gosec // G302: test file permissions
+        t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
 
-   (Adjust variable names to match the existing test's identifiers.)
+   The `covFile` local can be removed if no longer referenced after this edit.
 
 3. Run the covratchet tests:
 
