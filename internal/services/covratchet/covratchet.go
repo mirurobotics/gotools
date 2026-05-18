@@ -26,36 +26,26 @@ type runner struct {
 	goListPackages func(string) ([]string, error)
 	measure        func(pkg string, testPaths []string) (float64, []byte, error)
 	parallelism    int
+	emitProgress   bool
 }
 
-// effectiveParallelism and childGOMAXPROCS are intentionally
-// duplicated in covgate; keep them in sync.
+// effectiveParallelism is intentionally duplicated in covgate;
+// keep them in sync.
 func effectiveParallelism(opts Opts) int {
 	if opts.Parallelism > 0 {
 		return opts.Parallelism
 	}
-	return runtime.GOMAXPROCS(0)
-}
-
-func childGOMAXPROCS(parallelism int) int {
-	n := runtime.GOMAXPROCS(0) / parallelism
-	if n < 1 {
-		return 1
-	}
-	return n
+	return runtime.NumCPU()
 }
 
 // Run ratchets up .covgate thresholds.
 func Run(opts Opts) error {
-	parallelism := effectiveParallelism(opts)
-	extraEnv := []string{fmt.Sprintf("GOMAXPROCS=%d", childGOMAXPROCS(parallelism))}
 	r := runner{
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
-		measure: func(pkg string, testPaths []string) (float64, []byte, error) {
-			return gocover.MeasureWithEnv(pkg, testPaths, extraEnv)
-		},
-		parallelism: parallelism,
+		measure:        gocover.Measure,
+		parallelism:    effectiveParallelism(opts),
+		emitProgress:   opts.Parallelism == 0,
 	}
 	return r.run(opts)
 }
@@ -84,22 +74,22 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
+	if r.emitProgress {
+		_, _ = fmt.Fprintf(
+			w, "Running %d packages with parallelism=%d; "+
+				"progress will appear as packages finish:\n",
+			len(pkgs), parallelism,
+		)
+	}
+
 	printHeader(w)
 
-	results := make([]ratchetResult, len(pkgs))
-	sem := make(chan struct{}, parallelism)
-	var wg sync.WaitGroup
-
-	for i, pkg := range pkgs {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(idx int, p string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			results[idx] = r.ratchetPackage(p, module, opts.SrcPrefix, opts.TestDir)
-		}(i, pkg)
+	ctx := ratchetCtx{
+		module:    module,
+		srcPrefix: opts.SrcPrefix,
+		testDir:   opts.TestDir,
 	}
-	wg.Wait()
+	results := r.runPackages(pkgs, ctx, parallelism, w)
 
 	updated := 0
 	unchanged := 0
@@ -132,6 +122,50 @@ func printHeader(w io.Writer) {
 		"------", "--------", "-------", "-------",
 	)
 }
+
+// ratchetCtx holds the per-run constants threaded into ratchetPackage.
+type ratchetCtx struct {
+	module    string
+	srcPrefix string
+	testDir   string
+}
+
+func (r *runner) runPackages(
+	pkgs []string, ctx ratchetCtx, parallelism int, w io.Writer,
+) []ratchetResult {
+	total := len(pkgs)
+	results := make([]ratchetResult, total)
+	sem := make(chan struct{}, parallelism)
+	var wg sync.WaitGroup
+	var progressMu sync.Mutex
+
+	for i, pkg := range pkgs {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int, p string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			results[idx] = r.ratchetPackage(p, ctx.module, ctx.srcPrefix, ctx.testDir)
+			if r.emitProgress {
+				progressMu.Lock()
+				_, _ = fmt.Fprintf(
+					w, "[%d/%d] %s  %s\n",
+					idx+1, total,
+					progressStatus(results[idx].output),
+					gocover.RelPkg(p, ctx.module),
+				)
+				progressMu.Unlock()
+			}
+		}(i, pkg)
+	}
+	wg.Wait()
+	return results
+}
+
+// progressStatus extracts the first whitespace-delimited token of
+// the result's first output line, which is the status keyword
+// (NEW, UP, OK, FAIL) printed by ratchetPackage.
+func progressStatus(output string) string { return strings.Fields(output)[0] }
 
 // ratchetResult holds the output and counts for a single package ratchet.
 type ratchetResult struct {

@@ -39,7 +39,7 @@ func NewCovratchetCommand() *cobra.Command {
 	)
 	fl.IntVarP(
 		&opts.Parallelism, "parallelism", "p", 0,
-		"max concurrent package measurements (0 = GOMAXPROCS)",
+		"max concurrent package measurements (0 = NumCPU; emits progress)",
 	)
 
 	return cmd

@@ -33,36 +33,26 @@ type runner struct {
 	goListPackages func(string) ([]string, error)
 	measure        func(pkg string, testPaths []string) (float64, []byte, error)
 	parallelism    int
+	emitProgress   bool
 }
 
-// effectiveParallelism and childGOMAXPROCS are intentionally
-// duplicated in covratchet; keep them in sync.
+// effectiveParallelism is intentionally duplicated in covratchet;
+// keep them in sync.
 func effectiveParallelism(opts Opts) int {
 	if opts.Parallelism > 0 {
 		return opts.Parallelism
 	}
-	return runtime.GOMAXPROCS(0)
-}
-
-func childGOMAXPROCS(parallelism int) int {
-	n := runtime.GOMAXPROCS(0) / parallelism
-	if n < 1 {
-		return 1
-	}
-	return n
+	return runtime.NumCPU()
 }
 
 // Run checks per-package coverage against thresholds.
 func Run(opts Opts) error {
-	parallelism := effectiveParallelism(opts)
-	extraEnv := []string{fmt.Sprintf("GOMAXPROCS=%d", childGOMAXPROCS(parallelism))}
 	r := runner{
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
-		measure: func(pkg string, testPaths []string) (float64, []byte, error) {
-			return gocover.MeasureWithEnv(pkg, testPaths, extraEnv)
-		},
-		parallelism: parallelism,
+		measure:        gocover.Measure,
+		parallelism:    effectiveParallelism(opts),
+		emitProgress:   opts.Parallelism == 0,
 	}
 	return r.run(opts)
 }
@@ -99,6 +89,14 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
+	if r.emitProgress {
+		_, _ = fmt.Fprintf(
+			w, "Running %d packages with parallelism=%d; "+
+				"progress will appear as packages finish:\n",
+			len(pkgs), parallelism,
+		)
+	}
+
 	printHeader(w)
 
 	ctx := checkPackageCtx{
@@ -111,7 +109,7 @@ func (r *runner) run(opts Opts) error {
 	}
 
 	start := time.Now()
-	results := r.runPackages(pkgs, ctx, parallelism)
+	results := r.runPackages(pkgs, ctx, parallelism, w)
 	wallTime := time.Since(start)
 	return r.printResults(w, results, excluded, module, wallTime)
 }
@@ -164,11 +162,13 @@ func (r *runner) applyExclude(
 }
 
 func (r *runner) runPackages(
-	pkgs []string, ctx checkPackageCtx, parallelism int,
+	pkgs []string, ctx checkPackageCtx, parallelism int, w io.Writer,
 ) []checkResult {
-	results := make([]checkResult, len(pkgs))
+	total := len(pkgs)
+	results := make([]checkResult, total)
 	sem := make(chan struct{}, parallelism)
 	var wg sync.WaitGroup
+	var progressMu sync.Mutex
 
 	for i, pkg := range pkgs {
 		wg.Add(1)
@@ -177,11 +177,27 @@ func (r *runner) runPackages(
 			defer wg.Done()
 			defer func() { <-sem }()
 			results[idx] = r.checkPackage(p, ctx)
+			if r.emitProgress {
+				progressMu.Lock()
+				_, _ = fmt.Fprintf(
+					w, "[%d/%d] %s  %s  %s\n",
+					idx+1, total,
+					progressStatus(results[idx].output),
+					gocover.RelPkg(p, ctx.module),
+					fmtDuration(results[idx].duration),
+				)
+				progressMu.Unlock()
+			}
 		}(i, pkg)
 	}
 	wg.Wait()
 	return results
 }
+
+// progressStatus extracts the first whitespace-delimited token of
+// the result's first output line, which is the status keyword
+// (PASS, FAIL, LOOSE) printed by checkPackage.
+func progressStatus(output string) string { return strings.Fields(output)[0] }
 
 func (r *runner) printResults(
 	w io.Writer,
