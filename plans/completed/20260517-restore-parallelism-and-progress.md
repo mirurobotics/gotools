@@ -24,11 +24,11 @@ After this change:
 
 Add entries as work proceeds.
 
-- [ ] Milestone 1: investigate / confirm CI runner CPU budget (record finding in Decision Log) and adjust the default-parallelism strategy accordingly.
-- [ ] Milestone 2: restore default outer parallelism in covgate (`effectiveParallelism`), remove the unconditional child `GOMAXPROCS` cap for `parallelism=0`, update flag help text, and update tests.
-- [ ] Milestone 3: apply the structurally identical change to covratchet, including the `.covgate` threshold (re-measure and adjust if needed).
-- [ ] Milestone 4: add live progress reporting when `parallelism=0` (or, equivalently, when the auto-default path is taken). Add tests that pin the observable behavior (lines emitted as work completes, suppressed when `--parallelism > 0`).
-- [ ] Milestone 5: full validation (build, test, covgate.sh, lint, preflight) and confirm preflight reports `clean` before publishing.
+- [x] Milestone 1: investigate / confirm CI runner CPU budget (record finding in Decision Log) and adjust the default-parallelism strategy accordingly.
+- [x] Milestone 2: restore default outer parallelism in covgate (`effectiveParallelism`), remove the unconditional child `GOMAXPROCS` cap for `parallelism=0`, update flag help text, and update tests.
+- [x] Milestone 3: apply the structurally identical change to covratchet, including the `.covgate` threshold (re-measure and adjust if needed).
+- [x] Milestone 4: add live progress reporting when `parallelism=0` (or, equivalently, when the auto-default path is taken). Add tests that pin the observable behavior (lines emitted as work completes, suppressed when `--parallelism > 0`).
+- [x] Milestone 5: full validation (build, test, covgate.sh, lint, preflight) and confirm preflight reports `clean` before publishing.
 
 ## Surprises & Discoveries
 
