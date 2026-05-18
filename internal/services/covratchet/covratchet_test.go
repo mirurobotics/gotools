@@ -446,17 +446,36 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "[1/2]") {
-		t.Errorf("output missing [1/2] progress line:\n%s", out)
+	// Each progress line should carry the per-package package
+	// path (the row's last column), not just the count marker.
+	if !hasProgressLineWith(out, "[1/2]", "pkg/") {
+		t.Errorf(
+			"expected [1/2] progress line to include the package "+
+				"path:\n%s", out,
+		)
 	}
-	if !strings.Contains(out, "[2/2]") {
-		t.Errorf("output missing [2/2] progress line:\n%s", out)
+	if !hasProgressLineWith(out, "[2/2]", "pkg/") {
+		t.Errorf(
+			"expected [2/2] progress line to include the package "+
+				"path:\n%s", out,
+		)
+	}
+	if !strings.Contains(out, "COUNT") {
+		t.Errorf("expected progress header to include COUNT column:\n%s", out)
+	}
+	// STATUS header should appear exactly once — the progress
+	// stream is the single canonical table.
+	if got := strings.Count(out, "STATUS"); got != 1 {
+		t.Errorf(
+			"expected exactly one STATUS header (progress IS "+
+				"the table); got %d:\n%s", got, out,
+		)
 	}
 	idxAnnounce := strings.Index(out, "Running 2 packages with parallelism=")
-	idxHeader := strings.Index(out, "STATUS")
+	idxHeader := strings.Index(out, "COUNT")
 	if idxAnnounce < 0 || idxHeader < 0 || idxAnnounce >= idxHeader {
 		t.Errorf(
-			"expected leading announcement before STATUS header "+
+			"expected leading announcement before COUNT header "+
 				"(announce=%d, header=%d):\n%s",
 			idxAnnounce, idxHeader, out,
 		)
@@ -471,6 +490,19 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 			idxProgress1, idxProgress2, idxFinal, out,
 		)
 	}
+}
+
+// hasProgressLineWith reports whether out contains a single line
+// that matches both the count marker and an additional substring
+// (used to verify progress lines carry full row data, not just the
+// counter).
+func hasProgressLineWith(out, marker, contains string) bool {
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, marker) && strings.Contains(line, contains) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestRun_SuppressesProgress_WhenExplicitParallelism(t *testing.T) {
@@ -503,8 +535,17 @@ func TestRun_SuppressesProgress_WhenExplicitParallelism(t *testing.T) {
 	if strings.Contains(out, "[1/2]") || strings.Contains(out, "[2/2]") {
 		t.Errorf("output unexpectedly contains progress prefix:\n%s", out)
 	}
-	if strings.Contains(out, "progress will appear") {
+	if strings.Contains(out, "Running 2 packages with parallelism=") {
 		t.Errorf("output unexpectedly contains leading announcement:\n%s", out)
+	}
+	if strings.Contains(out, "COUNT") {
+		t.Errorf("output unexpectedly contains COUNT progress header:\n%s", out)
+	}
+	if got := strings.Count(out, "STATUS"); got != 1 {
+		t.Errorf(
+			"expected exactly one STATUS header (no progress "+
+				"section); got %d:\n%s", got, out,
+		)
 	}
 }
 

@@ -74,16 +74,7 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
-	if r.emitProgress {
-		_, _ = fmt.Fprintf(
-			w, "Running %d packages with parallelism=%d; "+
-				"progress will appear as packages finish:\n",
-			len(pkgs), parallelism,
-		)
-	}
-
-	printHeader(w)
-
+	r.writeRunHeader(w, len(pkgs), parallelism)
 	ctx := ratchetCtx{
 		module:    module,
 		srcPrefix: opts.SrcPrefix,
@@ -91,11 +82,11 @@ func (r *runner) run(opts Opts) error {
 	}
 	results := r.runPackages(pkgs, ctx, parallelism, w)
 
-	updated := 0
-	unchanged := 0
-	failed := 0
+	updated, unchanged, failed := 0, 0, 0
 	for _, res := range results {
-		_, _ = fmt.Fprint(w, res.output)
+		if !r.emitProgress {
+			_, _ = fmt.Fprint(w, res.output)
+		}
 		updated += res.updated
 		unchanged += res.unchanged
 		failed += res.failed
@@ -112,6 +103,21 @@ func (r *runner) run(opts Opts) error {
 	return nil
 }
 
+// writeRunHeader writes the announce line and the progress table
+// header when progress is enabled; otherwise it writes the
+// standard table header.
+func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
+	if !r.emitProgress {
+		printHeader(w)
+		return
+	}
+	_, _ = fmt.Fprintf(
+		w, "Running %d packages with parallelism=%d; progress:\n",
+		total, parallelism,
+	)
+	printProgressHeader(w, total)
+}
+
 func printHeader(w io.Writer) {
 	_, _ = fmt.Fprintf(
 		w, "%-6s  %8s  %8s  %s\n",
@@ -122,6 +128,33 @@ func printHeader(w io.Writer) {
 		"------", "--------", "-------", "-------",
 	)
 }
+
+// printProgressHeader prints the table header used during the live
+// progress stream. It adds a leading COUNT column ahead of the
+// standard columns so each progress line carries an [N/total] tag
+// aligned under "COUNT".
+func printProgressHeader(w io.Writer, total int) {
+	cw := progressColWidth(total)
+	dashes := strings.Repeat("-", cw)
+	_, _ = fmt.Fprintf(
+		w, "%-*s  %-6s  %8s  %8s  %s\n",
+		cw, "COUNT", "STATUS", "PREVIOUS", "CURRENT", "PACKAGE",
+	)
+	_, _ = fmt.Fprintf(
+		w, "%-*s  %-6s  %8s  %8s  %s\n",
+		cw, dashes, "------", "--------", "-------", "-------",
+	)
+}
+
+// progressColWidth returns the width of the COUNT column for total
+// packages. The value 3 + 2*ndigits is always >= 5 ("COUNT") for
+// total >= 0, so no clamp is needed.
+func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
+
+// firstLine returns the first line of s, including the trailing
+// newline. s must contain at least one '\n' — every ratchetResult's
+// output is built from a "%...\n" format string, so this holds.
+func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
 
 // ratchetCtx holds the per-run constants threaded into ratchetPackage.
 type ratchetCtx struct {
@@ -138,6 +171,8 @@ func (r *runner) runPackages(
 	sem := make(chan struct{}, parallelism)
 	var wg sync.WaitGroup
 	var progressMu sync.Mutex
+	countWidth := len(strconv.Itoa(total))
+	colWidth := progressColWidth(total)
 
 	for i, pkg := range pkgs {
 		wg.Add(1)
@@ -147,12 +182,11 @@ func (r *runner) runPackages(
 			defer func() { <-sem }()
 			results[idx] = r.ratchetPackage(p, ctx.module, ctx.srcPrefix, ctx.testDir)
 			if r.emitProgress {
+				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, total)
 				progressMu.Lock()
 				_, _ = fmt.Fprintf(
-					w, "[%d/%d] %s  %s\n",
-					idx+1, total,
-					progressStatus(results[idx].output),
-					gocover.RelPkg(p, ctx.module),
+					w, "%-*s  %s",
+					colWidth, label, firstLine(results[idx].output),
 				)
 				progressMu.Unlock()
 			}
@@ -161,11 +195,6 @@ func (r *runner) runPackages(
 	wg.Wait()
 	return results
 }
-
-// progressStatus extracts the first whitespace-delimited token of
-// the result's first output line, which is the status keyword
-// (NEW, UP, OK, FAIL) printed by ratchetPackage.
-func progressStatus(output string) string { return strings.Fields(output)[0] }
 
 // ratchetResult holds the output and counts for a single package ratchet.
 type ratchetResult struct {

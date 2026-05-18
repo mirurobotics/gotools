@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -89,15 +90,7 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
-	if r.emitProgress {
-		_, _ = fmt.Fprintf(
-			w, "Running %d packages with parallelism=%d; "+
-				"progress will appear as packages finish:\n",
-			len(pkgs), parallelism,
-		)
-	}
-
-	printHeader(w)
+	r.writeRunHeader(w, len(pkgs), parallelism)
 
 	ctx := checkPackageCtx{
 		module:             module,
@@ -169,6 +162,8 @@ func (r *runner) runPackages(
 	sem := make(chan struct{}, parallelism)
 	var wg sync.WaitGroup
 	var progressMu sync.Mutex
+	countWidth := len(strconv.Itoa(total))
+	colWidth := progressColWidth(total)
 
 	for i, pkg := range pkgs {
 		wg.Add(1)
@@ -178,13 +173,11 @@ func (r *runner) runPackages(
 			defer func() { <-sem }()
 			results[idx] = r.checkPackage(p, ctx)
 			if r.emitProgress {
+				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, total)
 				progressMu.Lock()
 				_, _ = fmt.Fprintf(
-					w, "[%d/%d] %s  %s  %s\n",
-					idx+1, total,
-					progressStatus(results[idx].output),
-					gocover.RelPkg(p, ctx.module),
-					fmtDuration(results[idx].duration),
+					w, "%-*s  %s",
+					colWidth, label, firstLine(results[idx].output),
 				)
 				progressMu.Unlock()
 			}
@@ -194,10 +187,36 @@ func (r *runner) runPackages(
 	return results
 }
 
-// progressStatus extracts the first whitespace-delimited token of
-// the result's first output line, which is the status keyword
-// (PASS, FAIL, LOOSE) printed by checkPackage.
-func progressStatus(output string) string { return strings.Fields(output)[0] }
+// writeRunHeader writes the announce line and the progress table
+// header when progress is enabled; otherwise it writes the
+// standard table header.
+func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
+	if !r.emitProgress {
+		printHeader(w)
+		return
+	}
+	_, _ = fmt.Fprintf(
+		w, "Running %d packages with parallelism=%d; progress:\n",
+		total, parallelism,
+	)
+	printProgressHeader(w, total)
+}
+
+// progressColWidth returns the width of the COUNT column for total
+// packages. The value 3 + 2*ndigits is always >= 5 ("COUNT") for
+// total >= 0, so no clamp is needed.
+func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
+
+// firstLine returns the first line of s, including the trailing
+// newline. s must contain at least one '\n' — every checkResult's
+// output is built from a "%...\n" format string, so this holds.
+func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
+
+// restOfOutput returns everything after the first '\n' in s. Used
+// in progress mode to preserve trailing FAIL detail (multi-line
+// raw test output) without reprinting the row that was already
+// streamed. Same '\n' precondition as firstLine.
+func restOfOutput(s string) string { return s[strings.IndexByte(s, '\n')+1:] }
 
 func (r *runner) printResults(
 	w io.Writer,
@@ -208,14 +227,23 @@ func (r *runner) printResults(
 ) error {
 	hasFailures := false
 	for _, res := range results {
-		_, _ = fmt.Fprint(w, res.output)
+		if r.emitProgress {
+			_, _ = fmt.Fprint(w, restOfOutput(res.output))
+		} else {
+			_, _ = fmt.Fprint(w, res.output)
+		}
 		if !res.passed {
 			hasFailures = true
 		}
 	}
 
+	indent := ""
+	if r.emitProgress {
+		indent = strings.Repeat(" ", progressColWidth(len(results))) + "  "
+	}
 	for _, pkg := range excluded {
-		_, _ = fmt.Fprint(w, skippedRow(gocover.RelPkg(pkg, module)))
+		row := skippedRow(gocover.RelPkg(pkg, module))
+		_, _ = fmt.Fprintf(w, "%s%s", indent, row)
 	}
 
 	_, _ = fmt.Fprintf(w, "\nTotal time: %s\n", fmtDuration(totalTime))
@@ -239,6 +267,25 @@ func printHeader(w io.Writer) {
 	)
 	_, _ = fmt.Fprintf(
 		w, "%-7s  %8s  %8s  %8s  %s\n",
+		"-------", "--------", "--------", "--------", "-------",
+	)
+}
+
+// printProgressHeader prints the table header used during the live
+// progress stream. It adds a leading COUNT column ahead of the
+// standard columns so each progress line carries an [N/total] tag
+// aligned under "COUNT".
+func printProgressHeader(w io.Writer, total int) {
+	cw := progressColWidth(total)
+	dashes := strings.Repeat("-", cw)
+	_, _ = fmt.Fprintf(
+		w, "%-*s  %-7s  %8s  %8s  %8s  %s\n",
+		cw, "COUNT",
+		"STATUS", "COVERAGE", "REQUIRED", "TIME", "PACKAGE",
+	)
+	_, _ = fmt.Fprintf(
+		w, "%-*s  %-7s  %8s  %8s  %8s  %s\n",
+		cw, dashes,
 		"-------", "--------", "--------", "--------", "-------",
 	)
 }
