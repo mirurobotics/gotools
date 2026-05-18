@@ -463,10 +463,12 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 	if !strings.Contains(out, "COUNT") {
 		t.Errorf("expected progress header to include COUNT column:\n%s", out)
 	}
-	if got := strings.Count(out, "STATUS"); got != 2 {
+	// STATUS header should appear exactly once — the progress
+	// stream is the single canonical table.
+	if got := strings.Count(out, "STATUS"); got != 1 {
 		t.Errorf(
-			"expected STATUS header to appear twice (progress + "+
-				"final); got %d:\n%s", got, out,
+			"expected exactly one STATUS header (progress IS "+
+				"the table); got %d:\n%s", got, out,
 		)
 	}
 	idxAnnounce := strings.Index(out, "Running 2 packages with parallelism=")

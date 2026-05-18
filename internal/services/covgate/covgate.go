@@ -90,15 +90,7 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
-	if r.emitProgress {
-		_, _ = fmt.Fprintf(
-			w, "Running %d packages with parallelism=%d; progress:\n",
-			len(pkgs), parallelism,
-		)
-		printProgressHeader(w, len(pkgs))
-	} else {
-		printHeader(w)
-	}
+	r.writeRunHeader(w, len(pkgs), parallelism)
 
 	ctx := checkPackageCtx{
 		module:             module,
@@ -112,11 +104,6 @@ func (r *runner) run(opts Opts) error {
 	start := time.Now()
 	results := r.runPackages(pkgs, ctx, parallelism, w)
 	wallTime := time.Since(start)
-
-	if r.emitProgress {
-		_, _ = fmt.Fprintln(w)
-		printHeader(w)
-	}
 	return r.printResults(w, results, excluded, module, wallTime)
 }
 
@@ -200,6 +187,21 @@ func (r *runner) runPackages(
 	return results
 }
 
+// writeRunHeader writes the announce line and the progress table
+// header when progress is enabled; otherwise it writes the
+// standard table header.
+func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
+	if !r.emitProgress {
+		printHeader(w)
+		return
+	}
+	_, _ = fmt.Fprintf(
+		w, "Running %d packages with parallelism=%d; progress:\n",
+		total, parallelism,
+	)
+	printProgressHeader(w, total)
+}
+
 // progressColWidth returns the width of the COUNT column for total
 // packages. The value 3 + 2*ndigits is always >= 5 ("COUNT") for
 // total >= 0, so no clamp is needed.
@@ -210,6 +212,12 @@ func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
 // output is built from a "%...\n" format string, so this holds.
 func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
 
+// restOfOutput returns everything after the first '\n' in s. Used
+// in progress mode to preserve trailing FAIL detail (multi-line
+// raw test output) without reprinting the row that was already
+// streamed. Same '\n' precondition as firstLine.
+func restOfOutput(s string) string { return s[strings.IndexByte(s, '\n')+1:] }
+
 func (r *runner) printResults(
 	w io.Writer,
 	results []checkResult,
@@ -219,14 +227,23 @@ func (r *runner) printResults(
 ) error {
 	hasFailures := false
 	for _, res := range results {
-		_, _ = fmt.Fprint(w, res.output)
+		if r.emitProgress {
+			_, _ = fmt.Fprint(w, restOfOutput(res.output))
+		} else {
+			_, _ = fmt.Fprint(w, res.output)
+		}
 		if !res.passed {
 			hasFailures = true
 		}
 	}
 
+	indent := ""
+	if r.emitProgress {
+		indent = strings.Repeat(" ", progressColWidth(len(results))) + "  "
+	}
 	for _, pkg := range excluded {
-		_, _ = fmt.Fprint(w, skippedRow(gocover.RelPkg(pkg, module)))
+		row := skippedRow(gocover.RelPkg(pkg, module))
+		_, _ = fmt.Fprintf(w, "%s%s", indent, row)
 	}
 
 	_, _ = fmt.Fprintf(w, "\nTotal time: %s\n", fmtDuration(totalTime))

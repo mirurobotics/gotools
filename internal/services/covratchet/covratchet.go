@@ -74,18 +74,19 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
-	r.writeProgressBegin(w, len(pkgs), parallelism)
+	r.writeRunHeader(w, len(pkgs), parallelism)
 	ctx := ratchetCtx{
 		module:    module,
 		srcPrefix: opts.SrcPrefix,
 		testDir:   opts.TestDir,
 	}
 	results := r.runPackages(pkgs, ctx, parallelism, w)
-	r.writeProgressEnd(w)
 
 	updated, unchanged, failed := 0, 0, 0
 	for _, res := range results {
-		_, _ = fmt.Fprint(w, res.output)
+		if !r.emitProgress {
+			_, _ = fmt.Fprint(w, res.output)
+		}
 		updated += res.updated
 		unchanged += res.unchanged
 		failed += res.failed
@@ -102,10 +103,10 @@ func (r *runner) run(opts Opts) error {
 	return nil
 }
 
-// writeProgressBegin writes the announce line and the progress
-// table header when progress is enabled; otherwise it writes the
+// writeRunHeader writes the announce line and the progress table
+// header when progress is enabled; otherwise it writes the
 // standard table header.
-func (r *runner) writeProgressBegin(w io.Writer, total, parallelism int) {
+func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
 	if !r.emitProgress {
 		printHeader(w)
 		return
@@ -115,16 +116,6 @@ func (r *runner) writeProgressBegin(w io.Writer, total, parallelism int) {
 		total, parallelism,
 	)
 	printProgressHeader(w, total)
-}
-
-// writeProgressEnd writes the separator and the final table header
-// when progress was enabled; otherwise it is a no-op.
-func (r *runner) writeProgressEnd(w io.Writer) {
-	if !r.emitProgress {
-		return
-	}
-	_, _ = fmt.Fprintln(w)
-	printHeader(w)
 }
 
 func printHeader(w io.Writer) {
