@@ -437,7 +437,7 @@ func TestRun_Parallelism(t *testing.T) {
 	}
 }
 
-func TestRun_Parallelism_DefaultsToGOMAXPROCS(t *testing.T) {
+func TestRun_Parallelism_DefaultsToNumCPU(t *testing.T) {
 	testutil.MakePkgDir(t, "pkg/a")
 
 	var buf bytes.Buffer
@@ -453,7 +453,7 @@ func TestRun_Parallelism_DefaultsToGOMAXPROCS(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 0})
 	if err != nil {
-		t.Fatalf("unexpected error with Parallelism=0 (GOMAXPROCS): %v", err)
+		t.Fatalf("unexpected error with Parallelism=0 (NumCPU): %v", err)
 	}
 }
 
@@ -462,20 +462,103 @@ func TestEffectiveParallelism(t *testing.T) {
 	if got := effectiveParallelism(Opts{Parallelism: 4}); got != 4 {
 		t.Errorf("effectiveParallelism(4) = %d, want 4", got)
 	}
-	want := runtime.GOMAXPROCS(0)
+	want := runtime.NumCPU()
 	//nolint:exhaustruct // test uses partial initialization
 	if got := effectiveParallelism(Opts{Parallelism: 0}); got != want {
 		t.Errorf("effectiveParallelism(0) = %d, want %d", got, want)
 	}
 }
 
-func TestChildGOMAXPROCS(t *testing.T) {
-	if got := childGOMAXPROCS(1 << 30); got != 1 {
-		t.Errorf("childGOMAXPROCS(1<<30) = %d, want 1 (clamped)", got)
+func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
+	// Use a single temp dir so both packages share the same cwd.
+	tmp := t.TempDir()
+	t.Chdir(tmp)
+	for _, rel := range []string{"pkg/a", "pkg/b"} {
+		//nolint:gosec // G301: test directory
+		if err := os.MkdirAll(filepath.Join(tmp, rel), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
-	want := runtime.GOMAXPROCS(0)
-	if got := childGOMAXPROCS(1); got != want {
-		t.Errorf("childGOMAXPROCS(1) = %d, want %d", got, want)
+
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	r := runner{
+		goModule: func() (string, error) { return modName, nil },
+		goListPackages: func(string) ([]string, error) {
+			return []string{modName + "/pkg/a", modName + "/pkg/b"}, nil
+		},
+		measure:      fakeMeasure(90.0),
+		emitProgress: true,
+	}
+
+	//nolint:exhaustruct // test uses partial initialization
+	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 0})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "[1/2]") {
+		t.Errorf("output missing [1/2] progress line:\n%s", out)
+	}
+	if !strings.Contains(out, "[2/2]") {
+		t.Errorf("output missing [2/2] progress line:\n%s", out)
+	}
+	// Leading announcement should appear before the STATUS header.
+	idxAnnounce := strings.Index(out, "Running 2 packages with parallelism=")
+	idxHeader := strings.Index(out, "STATUS")
+	if idxAnnounce < 0 || idxHeader < 0 || idxAnnounce >= idxHeader {
+		t.Errorf(
+			"expected leading announcement before STATUS header "+
+				"(announce=%d, header=%d):\n%s",
+			idxAnnounce, idxHeader, out,
+		)
+	}
+	// Both progress lines should appear before the final
+	// "All packages meet" line that closes the table.
+	idxProgress1 := strings.Index(out, "[1/2]")
+	idxProgress2 := strings.Index(out, "[2/2]")
+	idxFinal := strings.Index(out, "All packages meet")
+	if idxProgress1 >= idxFinal || idxProgress2 >= idxFinal {
+		t.Errorf(
+			"expected progress lines before final summary "+
+				"(p1=%d, p2=%d, final=%d):\n%s",
+			idxProgress1, idxProgress2, idxFinal, out,
+		)
+	}
+}
+
+func TestRun_SuppressesProgress_WhenExplicitParallelism(t *testing.T) {
+	tmp := t.TempDir()
+	t.Chdir(tmp)
+	for _, rel := range []string{"pkg/a", "pkg/b"} {
+		//nolint:gosec // G301: test directory
+		if err := os.MkdirAll(filepath.Join(tmp, rel), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	r := runner{
+		goModule: func() (string, error) { return modName, nil },
+		goListPackages: func(string) ([]string, error) {
+			return []string{modName + "/pkg/a", modName + "/pkg/b"}, nil
+		},
+		measure:      fakeMeasure(90.0),
+		emitProgress: false,
+	}
+
+	//nolint:exhaustruct // test uses partial initialization
+	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "[1/2]") || strings.Contains(out, "[2/2]") {
+		t.Errorf("output unexpectedly contains progress prefix:\n%s", out)
+	}
+	if strings.Contains(out, "progress will appear") {
+		t.Errorf("output unexpectedly contains leading announcement:\n%s", out)
 	}
 }
 
