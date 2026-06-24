@@ -656,7 +656,14 @@ func TestRun_Prewarm_InvokedOnce_WhenParallelAndMultiPkg(t *testing.T) {
 		}
 	}
 	out := buf.String()
-	for _, want := range []string{"pkg/a", "pkg/b", "pkg/c", "Total time:"} {
+	wants := []string{
+		"pkg/a", "pkg/b", "pkg/c", "Total time:",
+		// Visibility: the warm pass announces itself and reports its
+		// duration so its cost is observable separately from "Total time".
+		"Pre-warming build cache (3 packages)...",
+		"Pre-warm complete in ",
+	}
+	for _, want := range wants {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q:\n%s", want, out)
 		}
@@ -750,6 +757,10 @@ func TestRun_Prewarm_Skipped_WhenSinglePackageOrSerial(t *testing.T) {
 			rel := gocover.RelPkg(tc.pkgs[0], modName)
 			if !strings.Contains(out, rel) {
 				t.Errorf("output missing per-package row %q:\n%s", rel, out)
+			}
+			// When the warm pass is gated off, it must not announce itself.
+			if strings.Contains(out, "Pre-warming build cache") {
+				t.Errorf("unexpected pre-warm output when skipped:\n%s", out)
 			}
 		})
 	}
