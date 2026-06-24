@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -329,6 +330,47 @@ func TestMeasure_TestFailure(t *testing.T) {
 	}
 	if len(output) == 0 {
 		t.Error("expected non-empty output")
+	}
+}
+
+func TestPrewarmBuild_Empty(t *testing.T) {
+	if err := PrewarmBuild(nil); err != nil {
+		t.Fatalf("expected nil error for empty paths, got: %v", err)
+	}
+}
+
+func TestPrewarmBuild_Success(t *testing.T) {
+	makeGoProject(t)
+
+	if err := PrewarmBuild([]string{"testmod/mypkg"}); err != nil {
+		t.Fatalf("PrewarmBuild: %v", err)
+	}
+}
+
+func TestPrewarmBuild_BuildError(t *testing.T) {
+	tmp := t.TempDir()
+	t.Chdir(tmp)
+
+	goMod := "module testmod\n\ngo 1.23\n"
+	//nolint:gosec // G306: test file
+	_ = os.WriteFile(filepath.Join(tmp, "go.mod"), []byte(goMod), 0o644)
+	pkg := filepath.Join(tmp, "mypkg")
+	//nolint:gosec // G301: test directory
+	_ = os.MkdirAll(pkg, 0o755)
+	// Source that does not compile so the build planner fails.
+	//nolint:gosec // G306: test file
+	_ = os.WriteFile(
+		filepath.Join(pkg, "lib.go"),
+		[]byte("package mypkg\n\nfunc Add() int { return }\n"),
+		0o644,
+	)
+
+	err := PrewarmBuild([]string{"testmod/mypkg"})
+	if err == nil {
+		t.Fatal("expected error from failing build")
+	}
+	if !strings.Contains(err.Error(), "prewarm build") {
+		t.Errorf("expected 'prewarm build' in error, got: %v", err)
 	}
 }
 
