@@ -334,7 +334,7 @@ func TestMeasure_TestFailure(t *testing.T) {
 }
 
 func TestPrewarmBuild_Empty(t *testing.T) {
-	if err := PrewarmBuild(nil); err != nil {
+	if err := PrewarmBuild(nil, nil); err != nil {
 		t.Fatalf("expected nil error for empty paths, got: %v", err)
 	}
 }
@@ -342,7 +342,10 @@ func TestPrewarmBuild_Empty(t *testing.T) {
 func TestPrewarmBuild_Success(t *testing.T) {
 	makeGoProject(t)
 
-	if err := PrewarmBuild([]string{"testmod/mypkg"}); err != nil {
+	// Cover group instrumented, plain group non-instrumented; here the
+	// same package stands in for both to exercise each pass.
+	paths := []string{"testmod/mypkg"}
+	if err := PrewarmBuild(paths, paths); err != nil {
 		t.Fatalf("PrewarmBuild: %v", err)
 	}
 }
@@ -365,9 +368,19 @@ func TestPrewarmBuild_BuildError(t *testing.T) {
 		0o644,
 	)
 
-	err := PrewarmBuild([]string{"testmod/mypkg"})
+	// A build error in the cover group propagates.
+	err := PrewarmBuild([]string{"testmod/mypkg"}, nil)
 	if err == nil {
-		t.Fatal("expected error from failing build")
+		t.Fatal("expected error from failing cover-group build")
+	}
+	if !strings.Contains(err.Error(), "prewarm build") {
+		t.Errorf("expected 'prewarm build' in error, got: %v", err)
+	}
+
+	// A build error in the plain group propagates too.
+	err = PrewarmBuild(nil, []string{"testmod/mypkg"})
+	if err == nil {
+		t.Fatal("expected error from failing plain-group build")
 	}
 	if !strings.Contains(err.Error(), "prewarm build") {
 		t.Errorf("expected 'prewarm build' in error, got: %v", err)
