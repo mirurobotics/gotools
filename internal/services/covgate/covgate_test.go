@@ -319,7 +319,7 @@ func TestRun_Exclude(t *testing.T) {
 					return out, nil
 				},
 				measure: fakeMeasure(90.0),
-				prewarm: func([]string, []string) error { return nil },
+				prewarm: func([]string) error { return nil },
 			}
 
 			//nolint:exhaustruct // test uses partial initialization
@@ -410,7 +410,7 @@ func TestRun_Parallelism(t *testing.T) {
 			}, nil
 		},
 		measure: fakeMeasure(90.0),
-		prewarm: func([]string, []string) error { return nil },
+		prewarm: func([]string) error { return nil },
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
@@ -492,7 +492,7 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 		},
 		measure:      fakeMeasure(90.0),
 		emitProgress: true,
-		prewarm:      func([]string, []string) error { return nil },
+		prewarm:      func([]string) error { return nil },
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
@@ -580,7 +580,7 @@ func TestRun_SuppressesProgress_WhenExplicitParallelism(t *testing.T) {
 		},
 		measure:      fakeMeasure(90.0),
 		emitProgress: false,
-		prewarm:      func([]string, []string) error { return nil },
+		prewarm:      func([]string) error { return nil },
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
@@ -619,14 +619,12 @@ func TestRun_Prewarm_InvokedOnce_WhenParallelAndMultiPkg(t *testing.T) {
 	pkgs := []string{modName + "/pkg/a", modName + "/pkg/b", modName + "/pkg/c"}
 
 	var (
-		warmCalls      int
-		warmCoverPaths []string
-		warmPlainPaths []string
+		warmCalls int
+		warmPaths []string
 	)
-	prewarm := func(coverPaths, plainPaths []string) error {
+	prewarm := func(paths []string) error {
 		warmCalls++
-		warmCoverPaths = coverPaths
-		warmPlainPaths = plainPaths
+		warmPaths = paths
 		return nil
 	}
 
@@ -647,25 +645,15 @@ func TestRun_Prewarm_InvokedOnce_WhenParallelAndMultiPkg(t *testing.T) {
 	if warmCalls != 1 {
 		t.Fatalf("expected prewarm invoked exactly once, got %d", warmCalls)
 	}
-	// coverPaths is exactly the measured package import paths.
-	if len(warmCoverPaths) != 3 {
-		t.Fatalf(
-			"expected 3 cover paths, got %d: %v",
-			len(warmCoverPaths), warmCoverPaths,
-		)
+	// With empty SrcPrefix/TestDir, BuildTestPaths returns just
+	// the package path, so the union is the three package paths.
+	if len(warmPaths) != 3 {
+		t.Fatalf("expected 3 warm paths, got %d: %v", len(warmPaths), warmPaths)
 	}
 	for _, pkg := range pkgs {
-		if !slices.Contains(warmCoverPaths, pkg) {
-			t.Errorf("cover paths missing %q: %v", pkg, warmCoverPaths)
+		if !slices.Contains(warmPaths, pkg) {
+			t.Errorf("warm paths missing %q: %v", pkg, warmPaths)
 		}
-	}
-	// With empty SrcPrefix/TestDir, BuildTestPaths returns just the
-	// package path (no ./tests/... dirs), so plainPaths is empty.
-	if len(warmPlainPaths) != 0 {
-		t.Errorf(
-			"expected no plain paths, got %d: %v",
-			len(warmPlainPaths), warmPlainPaths,
-		)
 	}
 	out := buf.String()
 	wants := []string{
@@ -682,80 +670,25 @@ func TestRun_Prewarm_InvokedOnce_WhenParallelAndMultiPkg(t *testing.T) {
 	}
 }
 
-func TestCollectWarmPaths_NoTestDirs(t *testing.T) {
+func TestCollectWarmPaths_DeduplicatesSharedPaths(t *testing.T) {
 	// With empty SrcPrefix/TestDir, BuildTestPaths returns just the
-	// package path, so coverPaths is exactly pkgs and plainPaths is
-	// empty (no ./tests/... dirs to compile plain).
+	// package path, so a duplicated package in the input must collapse
+	// to a single warm path (exercising the seen-set skip branch).
 	pkgA := modName + "/pkg/a"
 	pkgB := modName + "/pkg/b"
-	pkgs := []string{pkgA, pkgB}
+	pkgs := []string{pkgA, pkgB, pkgA}
 
 	//nolint:exhaustruct // only module is needed for path collection
-	coverPaths, plainPaths := collectWarmPaths(pkgs, checkPackageCtx{module: modName})
+	got := collectWarmPaths(pkgs, checkPackageCtx{module: modName})
 
-	if len(coverPaths) != len(pkgs) {
-		t.Fatalf(
-			"expected %d cover paths, got %d: %v",
-			len(pkgs), len(coverPaths), coverPaths,
-		)
+	want := []string{pkgA, pkgB}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d deduplicated paths, got %d: %v", len(want), len(got), got)
 	}
-	for i := range pkgs {
-		if coverPaths[i] != pkgs[i] {
-			t.Errorf("cover path %d: expected %q, got %q", i, pkgs[i], coverPaths[i])
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("path %d: expected %q, got %q (full: %v)", i, want[i], got[i], got)
 		}
-	}
-	if len(plainPaths) != 0 {
-		t.Errorf("expected no plain paths, got %d: %v", len(plainPaths), plainPaths)
-	}
-}
-
-func TestCollectWarmPaths_SplitsCoverFromPlainTestDirs(t *testing.T) {
-	// When SrcPrefix/TestDir are set and a package's ./tests dir
-	// exists, the measured package goes to coverPaths (instrumented)
-	// and its external tests dir goes to plainPaths (non-instrumented).
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-
-	const srcPrefix = "internal"
-	pkg := modName + "/internal/foo"
-	relPkg := gocover.RelPkg(pkg, modName) // internal/foo
-	// The package's source dir.
-	//nolint:gosec // G301: test directory
-	if err := os.MkdirAll(filepath.Join(tmp, relPkg), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	// The external integration-test dir: tests/<relPkg without srcPrefix>.
-	testSub := strings.TrimPrefix(relPkg, srcPrefix+"/") // foo
-	extDir := filepath.Join("tests", testSub)
-	//nolint:gosec // G301: test directory
-	if err := os.MkdirAll(filepath.Join(tmp, extDir), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	//nolint:exhaustruct // only the path-deriving fields are needed
-	coverPaths, plainPaths := collectWarmPaths(
-		[]string{pkg},
-		checkPackageCtx{module: modName, srcPrefix: srcPrefix, testDir: "tests"},
-	)
-
-	wantCover := []string{pkg}
-	if !slices.Equal(coverPaths, wantCover) {
-		t.Errorf("coverPaths = %v, want %v", coverPaths, wantCover)
-	}
-	wantPlain := []string{"./" + extDir}
-	if !slices.Equal(plainPaths, wantPlain) {
-		t.Errorf("plainPaths = %v, want %v", plainPaths, wantPlain)
-	}
-
-	// A duplicated package yields the same external tests dir twice,
-	// which the seen-set must collapse to a single plainPaths entry.
-	//nolint:exhaustruct // only the path-deriving fields are needed
-	_, dedupPlain := collectWarmPaths(
-		[]string{pkg, pkg},
-		checkPackageCtx{module: modName, srcPrefix: srcPrefix, testDir: "tests"},
-	)
-	if !slices.Equal(dedupPlain, wantPlain) {
-		t.Errorf("deduplicated plainPaths = %v, want %v", dedupPlain, wantPlain)
 	}
 }
 
@@ -805,10 +738,7 @@ func TestRun_Prewarm_Skipped_WhenSinglePackageOrSerial(t *testing.T) {
 				goModule:       func() (string, error) { return modName, nil },
 				goListPackages: func(string) ([]string, error) { return tc.pkgs, nil },
 				measure:        fakeMeasure(90.0),
-				prewarm: func([]string, []string) error {
-					warmCalls++
-					return nil
-				},
+				prewarm:        func([]string) error { warmCalls++; return nil },
 			}
 
 			//nolint:exhaustruct // test uses partial initialization
@@ -862,9 +792,7 @@ func TestRun_Prewarm_ErrorPropagates(t *testing.T) {
 			measureCalls++
 			return 90.0, nil, nil
 		},
-		prewarm: func([]string, []string) error {
-			return fmt.Errorf("prewarm build: boom")
-		},
+		prewarm: func([]string) error { return fmt.Errorf("prewarm build: boom") },
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
