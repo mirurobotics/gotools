@@ -77,7 +77,7 @@ func bindLinterConfigFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
 		"maximum nesting depth within functions",
 	)
 	fl.IntVar(
-		&flags.MaxParamCount, "max-param-count", 5,
+		&flags.MaxParamCount, "max-param-count", 6,
 		"maximum param count excluding context.Context",
 	)
 	fl.StringVar(
