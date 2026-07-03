@@ -157,7 +157,7 @@ func TestNewCheckCommand_FlagDefaults(t *testing.T) {
 		"tab-width":       4,
 		"max-func-len":    50,
 		"max-nest-depth":  4,
-		"max-param-count": 5,
+		"max-param-count": 6,
 	}
 	for name, want := range intDefaults {
 		got, err := fl.GetInt(name)
@@ -285,7 +285,7 @@ func TestNewLintCommand_FlagDefaults(t *testing.T) {
 		"tab-width":       4,
 		"max-func-len":    50,
 		"max-nest-depth":  4,
-		"max-param-count": 5,
+		"max-param-count": 6,
 	}
 	for name, want := range intDefaults {
 		got, err := fl.GetInt(name)
