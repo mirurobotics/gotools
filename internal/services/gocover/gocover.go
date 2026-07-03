@@ -171,50 +171,6 @@ func MeasureWithEnv(
 	return coverage, output, nil
 }
 
-// PrewarmBuild compiles the test binaries for the given paths
-// without running any tests, populating the shared Go build
-// cache so that subsequent parallel `go test` runs do not
-// stampede on the same shared dependency compiles. It runs two
-// passes (skipping either when empty):
-//
-//   - coverPaths are compiled INSTRUMENTED via
-//     `go test -run='^$' -cover <coverPaths...>`, which defaults
-//     to instrumenting each listed package for itself — matching
-//     covgate's per-package `-coverpkg=<pkg>` instrumentation, so
-//     the warmed objects are reused by the coverage runs.
-//   - plainPaths are compiled NON-instrumented via
-//     `go test -run='^$' <plainPaths...>`; these are the
-//     integration-test dirs covgate builds as plain deps of the
-//     coverage binary, not coverpkg targets.
-//
-// Running each group in one pass lets Go's build planner
-// deduplicate the shared compiles. A genuine build error is
-// returned (with combined output) so callers can surface it.
-func PrewarmBuild(coverPaths, plainPaths []string) error {
-	if len(coverPaths) == 0 && len(plainPaths) == 0 {
-		return nil
-	}
-	if len(coverPaths) > 0 {
-		args := make([]string, 0, 3+len(coverPaths))
-		args = append(args, "test", "-run=^$", "-cover")
-		args = append(args, coverPaths...)
-		cmd := cmdutil.GoCommand(args...)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("prewarm build: %w\n%s", err, out)
-		}
-	}
-	if len(plainPaths) > 0 {
-		args := make([]string, 0, 2+len(plainPaths))
-		args = append(args, "test", "-run=^$")
-		args = append(args, plainPaths...)
-		cmd := cmdutil.GoCommand(args...)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("prewarm build: %w\n%s", err, out)
-		}
-	}
-	return nil
-}
-
 // ExecOutput runs a command with GOWORK=off and returns
 // its stdout.
 func ExecOutput(errW io.Writer, name string, args ...string) (string, error) {

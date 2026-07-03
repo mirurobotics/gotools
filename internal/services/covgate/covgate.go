@@ -33,7 +33,6 @@ type runner struct {
 	goModule       func() (string, error)
 	goListPackages func(string) ([]string, error)
 	measure        func(pkg string, testPaths []string) (float64, []byte, error)
-	prewarm        func(coverPaths, plainPaths []string) error
 	parallelism    int
 	emitProgress   bool
 }
@@ -53,7 +52,6 @@ func Run(opts Opts) error {
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
 		measure:        gocover.Measure,
-		prewarm:        gocover.PrewarmBuild,
 		parallelism:    effectiveParallelism(opts),
 		emitProgress:   opts.Parallelism == 0,
 	}
@@ -92,6 +90,8 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
+	r.writeRunHeader(w, len(pkgs), parallelism)
+
 	ctx := checkPackageCtx{
 		module:             module,
 		srcPrefix:          opts.SrcPrefix,
@@ -101,68 +101,10 @@ func (r *runner) run(opts Opts) error {
 		tightnessTolerance: opts.TightnessTolerance,
 	}
 
-	if parallelism > 1 && len(pkgs) > 1 {
-		if err := r.prewarmCache(w, pkgs, ctx); err != nil {
-			return err
-		}
-	}
-
-	r.writeRunHeader(w, len(pkgs), parallelism)
-
 	start := time.Now()
 	results := r.runPackages(pkgs, ctx, parallelism, w)
 	wallTime := time.Since(start)
 	return r.printResults(w, results, excluded, module, wallTime)
-}
-
-// prewarmCache warms the build cache in one coherent compile pass before the
-// parallel per-package runs, so they don't stampede on shared dependency
-// compiles. It times the pass and reports its duration, which is otherwise
-// invisible — the warm pass is excluded from "Total time", which covers only
-// the parallel coverage phase.
-func (r *runner) prewarmCache(w io.Writer, pkgs []string, ctx checkPackageCtx) error {
-	warmStart := time.Now()
-	_, _ = fmt.Fprintf(w, "Pre-warming build cache (%d packages)...\n", len(pkgs))
-	coverPaths, plainPaths := collectWarmPaths(pkgs, ctx)
-	if err := r.prewarm(coverPaths, plainPaths); err != nil {
-		return err
-	}
-	elapsed := fmtDuration(time.Since(warmStart))
-	_, _ = fmt.Fprintf(w, "Pre-warm complete in %s\n\n", elapsed)
-	return nil
-}
-
-// collectWarmPaths splits the warm set into two groups matching
-// how covgate compiles each package's test run, so the warm pass
-// produces the same artifacts the real runs reuse:
-//
-//   - coverPaths is the measured package import paths (exactly
-//     pkgs). These map to covgate's per-package `-coverpkg=<pkg>`
-//     runs, so the warm pass instruments them for themselves.
-//   - plainPaths is the de-duplicated set of EXTRA entries
-//     BuildTestPaths returns beyond the package path itself (the
-//     ./tests/... dirs). covgate compiles these as plain deps of
-//     the coverage binary, so they stay non-instrumented.
-//
-// BuildTestPaths always returns the pkg import path first, so the
-// remaining elements are the integration-test dirs.
-func collectWarmPaths(
-	pkgs []string, ctx checkPackageCtx,
-) (coverPaths, plainPaths []string) {
-	coverPaths = pkgs
-	seen := make(map[string]struct{})
-	for _, pkg := range pkgs {
-		relPkg := gocover.RelPkg(pkg, ctx.module)
-		extra := gocover.BuildTestPaths(pkg, relPkg, ctx.srcPrefix, ctx.testDir)
-		for _, p := range extra[1:] {
-			if _, ok := seen[p]; ok {
-				continue
-			}
-			seen[p] = struct{}{}
-			plainPaths = append(plainPaths, p)
-		}
-	}
-	return coverPaths, plainPaths
 }
 
 // applyExclude removes packages matched by the comma-separated
@@ -179,7 +121,7 @@ func (r *runner) applyExclude(
 	}
 
 	excludedSet := make(map[string]struct{})
-	for raw := range strings.SplitSeq(exclude, ",") {
+	for _, raw := range strings.Split(exclude, ",") {
 		entry := strings.TrimSpace(raw)
 		if entry == "" {
 			continue

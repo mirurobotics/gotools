@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -282,7 +281,7 @@ func TestRun_Exclude(t *testing.T) {
 					t.Errorf("expected exactly 1 SKIPPED, got %d:\n%s", got, out)
 				}
 				var skippedLine string
-				for line := range strings.SplitSeq(out, "\n") {
+				for _, line := range strings.Split(out, "\n") {
 					if strings.Contains(line, "pkg/b") {
 						skippedLine = line
 						break
@@ -319,7 +318,6 @@ func TestRun_Exclude(t *testing.T) {
 					return out, nil
 				},
 				measure: fakeMeasure(90.0),
-				prewarm: func([]string, []string) error { return nil },
 			}
 
 			//nolint:exhaustruct // test uses partial initialization
@@ -410,7 +408,6 @@ func TestRun_Parallelism(t *testing.T) {
 			}, nil
 		},
 		measure: fakeMeasure(90.0),
-		prewarm: func([]string, []string) error { return nil },
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
@@ -492,7 +489,6 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 		},
 		measure:      fakeMeasure(90.0),
 		emitProgress: true,
-		prewarm:      func([]string, []string) error { return nil },
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
@@ -553,7 +549,7 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 // (used to verify progress lines carry full row data, not just the
 // counter).
 func hasProgressLineWith(out, marker, contains string) bool {
-	for line := range strings.SplitSeq(out, "\n") {
+	for _, line := range strings.Split(out, "\n") {
 		if strings.Contains(line, marker) && strings.Contains(line, contains) {
 			return true
 		}
@@ -580,7 +576,6 @@ func TestRun_SuppressesProgress_WhenExplicitParallelism(t *testing.T) {
 		},
 		measure:      fakeMeasure(90.0),
 		emitProgress: false,
-		prewarm:      func([]string, []string) error { return nil },
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
@@ -603,283 +598,6 @@ func TestRun_SuppressesProgress_WhenExplicitParallelism(t *testing.T) {
 			"expected exactly one STATUS header (no progress "+
 				"section); got %d:\n%s", got, out,
 		)
-	}
-}
-
-func TestRun_Prewarm_InvokedOnce_WhenParallelAndMultiPkg(t *testing.T) {
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-	for _, rel := range []string{"pkg/a", "pkg/b", "pkg/c"} {
-		//nolint:gosec // G301: test directory
-		if err := os.MkdirAll(filepath.Join(tmp, rel), 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	pkgs := []string{modName + "/pkg/a", modName + "/pkg/b", modName + "/pkg/c"}
-
-	var (
-		warmCalls      int
-		warmCoverPaths []string
-		warmPlainPaths []string
-	)
-	prewarm := func(coverPaths, plainPaths []string) error {
-		warmCalls++
-		warmCoverPaths = coverPaths
-		warmPlainPaths = plainPaths
-		return nil
-	}
-
-	var buf bytes.Buffer
-	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
-		goModule:       func() (string, error) { return modName, nil },
-		goListPackages: func(string) ([]string, error) { return pkgs, nil },
-		measure:        fakeMeasure(90.0),
-		prewarm:        prewarm,
-	}
-
-	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 3})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if warmCalls != 1 {
-		t.Fatalf("expected prewarm invoked exactly once, got %d", warmCalls)
-	}
-	// coverPaths is exactly the measured package import paths.
-	if len(warmCoverPaths) != 3 {
-		t.Fatalf(
-			"expected 3 cover paths, got %d: %v",
-			len(warmCoverPaths), warmCoverPaths,
-		)
-	}
-	for _, pkg := range pkgs {
-		if !slices.Contains(warmCoverPaths, pkg) {
-			t.Errorf("cover paths missing %q: %v", pkg, warmCoverPaths)
-		}
-	}
-	// With empty SrcPrefix/TestDir, BuildTestPaths returns just the
-	// package path (no ./tests/... dirs), so plainPaths is empty.
-	if len(warmPlainPaths) != 0 {
-		t.Errorf(
-			"expected no plain paths, got %d: %v",
-			len(warmPlainPaths), warmPlainPaths,
-		)
-	}
-	out := buf.String()
-	wants := []string{
-		"pkg/a", "pkg/b", "pkg/c", "Total time:",
-		// Visibility: the warm pass announces itself and reports its
-		// duration so its cost is observable separately from "Total time".
-		"Pre-warming build cache (3 packages)...",
-		"Pre-warm complete in ",
-	}
-	for _, want := range wants {
-		if !strings.Contains(out, want) {
-			t.Errorf("output missing %q:\n%s", want, out)
-		}
-	}
-}
-
-func TestCollectWarmPaths_NoTestDirs(t *testing.T) {
-	// With empty SrcPrefix/TestDir, BuildTestPaths returns just the
-	// package path, so coverPaths is exactly pkgs and plainPaths is
-	// empty (no ./tests/... dirs to compile plain).
-	pkgA := modName + "/pkg/a"
-	pkgB := modName + "/pkg/b"
-	pkgs := []string{pkgA, pkgB}
-
-	//nolint:exhaustruct // only module is needed for path collection
-	coverPaths, plainPaths := collectWarmPaths(pkgs, checkPackageCtx{module: modName})
-
-	if len(coverPaths) != len(pkgs) {
-		t.Fatalf(
-			"expected %d cover paths, got %d: %v",
-			len(pkgs), len(coverPaths), coverPaths,
-		)
-	}
-	for i := range pkgs {
-		if coverPaths[i] != pkgs[i] {
-			t.Errorf("cover path %d: expected %q, got %q", i, pkgs[i], coverPaths[i])
-		}
-	}
-	if len(plainPaths) != 0 {
-		t.Errorf("expected no plain paths, got %d: %v", len(plainPaths), plainPaths)
-	}
-}
-
-func TestCollectWarmPaths_SplitsCoverFromPlainTestDirs(t *testing.T) {
-	// When SrcPrefix/TestDir are set and a package's ./tests dir
-	// exists, the measured package goes to coverPaths (instrumented)
-	// and its external tests dir goes to plainPaths (non-instrumented).
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-
-	const srcPrefix = "internal"
-	pkg := modName + "/internal/foo"
-	relPkg := gocover.RelPkg(pkg, modName) // internal/foo
-	// The package's source dir.
-	//nolint:gosec // G301: test directory
-	if err := os.MkdirAll(filepath.Join(tmp, relPkg), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	// The external integration-test dir: tests/<relPkg without srcPrefix>.
-	testSub := strings.TrimPrefix(relPkg, srcPrefix+"/") // foo
-	extDir := filepath.Join("tests", testSub)
-	//nolint:gosec // G301: test directory
-	if err := os.MkdirAll(filepath.Join(tmp, extDir), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	//nolint:exhaustruct // only the path-deriving fields are needed
-	coverPaths, plainPaths := collectWarmPaths(
-		[]string{pkg},
-		checkPackageCtx{module: modName, srcPrefix: srcPrefix, testDir: "tests"},
-	)
-
-	wantCover := []string{pkg}
-	if !slices.Equal(coverPaths, wantCover) {
-		t.Errorf("coverPaths = %v, want %v", coverPaths, wantCover)
-	}
-	wantPlain := []string{"./" + extDir}
-	if !slices.Equal(plainPaths, wantPlain) {
-		t.Errorf("plainPaths = %v, want %v", plainPaths, wantPlain)
-	}
-
-	// A duplicated package yields the same external tests dir twice,
-	// which the seen-set must collapse to a single plainPaths entry.
-	//nolint:exhaustruct // only the path-deriving fields are needed
-	_, dedupPlain := collectWarmPaths(
-		[]string{pkg, pkg},
-		checkPackageCtx{module: modName, srcPrefix: srcPrefix, testDir: "tests"},
-	)
-	if !slices.Equal(dedupPlain, wantPlain) {
-		t.Errorf("deduplicated plainPaths = %v, want %v", dedupPlain, wantPlain)
-	}
-}
-
-func TestRun_Prewarm_Skipped_WhenSinglePackageOrSerial(t *testing.T) {
-	cases := []struct {
-		name        string
-		pkgs        []string
-		parallelism int
-	}{
-		{
-			name: "SingleParallelism",
-			pkgs: []string{
-				modName + "/pkg/a",
-				modName + "/pkg/b",
-				modName + "/pkg/c",
-			},
-			parallelism: 1,
-		},
-		{
-			name:        "SinglePackage",
-			pkgs:        []string{modName + "/pkg/a"},
-			parallelism: 4,
-		},
-		{
-			name:        "SinglePackageSerial",
-			pkgs:        []string{modName + "/pkg/a"},
-			parallelism: 1,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			tmp := t.TempDir()
-			t.Chdir(tmp)
-			for _, pkg := range tc.pkgs {
-				rel := gocover.RelPkg(pkg, modName)
-				//nolint:gosec // G301: test directory
-				if err := os.MkdirAll(filepath.Join(tmp, rel), 0o755); err != nil {
-					t.Fatal(err)
-				}
-			}
-
-			warmCalls := 0
-			var buf bytes.Buffer
-			//nolint:exhaustruct // test uses partial initialization
-			r := runner{
-				goModule:       func() (string, error) { return modName, nil },
-				goListPackages: func(string) ([]string, error) { return tc.pkgs, nil },
-				measure:        fakeMeasure(90.0),
-				prewarm: func([]string, []string) error {
-					warmCalls++
-					return nil
-				},
-			}
-
-			//nolint:exhaustruct // test uses partial initialization
-			err := r.run(Opts{
-				Out:              &buf,
-				DefaultThreshold: 80.0,
-				Parallelism:      tc.parallelism,
-			})
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if warmCalls != 0 {
-				t.Errorf("expected prewarm skipped, got %d calls", warmCalls)
-			}
-			out := buf.String()
-			rel := gocover.RelPkg(tc.pkgs[0], modName)
-			if !strings.Contains(out, rel) {
-				t.Errorf("output missing per-package row %q:\n%s", rel, out)
-			}
-			// When the warm pass is gated off, it must not announce itself.
-			if strings.Contains(out, "Pre-warming build cache") {
-				t.Errorf("unexpected pre-warm output when skipped:\n%s", out)
-			}
-		})
-	}
-}
-
-func TestRun_Prewarm_ErrorPropagates(t *testing.T) {
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-	for _, rel := range []string{"pkg/a", "pkg/b", "pkg/c"} {
-		//nolint:gosec // G301: test directory
-		if err := os.MkdirAll(filepath.Join(tmp, rel), 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	measureCalls := 0
-	var buf bytes.Buffer
-	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
-		goModule: func() (string, error) { return modName, nil },
-		goListPackages: func(string) ([]string, error) {
-			return []string{
-				modName + "/pkg/a",
-				modName + "/pkg/b",
-				modName + "/pkg/c",
-			}, nil
-		},
-		measure: func(string, []string) (float64, []byte, error) {
-			measureCalls++
-			return 90.0, nil, nil
-		},
-		prewarm: func([]string, []string) error {
-			return fmt.Errorf("prewarm build: boom")
-		},
-	}
-
-	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 3})
-	if err == nil {
-		t.Fatal("expected error from prewarm build")
-	}
-	if !strings.Contains(err.Error(), "prewarm build") {
-		t.Errorf("error missing 'prewarm build': %v", err)
-	}
-	if measureCalls != 0 {
-		t.Errorf("expected measure never invoked, got %d calls", measureCalls)
-	}
-	if strings.Contains(buf.String(), "Total time:") {
-		t.Errorf("expected run to return before printing results:\n%s", buf.String())
 	}
 }
 

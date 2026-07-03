@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -330,60 +329,6 @@ func TestMeasure_TestFailure(t *testing.T) {
 	}
 	if len(output) == 0 {
 		t.Error("expected non-empty output")
-	}
-}
-
-func TestPrewarmBuild_Empty(t *testing.T) {
-	if err := PrewarmBuild(nil, nil); err != nil {
-		t.Fatalf("expected nil error for empty paths, got: %v", err)
-	}
-}
-
-func TestPrewarmBuild_Success(t *testing.T) {
-	makeGoProject(t)
-
-	// Cover group instrumented, plain group non-instrumented; here the
-	// same package stands in for both to exercise each pass.
-	paths := []string{"testmod/mypkg"}
-	if err := PrewarmBuild(paths, paths); err != nil {
-		t.Fatalf("PrewarmBuild: %v", err)
-	}
-}
-
-func TestPrewarmBuild_BuildError(t *testing.T) {
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-
-	goMod := "module testmod\n\ngo 1.23\n"
-	//nolint:gosec // G306: test file
-	_ = os.WriteFile(filepath.Join(tmp, "go.mod"), []byte(goMod), 0o644)
-	pkg := filepath.Join(tmp, "mypkg")
-	//nolint:gosec // G301: test directory
-	_ = os.MkdirAll(pkg, 0o755)
-	// Source that does not compile so the build planner fails.
-	//nolint:gosec // G306: test file
-	_ = os.WriteFile(
-		filepath.Join(pkg, "lib.go"),
-		[]byte("package mypkg\n\nfunc Add() int { return }\n"),
-		0o644,
-	)
-
-	// A build error in the cover group propagates.
-	err := PrewarmBuild([]string{"testmod/mypkg"}, nil)
-	if err == nil {
-		t.Fatal("expected error from failing cover-group build")
-	}
-	if !strings.Contains(err.Error(), "prewarm build") {
-		t.Errorf("expected 'prewarm build' in error, got: %v", err)
-	}
-
-	// A build error in the plain group propagates too.
-	err = PrewarmBuild(nil, []string{"testmod/mypkg"})
-	if err == nil {
-		t.Fatal("expected error from failing plain-group build")
-	}
-	if !strings.Contains(err.Error(), "prewarm build") {
-		t.Errorf("expected 'prewarm build' in error, got: %v", err)
 	}
 }
 
