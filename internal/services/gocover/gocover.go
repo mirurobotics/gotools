@@ -171,28 +171,6 @@ func MeasureWithEnv(
 	return coverage, output, nil
 }
 
-// PrewarmBuild compiles the test binaries for the given test
-// paths without running any tests, populating the shared Go
-// build cache so that subsequent parallel `go test` runs do
-// not stampede on the same shared dependency compiles. It runs
-// a single `go test -run='^$' <paths...>` (no coverage
-// instrumentation) so Go's build planner deduplicates the
-// shared compiles in one coherent pass. A genuine build error
-// is returned (with combined output) so callers can surface it.
-func PrewarmBuild(testPaths []string) error {
-	if len(testPaths) == 0 {
-		return nil
-	}
-	args := make([]string, 0, 2+len(testPaths))
-	args = append(args, "test", "-run=^$")
-	args = append(args, testPaths...)
-	cmd := cmdutil.GoCommand(args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("prewarm build: %w\n%s", err, out)
-	}
-	return nil
-}
-
 // ExecOutput runs a command with GOWORK=off and returns
 // its stdout.
 func ExecOutput(errW io.Writer, name string, args ...string) (string, error) {

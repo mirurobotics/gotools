@@ -33,7 +33,6 @@ type runner struct {
 	goModule       func() (string, error)
 	goListPackages func(string) ([]string, error)
 	measure        func(pkg string, testPaths []string) (float64, []byte, error)
-	prewarm        func(testPaths []string) error
 	parallelism    int
 	emitProgress   bool
 }
@@ -53,7 +52,6 @@ func Run(opts Opts) error {
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
 		measure:        gocover.Measure,
-		prewarm:        gocover.PrewarmBuild,
 		parallelism:    effectiveParallelism(opts),
 		emitProgress:   opts.Parallelism == 0,
 	}
@@ -103,38 +101,10 @@ func (r *runner) run(opts Opts) error {
 		tightnessTolerance: opts.TightnessTolerance,
 	}
 
-	if parallelism > 1 && len(pkgs) > 1 {
-		if err := r.prewarm(collectWarmPaths(pkgs, ctx)); err != nil {
-			return err
-		}
-	}
-
 	start := time.Now()
 	results := r.runPackages(pkgs, ctx, parallelism, w)
 	wallTime := time.Since(start)
 	return r.printResults(w, results, excluded, module, wallTime)
-}
-
-// collectWarmPaths returns the de-duplicated union of the test
-// paths covgate will build for every package, using the same
-// RelPkg + BuildTestPaths logic as checkPackage so the warm
-// pass compiles exactly the set the real runs need.
-func collectWarmPaths(pkgs []string, ctx checkPackageCtx) []string {
-	seen := make(map[string]struct{})
-	var paths []string
-	for _, pkg := range pkgs {
-		relPkg := gocover.RelPkg(pkg, ctx.module)
-		for _, p := range gocover.BuildTestPaths(
-			pkg, relPkg, ctx.srcPrefix, ctx.testDir,
-		) {
-			if _, ok := seen[p]; ok {
-				continue
-			}
-			seen[p] = struct{}{}
-			paths = append(paths, p)
-		}
-	}
-	return paths
 }
 
 // applyExclude removes packages matched by the comma-separated
@@ -151,7 +121,7 @@ func (r *runner) applyExclude(
 	}
 
 	excludedSet := make(map[string]struct{})
-	for raw := range strings.SplitSeq(exclude, ",") {
+	for _, raw := range strings.Split(exclude, ",") {
 		entry := strings.TrimSpace(raw)
 		if entry == "" {
 			continue
