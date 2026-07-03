@@ -92,6 +92,8 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
+	r.writeRunHeader(w, len(pkgs), parallelism)
+
 	ctx := checkPackageCtx{
 		module:             module,
 		srcPrefix:          opts.SrcPrefix,
@@ -102,33 +104,15 @@ func (r *runner) run(opts Opts) error {
 	}
 
 	if parallelism > 1 && len(pkgs) > 1 {
-		if err := r.prewarmCache(w, pkgs, ctx); err != nil {
+		if err := r.prewarm(collectWarmPaths(pkgs, ctx)); err != nil {
 			return err
 		}
 	}
-
-	r.writeRunHeader(w, len(pkgs), parallelism)
 
 	start := time.Now()
 	results := r.runPackages(pkgs, ctx, parallelism, w)
 	wallTime := time.Since(start)
 	return r.printResults(w, results, excluded, module, wallTime)
-}
-
-// prewarmCache warms the build cache in one coherent compile pass before the
-// parallel per-package runs, so they don't stampede on shared dependency
-// compiles. It times the pass and reports its duration, which is otherwise
-// invisible — the warm pass is excluded from "Total time", which covers only
-// the parallel coverage phase.
-func (r *runner) prewarmCache(w io.Writer, pkgs []string, ctx checkPackageCtx) error {
-	warmStart := time.Now()
-	_, _ = fmt.Fprintf(w, "Pre-warming build cache (%d packages)...\n", len(pkgs))
-	if err := r.prewarm(collectWarmPaths(pkgs, ctx)); err != nil {
-		return err
-	}
-	elapsed := fmtDuration(time.Since(warmStart))
-	_, _ = fmt.Fprintf(w, "Pre-warm complete in %s\n\n", elapsed)
-	return nil
 }
 
 // collectWarmPaths returns the de-duplicated union of the test
