@@ -1,0 +1,39 @@
+// Codespaces / Dev Containers configuration.
+// Format reference: https://containers.dev/implementors/json_reference/
+{
+  "name": "gotools",
+  "image": "mcr.microsoft.com/devcontainers/go:1.25-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  // Go build and test only; this repo has no bootstrap script and no
+  // pre-commit hooks, so no Python is required.
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb",
+    "storage": "32gb"
+  },
+  "postCreateCommand": "go mod download && ./scripts/install-lint-tools.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "eamodio.gitlens",
+        "github.vscode-github-actions",
+        "github.vscode-pull-request-github",
+        "redhat.vscode-yaml",
+        "timonwong.shellcheck",
+        "foxundermoon.shell-format",
+        "davidanson.vscode-markdownlint"
+      ],
+      "settings": {
+        "go.lintTool": "golangci-lint",
+        "go.useLanguageServer": true,
+        "editor.formatOnSave": true,
+        "[go]": {
+          "editor.defaultFormatter": "golang.go"
+        }
+      }
+    }
+  }
+}
