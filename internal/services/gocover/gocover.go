@@ -41,6 +41,22 @@ func GoListPackages(pattern string) ([]string, error) {
 	return NonEmptyLines(out), nil
 }
 
+// GoListTestPackages lists packages matching a pattern that
+// contain at least one test file. Packages without tests
+// render as blank lines in the template output and are
+// dropped by NonEmptyLines.
+func GoListTestPackages(pattern string) ([]string, error) {
+	out, err := ExecOutput(
+		nil, "go", "list", "-f",
+		"{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}",
+		pattern,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("go list %s: %w", pattern, err)
+	}
+	return NonEmptyLines(out), nil
+}
+
 // LookupThreshold reads the coverage threshold from a
 // .covgate file. The second return value is true when an
 // explicit .covgate file exists and parses successfully.
@@ -132,6 +148,16 @@ func BuildTestPaths(pkg, relPkg, srcPrefix, testDir string) []string {
 // automatically.
 func Measure(pkg string, testPaths []string) (float64, []byte, error) {
 	return MeasureWithEnv(pkg, testPaths, nil)
+}
+
+// RunTests runs go test on the given paths without coverage
+// instrumentation. Used for test-only packages that have no
+// source package to attribute coverage to.
+func RunTests(paths []string) ([]byte, error) {
+	args := make([]string, 0, 1+len(paths))
+	args = append(args, "test")
+	args = append(args, paths...)
+	return cmdutil.GoCommand(args...).CombinedOutput()
 }
 
 // MeasureWithEnv is like Measure but appends extraEnv to
