@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -351,5 +352,66 @@ func TestNonEmptyLines(t *testing.T) {
 				t.Errorf("len = %d, want %d", len(got), tt.want)
 			}
 		})
+	}
+}
+
+func TestGoListTestPackages(t *testing.T) {
+	makeGoProject(t)
+
+	// a package without test files must not be listed
+	notest := filepath.Join(".", "notest")
+	//nolint:gosec // G301: test directory
+	_ = os.MkdirAll(notest, 0o755)
+	lib := "package notest\n\nfunc Noop() {}\n"
+	//nolint:gosec // G306: test file
+	_ = os.WriteFile(filepath.Join(notest, "lib.go"), []byte(lib), 0o644)
+
+	pkgs, err := GoListTestPackages("testmod/...")
+	if err != nil {
+		t.Fatalf("GoListTestPackages: %v", err)
+	}
+	if len(pkgs) != 1 || pkgs[0] != "testmod/mypkg" {
+		t.Errorf("expected only testmod/mypkg, got %v", pkgs)
+	}
+}
+
+func TestGoListTestPackages_Error(t *testing.T) {
+	makeGoProject(t)
+
+	_, err := GoListTestPackages("./does-not-exist/...")
+	if err == nil {
+		t.Fatal("expected error for a pattern matching no packages")
+	}
+}
+
+func TestRunTests_Pass(t *testing.T) {
+	makeGoProject(t)
+
+	out, err := RunTests([]string{"testmod/mypkg"})
+	if err != nil {
+		t.Fatalf("RunTests: %v\n%s", err, out)
+	}
+}
+
+func TestRunTests_Failure(t *testing.T) {
+	makeGoProject(t)
+
+	failing := "package mypkg\n\n" +
+		"import \"testing\"\n\n" +
+		"func TestBroken(t *testing.T) { t.Fatal(\"boom\") }\n"
+	//nolint:gosec // G306: test file
+	err := os.WriteFile(
+		filepath.Join("mypkg", "broken_test.go"), []byte(failing), 0o644,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := RunTests([]string{"testmod/mypkg"})
+	if err == nil {
+		t.Fatal("expected error from failing test")
+	}
+	if !strings.Contains(string(out), "boom") {
+		t.Errorf("output missing failure detail: %s", out)
 	}
 }

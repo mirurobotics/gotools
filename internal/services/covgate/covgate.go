@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -30,11 +31,22 @@ type Opts struct {
 }
 
 type runner struct {
-	goModule       func() (string, error)
-	goListPackages func(string) ([]string, error)
-	measure        func(pkg string, testPaths []string) (float64, []byte, error)
-	parallelism    int
-	emitProgress   bool
+	goModule           func() (string, error)
+	goListPackages     func(string) ([]string, error)
+	goListTestPackages func(string) ([]string, error)
+	measure            func(pkg string, testPaths []string) (float64, []byte, error)
+	runTests           func(paths []string) ([]byte, error)
+	parallelism        int
+	emitProgress       bool
+}
+
+// workItem is a single scheduled measurement. testOnly marks a
+// package under --test-dir that no source package claims via the
+// src-prefix mapping: it is run without coverage instrumentation,
+// since there is no source package to attribute coverage to.
+type workItem struct {
+	pkg      string
+	testOnly bool
 }
 
 // effectiveParallelism is intentionally duplicated in covratchet;
@@ -49,11 +61,13 @@ func effectiveParallelism(opts Opts) int {
 // Run checks per-package coverage against thresholds.
 func Run(opts Opts) error {
 	r := runner{
-		goModule:       gocover.GoModule,
-		goListPackages: gocover.GoListPackages,
-		measure:        gocover.Measure,
-		parallelism:    effectiveParallelism(opts),
-		emitProgress:   opts.Parallelism == 0,
+		goModule:           gocover.GoModule,
+		goListPackages:     gocover.GoListPackages,
+		goListTestPackages: gocover.GoListTestPackages,
+		measure:            gocover.Measure,
+		runTests:           gocover.RunTests,
+		parallelism:        effectiveParallelism(opts),
+		emitProgress:       opts.Parallelism == 0,
 	}
 	return r.run(opts)
 }
@@ -85,12 +99,17 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
-	pkgs, excluded, err := r.applyExclude(pkgs, opts.Exclude, w)
+	orphans, err := r.findOrphanTests(pkgs, module, opts)
 	if err != nil {
 		return err
 	}
 
-	r.writeRunHeader(w, len(pkgs), parallelism)
+	items, excluded, err := r.buildWorkItems(pkgs, orphans, opts.Exclude, w)
+	if err != nil {
+		return err
+	}
+
+	r.writeRunHeader(w, len(items), parallelism)
 
 	ctx := checkPackageCtx{
 		module:             module,
@@ -102,9 +121,75 @@ func (r *runner) run(opts Opts) error {
 	}
 
 	start := time.Now()
-	results := r.runPackages(pkgs, ctx, parallelism, w)
+	results := r.runPackages(items, ctx, parallelism, w)
 	wallTime := time.Since(start)
 	return r.printResults(w, results, excluded, module, wallTime)
+}
+
+// findOrphanTests returns test-bearing packages under --test-dir
+// that no source package claims through the src-prefix mapping.
+// Without this, a test directory whose source counterpart is not
+// a Go package (e.g. a parent directory holding only subpackages)
+// is silently never run. The claimed set is computed from the
+// full pre-exclude source list so that an excluded source
+// package's external tests stay excluded rather than resurfacing
+// as orphans.
+func (r *runner) findOrphanTests(
+	pkgs []string, module string, opts Opts,
+) ([]string, error) {
+	if opts.TestDir == "" {
+		return nil, nil
+	}
+	testDir := filepath.ToSlash(filepath.Clean(opts.TestDir))
+	claimed := make(map[string]struct{}, len(pkgs))
+	if opts.SrcPrefix != "" {
+		for _, pkg := range pkgs {
+			relPkg := gocover.RelPkg(pkg, module)
+			testSub := strings.TrimPrefix(relPkg, opts.SrcPrefix+"/")
+			if testSub == relPkg {
+				continue
+			}
+			claimed[testDir+"/"+testSub] = struct{}{}
+		}
+	}
+	testPkgs, err := r.goListTestPackages("./" + testDir + "/...")
+	if err != nil {
+		return nil, err
+	}
+	orphans := make([]string, 0, len(testPkgs))
+	for _, testPkg := range testPkgs {
+		if _, ok := claimed[gocover.RelPkg(testPkg, module)]; ok {
+			continue
+		}
+		orphans = append(orphans, testPkg)
+	}
+	return orphans, nil
+}
+
+// buildWorkItems merges source packages and orphan test packages
+// into one work list, applying --exclude across both so that
+// exclude patterns (e.g. preflight skip lists) can drop orphan
+// suites the same way they drop source packages.
+func (r *runner) buildWorkItems(
+	pkgs, orphans []string, exclude string, w io.Writer,
+) ([]workItem, []string, error) {
+	all := make([]string, 0, len(pkgs)+len(orphans))
+	all = append(all, pkgs...)
+	all = append(all, orphans...)
+	kept, excluded, err := r.applyExclude(all, exclude, w)
+	if err != nil {
+		return nil, nil, err
+	}
+	orphanSet := make(map[string]struct{}, len(orphans))
+	for _, orphan := range orphans {
+		orphanSet[orphan] = struct{}{}
+	}
+	items := make([]workItem, 0, len(kept))
+	for _, pkg := range kept {
+		_, testOnly := orphanSet[pkg]
+		items = append(items, workItem{pkg: pkg, testOnly: testOnly})
+	}
+	return items, excluded, nil
 }
 
 // applyExclude removes packages matched by the comma-separated
@@ -155,9 +240,9 @@ func (r *runner) applyExclude(
 }
 
 func (r *runner) runPackages(
-	pkgs []string, ctx checkPackageCtx, parallelism int, w io.Writer,
+	items []workItem, ctx checkPackageCtx, parallelism int, w io.Writer,
 ) []checkResult {
-	total := len(pkgs)
+	total := len(items)
 	results := make([]checkResult, total)
 	sem := make(chan struct{}, parallelism)
 	var wg sync.WaitGroup
@@ -165,13 +250,17 @@ func (r *runner) runPackages(
 	countWidth := len(strconv.Itoa(total))
 	colWidth := progressColWidth(total)
 
-	for i, pkg := range pkgs {
+	for i, item := range items {
 		wg.Add(1)
 		sem <- struct{}{}
-		go func(idx int, p string) {
+		go func(idx int, it workItem) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			results[idx] = r.checkPackage(p, ctx)
+			if it.testOnly {
+				results[idx] = r.checkTestOnly(it.pkg, ctx)
+			} else {
+				results[idx] = r.checkPackage(it.pkg, ctx)
+			}
 			if r.emitProgress {
 				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, total)
 				progressMu.Lock()
@@ -181,7 +270,7 @@ func (r *runner) runPackages(
 				)
 				progressMu.Unlock()
 			}
-		}(i, pkg)
+		}(i, item)
 	}
 	wg.Wait()
 	return results
@@ -361,6 +450,38 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 	_, _ = fmt.Fprintf(
 		&b, "%-7s  %7.1f%%  %7.1f%%  %8s  %s\n",
 		"PASS", coverage, threshold, fmtDuration(elapsed), relPkg,
+	)
+	return checkResult{b.String(), true, elapsed}
+}
+
+// checkTestOnly runs a test-only package without coverage
+// instrumentation. The coverage columns render as "---": the
+// package exercises source spread across many packages, so there
+// is no single threshold to hold it to; the gate is that its
+// tests pass.
+func (r *runner) checkTestOnly(pkg string, ctx checkPackageCtx) checkResult {
+	relPkg := gocover.RelPkg(pkg, ctx.module)
+
+	start := time.Now()
+	output, testErr := r.runTests([]string{"./" + relPkg})
+	elapsed := time.Since(start)
+
+	var b strings.Builder
+	if testErr != nil {
+		_, _ = fmt.Fprintf(
+			&b, "%-7s  %8s  %8s  %8s  %s\n",
+			"FAIL", "---", "---", fmtDuration(elapsed),
+			relPkg+" (tests failed)",
+		)
+		_, _ = fmt.Fprintln(&b)
+		_, _ = fmt.Fprint(&b, string(output))
+		_, _ = fmt.Fprintln(&b)
+		return checkResult{b.String(), false, elapsed}
+	}
+
+	_, _ = fmt.Fprintf(
+		&b, "%-7s  %8s  %8s  %8s  %s\n",
+		"PASS", "---", "---", fmtDuration(elapsed), relPkg,
 	)
 	return checkResult{b.String(), true, elapsed}
 }
