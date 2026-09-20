@@ -11,4 +11,5 @@ fi
 exec go run ./cmd/miru lint \
     --paths=internal \
     --exclude=nofmt,bgctx,tempdir \
+    --goos=windows \
     $FIX

@@ -19,7 +19,9 @@ func NewLintCommand() *cobra.Command {
 		Use:   "lint",
 		Short: "Run all Go linters",
 		Long: "Run the full Go lint suite: custom linter, " +
-			"gofumpt, and golangci-lint.\n\n" +
+			"gofumpt, golangci-lint, and deadcode. " +
+			"--goos also runs golangci-lint for each extra target " +
+			"platform.\n\n" +
 			"By default, runs in fix mode. " +
 			"Use --fix=false for CI (check-only) mode.",
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -54,6 +56,11 @@ func bindLintFlags(cmd *cobra.Command, opts *lint.LintOpts) {
 	fl.StringVar(
 		&opts.NewFromRev, "new-from-rev", "",
 		"only report new golangci-lint issues since this git revision",
+	)
+	fl.StringVar(
+		&opts.GOOS, "goos", "",
+		"comma-separated extra GOOS targets to run golangci-lint for "+
+			"(e.g. windows); the host GOOS and duplicates are skipped",
 	)
 }
 
