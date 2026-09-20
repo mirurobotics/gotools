@@ -29,12 +29,14 @@ type LintOpts struct {
 	NoGofumpt       bool
 	NoGolangci      bool
 	NewFromRev      string
+	VetGOOS         string
 	Out             io.Writer
 	Err             io.Writer
 }
 
 // RunLint runs the full lint suite: custom linter,
-// gofumpt, and golangci-lint.
+// gofumpt, golangci-lint, deadcode, and a go vet per
+// VetGOOS target.
 func RunLint(opts LintOpts) error {
 	if opts.Out == nil {
 		opts.Out = os.Stdout
@@ -85,7 +87,29 @@ func runLintSteps(
 	f, t := runAnalyzers(opts)
 	failures = append(failures, f...)
 	timings = append(timings, t...)
+
+	f, t = runVets(opts)
+	failures = append(failures, f...)
+	timings = append(timings, t...)
 	return failures, timings, nil
+}
+
+// runVets runs go vet once per comma-separated GOOS in
+// opts.VetGOOS.
+func runVets(opts LintOpts) (failures []string, timings []stepTiming) {
+	for _, goos := range strings.Split(opts.VetGOOS, ",") {
+		goos = strings.TrimSpace(goos)
+		if goos == "" {
+			continue
+		}
+		step := "vet " + goos
+		start := time.Now()
+		if err := RunVet(opts.Out, opts.Err, goos); err != nil {
+			failures = append(failures, step)
+		}
+		timings = append(timings, stepTiming{step, time.Since(start)})
+	}
+	return failures, timings
 }
 
 // runAnalyzers runs golangci-lint and deadcode. When both
@@ -251,6 +275,22 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 		_, _ = fmt.Fprintln(out, "Files need formatting:")
 		_, _ = fmt.Fprintln(out, trimmed)
 		return fmt.Errorf("gofumpt found unformatted files")
+	}
+	return nil
+}
+
+// RunVet type-checks every package, including tests, for
+// the goos target so code that only builds on the host OS
+// cannot land unnoticed. GOARCH is inherited from the host.
+func RunVet(out io.Writer, errW io.Writer, goos string) error {
+	_, _ = fmt.Fprintf(out, "Running go vet for %s...\n", goos)
+	cmd := cmdutil.GoCommand("vet", "./...")
+	cmd.Env = append(cmd.Env, "GOOS="+goos)
+	cmd.Stdout = out
+	cmd.Stderr = errW
+	if err := cmd.Run(); err != nil {
+		_, _ = fmt.Fprintf(errW, "go vet for %s failed: %v\n", goos, err)
+		return err
 	}
 	return nil
 }

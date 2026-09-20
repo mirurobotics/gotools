@@ -272,6 +272,65 @@ func TestRunLint_ParallelGolangciAndDeadcode(t *testing.T) {
 	_ = err // lint failures are acceptable in this test
 }
 
+func TestRunVet_Success(t *testing.T) {
+	var out, errBuf bytes.Buffer
+	if err := RunVet(&out, &errBuf, "windows"); err != nil {
+		t.Fatalf("unexpected error: %v\n%s", err, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "Running go vet for windows") {
+		t.Errorf("expected progress line in output, got %q", out.String())
+	}
+}
+
+func TestRunVet_UnsupportedGOOS(t *testing.T) {
+	var errBuf bytes.Buffer
+	err := RunVet(io.Discard, &errBuf, "notanos")
+	if err == nil {
+		t.Fatal("expected error for unsupported GOOS")
+	}
+	if !strings.Contains(errBuf.String(), "go vet for notanos failed") {
+		t.Errorf("expected failure surfaced to errW, got %q", errBuf.String())
+	}
+}
+
+func TestRunLint_VetGOOS(t *testing.T) {
+	var out bytes.Buffer
+	//nolint:exhaustruct // only testing the vet steps
+	err := RunLint(LintOpts{
+		NoGofumpt:  true,
+		NoGolangci: true,
+		VetGOOS:    "windows, ,linux",
+		Out:        &out,
+		Err:        io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	s := out.String()
+	for _, want := range []string{"vet windows", "vet linux", "Lint complete"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("expected %q in output, got %q", want, s)
+		}
+	}
+}
+
+func TestRunLint_VetGOOSFailure(t *testing.T) {
+	//nolint:exhaustruct // only testing the vet failure path
+	err := RunLint(LintOpts{
+		NoGofumpt:  true,
+		NoGolangci: true,
+		VetGOOS:    "notanos",
+		Out:        io.Discard,
+		Err:        io.Discard,
+	})
+	if err == nil {
+		t.Fatal("expected lint failure for unsupported GOOS")
+	}
+	if !strings.Contains(err.Error(), "vet notanos") {
+		t.Errorf("expected error to name the vet step, got: %v", err)
+	}
+}
+
 func TestPrintTimings(t *testing.T) {
 	var buf bytes.Buffer
 	timings := []stepTiming{
