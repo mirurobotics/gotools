@@ -21,7 +21,8 @@ PR #44 adds an opt-in flag, `miru lint --goos=<comma-separated targets>`, that r
 - [x] Milestone 0: rebase onto `origin/main` (`ccbfa28`), resolving `scripts/lint.sh` in both commits (done by the orchestrator; branch commits are now `60045d3` and `2c69761`).
 - [x] Milestone 1: run the `review` skill over the diff; record findings (10 medium findings, R1–R10).
 - [x] Milestone 2: run the `refine` skill until no findings remain; every behavior fix has a test (4 iterations; iteration 4 returned "no findings").
-- [ ] Milestone 3: local preflight, push, `preflight` skill reports `CLEAN`, PR body resynced, plan moved to `plans/completed/`.
+- [x] Milestone 3: local preflight passes, pushed without a rebase (`origin/main` is still `ccbfa28`), CI green on `0b7d82d` (`CLEAN`), PR body resynced.
+- [ ] Move this plan to `plans/completed/` (left to the orchestrator).
 
 ## Surprises & Discoveries
 
@@ -58,7 +59,11 @@ golangci-lint's machine-wide lock (`$TMPDIR/golangci-lint.lock`, exit 3 after 5s
 
 ## Outcomes & Retrospective
 
-Add entries as work proceeds.
+- Review and refine found 16 findings, all medium: 10 in the Milestone 1 review (R1–R10), 5 in refine iteration 2 (S1–S5), 1 in iteration 3 (U1). All were accepted and fixed; none was skipped. Refine iteration 4 returned an explicit "no findings" across all seven lenses.
+- Behavior fixes: `goosTargets` drops blanks, duplicates, and the host GOOS (`8f6f36b`); `hostToolPath` pins `GOOS`/`GOARCH` to the host (`87f0b00`). Each has a test verified to fail with the fix reverted and pass with it. Test-only and comment-only findings landed in `4f287f6`, `35a076f`, `aa91250`, `d6af37d`, `17c7b13`, `ffaa4d7`, `8975b89`; every new test was checked against the injected regression it targets.
+- `./scripts/preflight.sh` prints `=== All checks passed ===` with a `golangci-lint (windows)` timing row. The first run reported `LOOSE` for `internal/services/lint` (72.2 vs 69.3); the ratchet also raised `covratchet` and `gocover`, which were restored, leaving only `internal/services/lint/.covgate` (63.6 → 72.2 against `origin/main`) and `internal/commands/.covgate` (62.3 → 63.0) in the diff.
+- CI (`lint`, `test`, `surface-lint / surface-lint`) passed on `0b7d82d` in one CI round; `[code]smith` skipped. No rebase or force-push was needed after Milestone 0. PR #44 stays in draft.
+- Lesson: a test that needs a successful real golangci-lint run is flaky wherever lint and tests run in parallel on one machine, because of golangci-lint's machine-wide lock. A fake `go` on a private `PATH` keeps the `go tool` plumbing under test without it.
 
 ## Context and Orientation
 
