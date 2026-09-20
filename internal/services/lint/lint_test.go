@@ -47,7 +47,6 @@ func fakeGoTool(t *testing.T, bin string) {
 	t.Setenv("PATH", filepath.Dir(goBin))
 }
 
-// timingNames returns the step names of timings in order.
 func timingNames(timings []stepTiming) []string {
 	names := make([]string, 0, len(timings))
 	for _, timing := range timings {

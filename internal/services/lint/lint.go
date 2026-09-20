@@ -31,10 +31,7 @@ type LintOpts struct {
 	NoGolangci      bool
 	NewFromRev      string
 	// GOOS lists extra target platforms, comma-separated;
-	// blanks, duplicates, and the host GOOS are skipped.
-	// golangci-lint runs once more per target; the other
-	// steps read every file regardless of build tags
-	// (custom linter, gofumpt) or stay host-only (deadcode).
+	// golangci-lint runs once more per target.
 	GOOS string
 	Out  io.Writer
 	Err  io.Writer
@@ -102,8 +99,6 @@ func runLintSteps(
 	return failures, timings, nil
 }
 
-// runGolangciTargets runs golangci-lint once per target
-// in opts.GOOS.
 func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming) {
 	for _, goos := range goosTargets(opts.GOOS) {
 		step := fmt.Sprintf("golangci-lint (%s)", goos)
@@ -278,9 +273,9 @@ func RunGolangci(out io.Writer, errW io.Writer, newFromRev string) error {
 	return nil
 }
 
-// RunGolangciGOOS runs golangci-lint for the goos target,
-// which type-checks and lints the files the host build
-// excludes. GOARCH is inherited from the host.
+// RunGolangciGOOS runs golangci-lint with GOOS set to goos,
+// which also lints the files the host build excludes.
+// GOARCH is left to the environment.
 func RunGolangciGOOS(out io.Writer, errW io.Writer, newFromRev, goos string) error {
 	_, _ = fmt.Fprintf(out, "Running golangci-lint for %s...\n", goos)
 	// GOOS in the environment of `go tool` cross-compiles the tool
@@ -293,8 +288,6 @@ func RunGolangciGOOS(out io.Writer, errW io.Writer, newFromRev, goos string) err
 	return runGolangciBin(out, errW, bin, newFromRev, goos)
 }
 
-// runGolangciBin runs the golangci-lint binary at bin with
-// GOOS set to goos.
 func runGolangciBin(out, errW io.Writer, bin, newFromRev, goos string) error {
 	//nolint:gosec,noctx // G204: trusted subprocess
 	cmd := exec.Command(bin, golangciArgs(newFromRev)...)
