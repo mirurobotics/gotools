@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/mirurobotics/gotools/internal/services/lint"
+
 	"github.com/spf13/cobra"
 )
 
@@ -239,6 +241,23 @@ func TestNewLintCommand_Flags(t *testing.T) {
 		if f.Value.Type() != tc.wantType {
 			t.Errorf("flag %q type = %q, want %q", tc.name, f.Value.Type(), tc.wantType)
 		}
+	}
+}
+
+func TestBindLintFlags_BindsGOOSAndNewFromRev(t *testing.T) {
+	var opts lint.LintOpts
+	//nolint:exhaustruct // cobra uses partial initialization
+	cmd := &cobra.Command{Use: "lint"}
+	bindLintFlags(cmd, &opts)
+	args := []string{"--goos=windows,darwin", "--new-from-rev=main"}
+	if err := cmd.ParseFlags(args); err != nil {
+		t.Fatal(err)
+	}
+	if opts.GOOS != "windows,darwin" {
+		t.Errorf("GOOS = %q, want %q", opts.GOOS, "windows,darwin")
+	}
+	if opts.NewFromRev != "main" {
+		t.Errorf("NewFromRev = %q, want %q", opts.NewFromRev, "main")
 	}
 }
 

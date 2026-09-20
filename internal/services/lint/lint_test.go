@@ -556,4 +556,13 @@ func TestPrintTimings(t *testing.T) {
 	if !strings.Contains(s, "total") {
 		t.Error("missing total timing")
 	}
+	for _, want := range []string{
+		"gofumpt             0.4s\n",
+		"golangci-lint      7m45s\n",
+		"total              8m10s\n",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("expected %q in output, got %q", want, s)
+		}
+	}
 }
