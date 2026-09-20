@@ -274,8 +274,8 @@ func RunGolangci(out io.Writer, errW io.Writer, newFromRev string) error {
 }
 
 // RunGolangciGOOS runs golangci-lint with GOOS set to goos,
-// which also lints the files the host build excludes.
-// GOARCH is left to the environment.
+// linting the files that build for that target. GOARCH is
+// left to the environment.
 func RunGolangciGOOS(out io.Writer, errW io.Writer, newFromRev, goos string) error {
 	_, _ = fmt.Fprintf(out, "Running golangci-lint for %s...\n", goos)
 	// GOOS in the environment of `go tool` cross-compiles the tool
