@@ -501,6 +501,22 @@ func TestGolangciArgs(t *testing.T) {
 	}
 }
 
+func TestHostToolPath_IgnoresInheritedTarget(t *testing.T) {
+	want, err := hostToolPath("golangci-lint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GOOS", "windows")
+	t.Setenv("GOARCH", "386")
+	got, err := hostToolPath("golangci-lint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("hostToolPath with GOOS/GOARCH set = %q, want %q", got, want)
+	}
+}
+
 func TestHostToolPath_UnknownTool(t *testing.T) {
 	if _, err := hostToolPath("definitely-not-a-go-tool"); err == nil {
 		t.Fatal("expected error for unknown tool")

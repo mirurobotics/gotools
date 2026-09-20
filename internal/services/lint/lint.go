@@ -317,9 +317,11 @@ func golangciArgs(newFromRev string) []string {
 }
 
 // hostToolPath builds the named `go tool` dependency for
-// the host and returns the path of its binary.
+// the host, ignoring any inherited GOOS and GOARCH, and
+// returns the path of its binary.
 func hostToolPath(name string) (string, error) {
 	cmd := cmdutil.GoCommand("tool", "-n", name)
+	cmd.Env = append(cmd.Env, "GOOS="+runtime.GOOS, "GOARCH="+runtime.GOARCH)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
