@@ -34,10 +34,16 @@ func fakeGolangci(t *testing.T, exitCode int) string {
 }
 
 // fakeGoTool makes PATH hold only a `go` stand-in that prints
-// bin, so `go tool -n` resolves to bin.
+// bin for `go tool -n golangci-lint` and echoes any other
+// arguments.
 func fakeGoTool(t *testing.T, bin string) {
 	t.Helper()
-	goBin := writeScript(t, "go", "echo '"+bin+"'\n")
+	body := "if [ \"$*\" = \"tool -n golangci-lint\" ]; then\n" +
+		"\techo '" + bin + "'\n" +
+		"else\n" +
+		"\techo \"go $*\"\n" +
+		"fi\n"
+	goBin := writeScript(t, "go", body)
 	t.Setenv("PATH", filepath.Dir(goBin))
 }
 
@@ -505,6 +511,12 @@ func TestHostToolPath_IgnoresInheritedTarget(t *testing.T) {
 	want, err := hostToolPath("golangci-lint")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !filepath.IsAbs(want) {
+		t.Fatalf("hostToolPath = %q, want an absolute path", want)
+	}
+	if info, err := os.Stat(want); err != nil || !info.Mode().IsRegular() {
+		t.Fatalf("hostToolPath = %q, want a regular file (stat error: %v)", want, err)
 	}
 	t.Setenv("GOOS", "windows")
 	t.Setenv("GOARCH", "386")
