@@ -20,7 +20,7 @@ PR #44 adds an opt-in flag, `miru lint --goos=<comma-separated targets>`, that r
 
 - [x] Milestone 0: rebase onto `origin/main` (`ccbfa28`), resolving `scripts/lint.sh` in both commits (done by the orchestrator; branch commits are now `60045d3` and `2c69761`).
 - [x] Milestone 1: run the `review` skill over the diff; record findings (10 medium findings, R1–R10).
-- [ ] Milestone 2: run the `refine` skill until no findings remain; every behavior fix has a test.
+- [x] Milestone 2: run the `refine` skill until no findings remain; every behavior fix has a test (4 iterations; iteration 4 returned "no findings").
 - [ ] Milestone 3: local preflight, push, `preflight` skill reports `CLEAN`, PR body resynced, plan moved to `plans/completed/`.
 
 ## Surprises & Discoveries
@@ -40,9 +40,21 @@ Milestone 1 review findings (2026-09-20; seven lenses, merged and deduplicated; 
 
 Confirmed non-issues: `RunGolangciGOOS`'s export matches `RunGolangci`/`RunGofumpt`/`RunDeadcode`, and surface-lint (yamllint, shellcheck, actionlint) ignores Go symbols; `GOFLAGS` values still yield a single-line path from `go tool -n`; an empty resolved path fails closed at `cmd.Run`; no README or doc lists the sibling flags, so `--goos` is missing nowhere; golangci-lint's lock rules out parallelizing targets.
 
+Refine iteration 2 findings (all medium): S1 no test observes the `tool -n <name>` arguments `hostToolPath` sends (the fake `go` ignored its arguments; dropping `-n` passed every test); S2 no test observes the arguments `RunGolangci` sends after the `golangciArgs` refactor; S3 the `LintOpts.GOOS` comment described other steps and duplicated the `goosTargets` skip wording; S4 the `RunGolangciGOOS` doc overstated coverage and said GOARCH comes "from the host" although an exported `GOARCH` passes through; S5 three comments restated their signatures. Iteration 3 finding (medium, documentation): U1 the reworded `RunGolangciGOOS` doc still said the run "also lints the files the host build excludes", which is false for host-only files and for other targets' files. Iteration 4: "no findings" across all lenses.
+
+golangci-lint's machine-wide lock (`$TMPDIR/golangci-lint.lock`, exit 3 after 5s) makes any test that needs a successful real golangci-lint run flaky under `./scripts/preflight.sh`, which runs lint and covgate in parallel. Tests now use a fake `go` and a fake golangci-lint on a private `PATH`.
+
 ## Decision Log
 
-Add entries as work proceeds.
+- Decision: accept R1 (dedupe and host-GOOS skip). Rationale: duplicates and host entries repeat whole lint runs and double-report failures; "extra" was unenforced. Fixed in `8f6f36b` with `goosTargets`, `TestGoosTargets`, and `TestRunGolangciTargets/duplicates_and_host` (fails without the fix). 2026-09-20.
+- Decision: accept R2 (pin `GOOS`/`GOARCH` in `hostToolPath` only). Rationale: reproduced a `.exe` path and exec format error under `GOOS=windows`; the target run still leaves GOARCH alone. Fixed in `87f0b00` with `TestHostToolPath_IgnoresInheritedTarget` (fail-before took 13s: it cross-compiles golangci-lint; pass state 0.3s). 2026-09-20.
+- Decision: accept R3 and replace the real success run with fakes. Rationale: every real success check can fail under lock contention; `scripts/lint.sh --goos=windows` still proves the real binary runs in CI. `4f287f6` extracts `runGolangciBin` and adds `writeScript`, `fakeGolangci`, `fakeGoTool`. 2026-09-20.
+- Decision: accept R4–R7 as test-only (`35a076f`), R9 with R1 (`8f6f36b`), R8 and R10 (`aa91250`). Rationale: each named regression was injected and caught only by the new test. 2026-09-20.
+- Decision: accept S1 (`d6af37d`) and S2 (`17c7b13`). Rationale: dropping `-n`, or `golangciArgs("")` in `RunGolangci`, passed every test before; the fake `go` now resolves only `tool -n golangci-lint` and echoes other arguments. 2026-09-20.
+- Decision: accept S3–S5 (`ffaa4d7`) and U1 (`8975b89`), comment-only. Rationale: no linter here requires doc comments; sibling trivial helpers carry none; the skip wording stays on `goosTargets` and the help text; "GOARCH is left to the environment" is accurate whether or not GOARCH is exported and leaves the settled behavior unchanged. 2026-09-20.
+- Decision: no finding was skipped; none contradicted a settled owner decision. Security and performance lenses returned "no findings" in every iteration. 2026-09-20.
+- Decision: the orchestrator applied each critique fix plan itself, one commit per fix, instead of a single fix subagent, so that fail-before/pass-after could be checked per commit. 2026-09-20.
+- Decision: leave `.covgate` to Milestone 3's ratchet rather than bumping it per commit. 2026-09-20.
 
 ## Outcomes & Retrospective
 
