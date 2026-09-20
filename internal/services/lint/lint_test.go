@@ -320,6 +320,19 @@ func TestRunLint_ParallelGolangciAndDeadcode(t *testing.T) {
 	_ = err // lint failures are acceptable in this test
 }
 
+func TestRunGolangci_PassesNewFromRev(t *testing.T) {
+	fakeGoTool(t, fakeGolangci(t, 0))
+	var out bytes.Buffer
+	if err := RunGolangci(&out, io.Discard, "main"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "Running golangci-lint...\n" +
+		"go tool golangci-lint run --new-from-rev=main\n"
+	if got := out.String(); got != want {
+		t.Errorf("stdout = %q, want %q", got, want)
+	}
+}
+
 func TestRunGolangciGOOS_Success(t *testing.T) {
 	fakeGoTool(t, fakeGolangci(t, 0))
 	var out, errBuf bytes.Buffer
