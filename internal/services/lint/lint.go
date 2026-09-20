@@ -275,6 +275,12 @@ func RunGolangciGOOS(out io.Writer, errW io.Writer, newFromRev, goos string) err
 		_, _ = fmt.Fprintf(errW, "golangci-lint for %s failed: %v\n", goos, err)
 		return err
 	}
+	return runGolangciBin(out, errW, bin, newFromRev, goos)
+}
+
+// runGolangciBin runs the golangci-lint binary at bin with
+// GOOS set to goos.
+func runGolangciBin(out, errW io.Writer, bin, newFromRev, goos string) error {
 	//nolint:gosec,noctx // G204: trusted subprocess
 	cmd := exec.Command(bin, golangciArgs(newFromRev)...)
 	cmd.Env = append(os.Environ(), "GOWORK=off", "GOOS="+goos)

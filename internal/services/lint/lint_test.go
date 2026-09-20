@@ -2,11 +2,42 @@ package lint
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+// writeScript writes an executable shell script called name
+// to a fresh temp dir and returns its path.
+func writeScript(t *testing.T, name, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	//nolint:gosec // G306: test executable
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// fakeGolangci writes a golangci-lint stand-in that prints
+// its GOOS, GOWORK, and arguments, then exits with exitCode.
+func fakeGolangci(t *testing.T, exitCode int) string {
+	t.Helper()
+	body := "echo \"GOOS=$GOOS GOWORK=$GOWORK args=$*\"\n"
+	return writeScript(t, "golangci-lint", body+fmt.Sprintf("exit %d\n", exitCode))
+}
+
+// fakeGoTool makes PATH hold only a `go` stand-in that prints
+// bin, so `go tool -n` resolves to bin.
+func fakeGoTool(t *testing.T, bin string) {
+	t.Helper()
+	goBin := writeScript(t, "go", "echo '"+bin+"'\n")
+	t.Setenv("PATH", filepath.Dir(goBin))
+}
 
 func TestFilterDeadcodeOutput(t *testing.T) {
 	tests := []struct {
@@ -273,12 +304,15 @@ func TestRunLint_ParallelGolangciAndDeadcode(t *testing.T) {
 }
 
 func TestRunGolangciGOOS_Success(t *testing.T) {
+	fakeGoTool(t, fakeGolangci(t, 0))
 	var out, errBuf bytes.Buffer
 	if err := RunGolangciGOOS(&out, &errBuf, "", "windows"); err != nil {
 		t.Fatalf("unexpected error: %v\n%s", err, errBuf.String())
 	}
-	if !strings.Contains(out.String(), "Running golangci-lint for windows") {
-		t.Errorf("expected progress line in output, got %q", out.String())
+	want := "Running golangci-lint for windows...\n" +
+		"GOOS=windows GOWORK=off args=run\n"
+	if got := out.String(); got != want {
+		t.Errorf("stdout = %q, want %q", got, want)
 	}
 }
 
@@ -289,6 +323,17 @@ func TestRunGolangciGOOS_UnsupportedGOOS(t *testing.T) {
 		t.Fatal("expected error for unsupported GOOS")
 	}
 	if !strings.Contains(errBuf.String(), "golangci-lint for notanos failed") {
+		t.Errorf("expected failure surfaced to errW, got %q", errBuf.String())
+	}
+}
+
+func TestRunGolangciBin_Failure(t *testing.T) {
+	var errBuf bytes.Buffer
+	err := runGolangciBin(io.Discard, &errBuf, fakeGolangci(t, 1), "", "windows")
+	if err == nil {
+		t.Fatal("expected error from failing golangci-lint")
+	}
+	if !strings.Contains(errBuf.String(), "golangci-lint for windows failed") {
 		t.Errorf("expected failure surfaced to errW, got %q", errBuf.String())
 	}
 }
