@@ -60,7 +60,7 @@ func bindLintFlags(cmd *cobra.Command, opts *lint.LintOpts) {
 	fl.StringVar(
 		&opts.GOOS, "goos", "",
 		"comma-separated extra GOOS targets to run golangci-lint for "+
-			"(e.g. windows)",
+			"(e.g. windows); the host GOOS and duplicates are skipped",
 	)
 }
 

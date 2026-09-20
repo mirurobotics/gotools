@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -387,19 +388,56 @@ func TestRunGolangciBin_Failure(t *testing.T) {
 	}
 }
 
-func TestRunGolangciTargets_SkipsBlankEntries(t *testing.T) {
-	//nolint:exhaustruct // only testing target parsing
-	failures, timings := runGolangciTargets(LintOpts{
-		GOOS: " ,notanos, ",
-		Out:  io.Discard,
-		Err:  io.Discard,
-	})
-	want := "golangci-lint (notanos)"
-	if len(failures) != 1 || failures[0] != want {
-		t.Errorf("failures = %v, want [%q]", failures, want)
+func TestGoosTargets(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want []string
+	}{
+		{"empty", "", nil},
+		{"blanks", " , ,", nil},
+		{"trims", " notanos ", []string{"notanos"}},
+		{"keeps order", "b,a", []string{"b", "a"}},
+		{"drops duplicates", "a,b,a, b", []string{"a", "b"}},
+		{"drops host", runtime.GOOS + ",a," + runtime.GOOS, []string{"a"}},
 	}
-	if len(timings) != 1 || timings[0].name != want {
-		t.Errorf("timings = %v, want one step named %q", timings, want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := goosTargets(tt.raw); !slices.Equal(got, tt.want) {
+				t.Errorf("goosTargets(%q) = %v, want %v", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunGolangciTargets(t *testing.T) {
+	tests := []struct {
+		name string
+		goos string
+		want []string
+	}{
+		{"empty", "", nil},
+		{"blanks", " , ", nil},
+		{"two targets in order", "windows, plan9", []string{"windows", "plan9"}},
+		{"duplicates and host", "windows,windows," + runtime.GOOS, []string{"windows"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeGoTool(t, fakeGolangci(t, 1))
+			//nolint:exhaustruct // only testing target iteration
+			opts := LintOpts{GOOS: tt.goos, Out: io.Discard, Err: io.Discard}
+			failures, timings := runGolangciTargets(opts)
+			steps := make([]string, 0, len(tt.want))
+			for _, goos := range tt.want {
+				steps = append(steps, "golangci-lint ("+goos+")")
+			}
+			if !slices.Equal(failures, steps) {
+				t.Errorf("failures = %v, want %v", failures, steps)
+			}
+			if got := timingNames(timings); !slices.Equal(got, steps) {
+				t.Errorf("timings = %v, want %v", got, steps)
+			}
+		})
 	}
 }
 

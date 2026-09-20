@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +30,8 @@ type LintOpts struct {
 	NoGofumpt       bool
 	NoGolangci      bool
 	NewFromRev      string
-	// GOOS lists extra target platforms, comma-separated.
+	// GOOS lists extra target platforms, comma-separated;
+	// blanks, duplicates, and the host GOOS are skipped.
 	// golangci-lint runs once more per target; the other
 	// steps read every file regardless of build tags
 	// (custom linter, gofumpt) or stay host-only (deadcode).
@@ -100,14 +102,10 @@ func runLintSteps(
 	return failures, timings, nil
 }
 
-// runGolangciTargets runs golangci-lint once per
-// comma-separated GOOS in opts.GOOS.
+// runGolangciTargets runs golangci-lint once per target
+// in opts.GOOS.
 func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming) {
-	for _, goos := range strings.Split(opts.GOOS, ",") {
-		goos = strings.TrimSpace(goos)
-		if goos == "" {
-			continue
-		}
+	for _, goos := range goosTargets(opts.GOOS) {
 		step := fmt.Sprintf("golangci-lint (%s)", goos)
 		start := time.Now()
 		err := RunGolangciGOOS(opts.Out, opts.Err, opts.NewFromRev, goos)
@@ -117,6 +115,23 @@ func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming)
 		timings = append(timings, stepTiming{step, time.Since(start)})
 	}
 	return failures, timings
+}
+
+// goosTargets splits the comma-separated raw into target
+// platforms in first-seen order, dropping blanks,
+// duplicates, and the host GOOS.
+func goosTargets(raw string) []string {
+	var targets []string
+	seen := map[string]bool{runtime.GOOS: true}
+	for _, goos := range strings.Split(raw, ",") {
+		goos = strings.TrimSpace(goos)
+		if goos == "" || seen[goos] {
+			continue
+		}
+		seen[goos] = true
+		targets = append(targets, goos)
+	}
+	return targets
 }
 
 // runAnalyzers runs golangci-lint and deadcode. When both
