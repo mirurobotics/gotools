@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -37,6 +38,15 @@ func fakeGoTool(t *testing.T, bin string) {
 	t.Helper()
 	goBin := writeScript(t, "go", "echo '"+bin+"'\n")
 	t.Setenv("PATH", filepath.Dir(goBin))
+}
+
+// timingNames returns the step names of timings in order.
+func timingNames(timings []stepTiming) []string {
+	names := make([]string, 0, len(timings))
+	for _, timing := range timings {
+		names = append(names, timing.name)
+	}
+	return names
 }
 
 func TestFilterDeadcodeOutput(t *testing.T) {
@@ -327,6 +337,45 @@ func TestRunGolangciGOOS_UnsupportedGOOS(t *testing.T) {
 	}
 }
 
+func TestRunGolangciGOOS_ResolveFailure(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	var errBuf bytes.Buffer
+	err := RunGolangciGOOS(io.Discard, &errBuf, "", "windows")
+	if err == nil {
+		t.Fatal("expected error when go is not on PATH")
+	}
+	want := "golangci-lint for windows failed: resolve go tool golangci-lint"
+	if !strings.Contains(errBuf.String(), want) {
+		t.Errorf("errW = %q, want it to contain %q", errBuf.String(), want)
+	}
+}
+
+func TestRunGolangciBin_PassesNewFromRev(t *testing.T) {
+	var out bytes.Buffer
+	bin := fakeGolangci(t, 0)
+	if err := runGolangciBin(&out, io.Discard, bin, "main", "windows"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "GOOS=windows GOWORK=off args=run --new-from-rev=main\n"
+	if got := out.String(); got != want {
+		t.Errorf("stdout = %q, want %q", got, want)
+	}
+}
+
+func TestRunGolangciBin_OverridesInheritedGOOS(t *testing.T) {
+	t.Setenv("GOOS", "plan9")
+	t.Setenv("GOWORK", "auto")
+	var out bytes.Buffer
+	bin := fakeGolangci(t, 0)
+	if err := runGolangciBin(&out, io.Discard, bin, "", "windows"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "GOOS=windows GOWORK=off args=run\n"
+	if got := out.String(); got != want {
+		t.Errorf("stdout = %q, want %q", got, want)
+	}
+}
+
 func TestRunGolangciBin_Failure(t *testing.T) {
 	var errBuf bytes.Buffer
 	err := runGolangciBin(io.Discard, &errBuf, fakeGolangci(t, 1), "", "windows")
@@ -351,6 +400,38 @@ func TestRunGolangciTargets_SkipsBlankEntries(t *testing.T) {
 	}
 	if len(timings) != 1 || timings[0].name != want {
 		t.Errorf("timings = %v, want one step named %q", timings, want)
+	}
+}
+
+func TestRunGolangciTargets_PassesNewFromRev(t *testing.T) {
+	fakeGoTool(t, fakeGolangci(t, 0))
+	var out bytes.Buffer
+	//nolint:exhaustruct // only testing NewFromRev wiring
+	opts := LintOpts{GOOS: "windows", NewFromRev: "main", Out: &out, Err: io.Discard}
+	if failures, _ := runGolangciTargets(opts); len(failures) != 0 {
+		t.Fatalf("failures = %v, want none", failures)
+	}
+	want := "GOOS=windows GOWORK=off args=run --new-from-rev=main\n"
+	if !strings.Contains(out.String(), want) {
+		t.Errorf("stdout = %q, want it to contain %q", out.String(), want)
+	}
+}
+
+func TestRunLintSteps_RunsGOOSTargetsLast(t *testing.T) {
+	fakeGoTool(t, fakeGolangci(t, 1))
+	//nolint:exhaustruct // only testing GOOS target wiring
+	opts := LintOpts{NoGofumpt: true, GOOS: "windows", Out: io.Discard, Err: io.Discard}
+	failures, timings, err := runLintSteps(opts)
+	if err != nil {
+		t.Fatalf("unexpected fatal error: %v", err)
+	}
+	target := "golangci-lint (windows)"
+	if !slices.Equal(failures, []string{target}) {
+		t.Errorf("failures = %v, want [%q]", failures, target)
+	}
+	want := []string{"golangci-lint", target}
+	if got := timingNames(timings); !slices.Equal(got, want) {
+		t.Errorf("timings = %v, want %v", got, want)
 	}
 }
 
