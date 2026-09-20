@@ -219,7 +219,7 @@ func TestNewLintCommand_Flags(t *testing.T) {
 		{"no-gofumpt", "bool"},
 		{"no-golangci", "bool"},
 		{"new-from-rev", "string"},
-		{"vet-goos", "string"},
+		{"goos", "string"},
 		// Shared linter config flags
 		{"max-line-width", "int"},
 		{"tab-width", "int"},
@@ -250,7 +250,7 @@ func TestNewLintCommand_FlagDefaults(t *testing.T) {
 		"paths":            "",
 		"deadcode-exclude": "",
 		"new-from-rev":     "",
-		"vet-goos":         "",
+		"goos":             "",
 		"exclude":          "",
 		"rule":             "",
 	}

@@ -272,62 +272,87 @@ func TestRunLint_ParallelGolangciAndDeadcode(t *testing.T) {
 	_ = err // lint failures are acceptable in this test
 }
 
-func TestRunVet_Success(t *testing.T) {
+func TestRunGolangciGOOS_Success(t *testing.T) {
 	var out, errBuf bytes.Buffer
-	if err := RunVet(&out, &errBuf, "windows"); err != nil {
+	if err := RunGolangciGOOS(&out, &errBuf, "", "windows"); err != nil {
 		t.Fatalf("unexpected error: %v\n%s", err, errBuf.String())
 	}
-	if !strings.Contains(out.String(), "Running go vet for windows") {
+	if !strings.Contains(out.String(), "Running golangci-lint for windows") {
 		t.Errorf("expected progress line in output, got %q", out.String())
 	}
 }
 
-func TestRunVet_UnsupportedGOOS(t *testing.T) {
+func TestRunGolangciGOOS_UnsupportedGOOS(t *testing.T) {
 	var errBuf bytes.Buffer
-	err := RunVet(io.Discard, &errBuf, "notanos")
+	err := RunGolangciGOOS(io.Discard, &errBuf, "", "notanos")
 	if err == nil {
 		t.Fatal("expected error for unsupported GOOS")
 	}
-	if !strings.Contains(errBuf.String(), "go vet for notanos failed") {
+	if !strings.Contains(errBuf.String(), "golangci-lint for notanos failed") {
 		t.Errorf("expected failure surfaced to errW, got %q", errBuf.String())
 	}
 }
 
-func TestRunLint_VetGOOS(t *testing.T) {
+func TestRunGolangciTargets_SkipsBlankEntries(t *testing.T) {
+	//nolint:exhaustruct // only testing target parsing
+	failures, timings := runGolangciTargets(LintOpts{
+		GOOS: " ,notanos, ",
+		Out:  io.Discard,
+		Err:  io.Discard,
+	})
+	want := "golangci-lint (notanos)"
+	if len(failures) != 1 || failures[0] != want {
+		t.Errorf("failures = %v, want [%q]", failures, want)
+	}
+	if len(timings) != 1 || timings[0].name != want {
+		t.Errorf("timings = %v, want one step named %q", timings, want)
+	}
+}
+
+func TestRunLint_NoGolangciSkipsGOOSTargets(t *testing.T) {
 	var out bytes.Buffer
-	//nolint:exhaustruct // only testing the vet steps
+	//nolint:exhaustruct // only testing the skip path
 	err := RunLint(LintOpts{
 		NoGofumpt:  true,
 		NoGolangci: true,
-		VetGOOS:    "windows, ,linux",
+		GOOS:       "windows",
 		Out:        &out,
 		Err:        io.Discard,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	s := out.String()
-	for _, want := range []string{"vet windows", "vet linux", "Lint complete"} {
-		if !strings.Contains(s, want) {
-			t.Errorf("expected %q in output, got %q", want, s)
-		}
+	if strings.Contains(out.String(), "windows") {
+		t.Errorf("GOOS targets should not run with NoGolangci, got %q", out.String())
 	}
 }
 
-func TestRunLint_VetGOOSFailure(t *testing.T) {
-	//nolint:exhaustruct // only testing the vet failure path
-	err := RunLint(LintOpts{
-		NoGofumpt:  true,
-		NoGolangci: true,
-		VetGOOS:    "notanos",
-		Out:        io.Discard,
-		Err:        io.Discard,
-	})
-	if err == nil {
-		t.Fatal("expected lint failure for unsupported GOOS")
+func TestGolangciArgs(t *testing.T) {
+	if got := strings.Join(golangciArgs(""), " "); got != "run" {
+		t.Errorf("golangciArgs(\"\") = %q, want %q", got, "run")
 	}
-	if !strings.Contains(err.Error(), "vet notanos") {
-		t.Errorf("expected error to name the vet step, got: %v", err)
+	want := "run --new-from-rev=main"
+	if got := strings.Join(golangciArgs("main"), " "); got != want {
+		t.Errorf("golangciArgs(\"main\") = %q, want %q", got, want)
+	}
+}
+
+func TestHostToolPath_UnknownTool(t *testing.T) {
+	if _, err := hostToolPath("definitely-not-a-go-tool"); err == nil {
+		t.Fatal("expected error for unknown tool")
+	}
+}
+
+func TestPrintTimings_WidensForLongStepNames(t *testing.T) {
+	var buf bytes.Buffer
+	name := "golangci-lint (windows)"
+	printTimings(&buf, []stepTiming{{name, time.Second}}, 2*time.Second)
+	s := buf.String()
+	pad := strings.Repeat(" ", len(name)-len("total"))
+	for _, want := range []string{name + "    1.0s\n", "total" + pad + "    2.0s\n"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("expected %q in output, got %q", want, s)
+		}
 	}
 }
 

@@ -20,7 +20,8 @@ func NewLintCommand() *cobra.Command {
 		Short: "Run all Go linters",
 		Long: "Run the full Go lint suite: custom linter, " +
 			"gofumpt, golangci-lint, and deadcode. " +
-			"--vet-goos adds a cross-compiled go vet per target.\n\n" +
+			"--goos also runs golangci-lint for each extra target " +
+			"platform.\n\n" +
 			"By default, runs in fix mode. " +
 			"Use --fix=false for CI (check-only) mode.",
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -57,8 +58,8 @@ func bindLintFlags(cmd *cobra.Command, opts *lint.LintOpts) {
 		"only report new golangci-lint issues since this git revision",
 	)
 	fl.StringVar(
-		&opts.VetGOOS, "vet-goos", "",
-		"comma-separated GOOS targets to cross-compile go vet for "+
+		&opts.GOOS, "goos", "",
+		"comma-separated extra GOOS targets to run golangci-lint for "+
 			"(e.g. windows)",
 	)
 }

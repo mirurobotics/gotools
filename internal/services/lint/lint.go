@@ -29,14 +29,18 @@ type LintOpts struct {
 	NoGofumpt       bool
 	NoGolangci      bool
 	NewFromRev      string
-	VetGOOS         string
-	Out             io.Writer
-	Err             io.Writer
+	// GOOS lists extra target platforms, comma-separated.
+	// golangci-lint runs once more per target; the other
+	// steps read every file regardless of build tags
+	// (custom linter, gofumpt) or stay host-only (deadcode).
+	GOOS string
+	Out  io.Writer
+	Err  io.Writer
 }
 
 // RunLint runs the full lint suite: custom linter,
-// gofumpt, golangci-lint, deadcode, and a go vet per
-// VetGOOS target.
+// gofumpt, golangci-lint, and deadcode, plus
+// golangci-lint for each extra GOOS target.
 func RunLint(opts LintOpts) error {
 	if opts.Out == nil {
 		opts.Out = os.Stdout
@@ -88,23 +92,26 @@ func runLintSteps(
 	failures = append(failures, f...)
 	timings = append(timings, t...)
 
-	f, t = runVets(opts)
-	failures = append(failures, f...)
-	timings = append(timings, t...)
+	if !opts.NoGolangci {
+		f, t = runGolangciTargets(opts)
+		failures = append(failures, f...)
+		timings = append(timings, t...)
+	}
 	return failures, timings, nil
 }
 
-// runVets runs go vet once per comma-separated GOOS in
-// opts.VetGOOS.
-func runVets(opts LintOpts) (failures []string, timings []stepTiming) {
-	for _, goos := range strings.Split(opts.VetGOOS, ",") {
+// runGolangciTargets runs golangci-lint once per
+// comma-separated GOOS in opts.GOOS.
+func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming) {
+	for _, goos := range strings.Split(opts.GOOS, ",") {
 		goos = strings.TrimSpace(goos)
 		if goos == "" {
 			continue
 		}
-		step := "vet " + goos
+		step := fmt.Sprintf("golangci-lint (%s)", goos)
 		start := time.Now()
-		if err := RunVet(opts.Out, opts.Err, goos); err != nil {
+		err := RunGolangciGOOS(opts.Out, opts.Err, opts.NewFromRev, goos)
+		if err != nil {
 			failures = append(failures, step)
 		}
 		timings = append(timings, stepTiming{step, time.Since(start)})
@@ -193,10 +200,14 @@ func printTimings(w io.Writer, timings []stepTiming, total time.Duration) {
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Timings")
 	_, _ = fmt.Fprintln(w, "-------")
+	width := 16
 	for _, t := range timings {
-		_, _ = fmt.Fprintf(w, "%-16s %7s\n", t.name, fmtDuration(t.duration))
+		width = max(width, len(t.name))
 	}
-	_, _ = fmt.Fprintf(w, "%-16s %7s\n", "total", fmtDuration(total))
+	for _, t := range timings {
+		_, _ = fmt.Fprintf(w, "%-*s %7s\n", width, t.name, fmtDuration(t.duration))
+	}
+	_, _ = fmt.Fprintf(w, "%-*s %7s\n", width, "total", fmtDuration(total))
 }
 
 func fmtDuration(d time.Duration) string {
@@ -244,15 +255,57 @@ func runCustomLinter(opts LintOpts) (bool, error) {
 // reported.
 func RunGolangci(out io.Writer, errW io.Writer, newFromRev string) error {
 	_, _ = fmt.Fprintln(out, "Running golangci-lint...")
-	args := []string{"tool", "golangci-lint", "run"}
-	if newFromRev != "" {
-		args = append(args, "--new-from-rev="+newFromRev)
-	}
+	args := append([]string{"tool", "golangci-lint"}, golangciArgs(newFromRev)...)
 	if err := RunExternal(out, errW, "go", args...); err != nil {
 		_, _ = fmt.Fprintf(errW, "golangci-lint failed: %v\n", err)
 		return err
 	}
 	return nil
+}
+
+// RunGolangciGOOS runs golangci-lint for the goos target,
+// which type-checks and lints the files the host build
+// excludes. GOARCH is inherited from the host.
+func RunGolangciGOOS(out io.Writer, errW io.Writer, newFromRev, goos string) error {
+	_, _ = fmt.Fprintf(out, "Running golangci-lint for %s...\n", goos)
+	// GOOS in the environment of `go tool` cross-compiles the tool
+	// itself, so resolve the host binary and set GOOS on that.
+	bin, err := hostToolPath("golangci-lint")
+	if err != nil {
+		_, _ = fmt.Fprintf(errW, "golangci-lint for %s failed: %v\n", goos, err)
+		return err
+	}
+	//nolint:gosec,noctx // G204: trusted subprocess
+	cmd := exec.Command(bin, golangciArgs(newFromRev)...)
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOOS="+goos)
+	cmd.Stdout = out
+	cmd.Stderr = errW
+	if err := cmd.Run(); err != nil {
+		_, _ = fmt.Fprintf(errW, "golangci-lint for %s failed: %v\n", goos, err)
+		return err
+	}
+	return nil
+}
+
+func golangciArgs(newFromRev string) []string {
+	args := []string{"run"}
+	if newFromRev != "" {
+		args = append(args, "--new-from-rev="+newFromRev)
+	}
+	return args
+}
+
+// hostToolPath builds the named `go tool` dependency for
+// the host and returns the path of its binary.
+func hostToolPath(name string) (string, error) {
+	cmd := cmdutil.GoCommand("tool", "-n", name)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("resolve go tool %s: %w\n%s", name, err, stderr.String())
+	}
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 // RunGofumpt runs gofumpt in fix or check mode.
@@ -275,22 +328,6 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 		_, _ = fmt.Fprintln(out, "Files need formatting:")
 		_, _ = fmt.Fprintln(out, trimmed)
 		return fmt.Errorf("gofumpt found unformatted files")
-	}
-	return nil
-}
-
-// RunVet type-checks every package, including tests, for
-// the goos target so code that only builds on the host OS
-// cannot land unnoticed. GOARCH is inherited from the host.
-func RunVet(out io.Writer, errW io.Writer, goos string) error {
-	_, _ = fmt.Fprintf(out, "Running go vet for %s...\n", goos)
-	cmd := cmdutil.GoCommand("vet", "./...")
-	cmd.Env = append(cmd.Env, "GOOS="+goos)
-	cmd.Stdout = out
-	cmd.Stderr = errW
-	if err := cmd.Run(); err != nil {
-		_, _ = fmt.Fprintf(errW, "go vet for %s failed: %v\n", goos, err)
-		return err
 	}
 	return nil
 }
