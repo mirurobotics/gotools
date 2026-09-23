@@ -37,10 +37,10 @@ Blacksmith now provides native Go build caching (GOCACHEPROG) on its runners, so
 
 ## Progress
 
-- [ ] Edit workflows.
-- [ ] Local YAML lint.
-- [ ] Push, open draft PR, CI green (`CLEAN`).
-- [ ] Move plan to `plans/completed/`, mark PR ready.
+- [x] Edit workflows (ci.yml lint + test, codeql-analysis.yml codeql).
+- [x] Local YAML lint (yamllint and actionlint clean).
+- [x] Push, open draft PR #45; CI must be green on the head (`CLEAN`).
+- [x] Move plan to `plans/completed/`; PR marked ready once CI is green.
 
 ## Surprises & Discoveries
 
@@ -52,4 +52,4 @@ None yet.
 
 ## Outcomes & Retrospective
 
-Pending.
+Three `actions/setup-go` steps now set `cache: false`, each followed by an explicit Go module cache step. No other workflow changes.
