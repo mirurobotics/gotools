@@ -26,14 +26,6 @@ jobs:
           go-version-file: ./go.mod
           cache: false
 
-      - name: Cache Go modules
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/go/pkg/mod
-          key: gomod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            gomod-${{ runner.os }}-
-
       - name: Initialize CodeQL
         # yamllint disable rule:line-length
         uses: github/codeql-action/init@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
