@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -38,8 +39,10 @@ func fakeGolangci(t *testing.T, exitCode int) string {
 // arguments.
 func fakeGoTool(t *testing.T, bin string) {
 	t.Helper()
-	body := "if [ \"$*\" = \"tool -n golangci-lint\" ]; then\n" +
-		"\techo '" + bin + "'\n" +
+	body := "if [ \"$*\" = \"list -f {{.ImportPath}} tool\" ]; then\n" +
+		"\techo 'github.com/golangci/golangci-lint/v2/cmd/golangci-lint'\n" +
+		"elif [ \"$1\" = build ] && [ \"$2\" = -o ]; then\n" +
+		"\t/bin/cp '" + bin + "' \"$3\"\n" +
 		"else\n" +
 		"\techo \"go $*\"\n" +
 		"fi\n"
@@ -520,30 +523,55 @@ func TestGolangciArgs(t *testing.T) {
 }
 
 func TestHostToolPath_IgnoresInheritedTarget(t *testing.T) {
-	want, err := hostToolPath("golangci-lint")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !filepath.IsAbs(want) {
-		t.Fatalf("hostToolPath = %q, want an absolute path", want)
-	}
-	if info, err := os.Stat(want); err != nil || !info.Mode().IsRegular() {
-		t.Fatalf("hostToolPath = %q, want a regular file (stat error: %v)", want, err)
-	}
+	dir := t.TempDir()
 	t.Setenv("GOOS", "windows")
 	t.Setenv("GOARCH", "386")
-	got, err := hostToolPath("golangci-lint")
+	bin, err := hostToolPath("golangci-lint", dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != want {
-		t.Errorf("hostToolPath with GOOS/GOARCH set = %q, want %q", got, want)
+	if want := filepath.Join(dir, "golangci-lint"+exeSuffix()); bin != want {
+		t.Errorf("hostToolPath = %q, want %q", bin, want)
+	}
+	// A cross-compiled binary would fail to exec on the host.
+	//nolint:gosec,noctx // G204: trusted subprocess
+	if out, err := exec.Command(bin, "version").CombinedOutput(); err != nil {
+		t.Fatalf("host binary did not run: %v\n%s", err, out)
 	}
 }
 
 func TestHostToolPath_UnknownTool(t *testing.T) {
-	if _, err := hostToolPath("definitely-not-a-go-tool"); err == nil {
-		t.Fatal("expected error for unknown tool")
+	_, err := hostToolPath("definitely-not-a-go-tool", t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "no tool named") {
+		t.Fatalf("expected unknown tool error, got %v", err)
+	}
+}
+
+func TestHostToolPath_BuildFailure(t *testing.T) {
+	fakeGoTool(t, filepath.Join(t.TempDir(), "missing"))
+	_, err := hostToolPath("golangci-lint", t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "build go tool golangci-lint") {
+		t.Fatalf("expected build error, got %v", err)
+	}
+}
+
+func TestToolName(t *testing.T) {
+	tests := []struct {
+		pkg  string
+		want string
+	}{
+		{"github.com/golangci/golangci-lint/v2/cmd/golangci-lint", "golangci-lint"},
+		{"mvdan.cc/gofumpt", "gofumpt"},
+		{"example.com/tool/v2", "tool"},
+		{"example.com/v", "v"},
+		{"example.com/vx", "vx"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.pkg, func(t *testing.T) {
+			if got := toolName(tt.pkg); got != tt.want {
+				t.Errorf("toolName(%q) = %q, want %q", tt.pkg, got, tt.want)
+			}
+		})
 	}
 }
 

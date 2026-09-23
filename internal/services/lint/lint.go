@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -279,8 +281,14 @@ func RunGolangci(out io.Writer, errW io.Writer, newFromRev string) error {
 func RunGolangciGOOS(out io.Writer, errW io.Writer, newFromRev, goos string) error {
 	_, _ = fmt.Fprintf(out, "Running golangci-lint for %s...\n", goos)
 	// GOOS in the environment of `go tool` cross-compiles the tool
-	// itself, so resolve the host binary and set GOOS on that.
-	bin, err := hostToolPath("golangci-lint")
+	// itself, so build the host binary and set GOOS on that.
+	dir, err := os.MkdirTemp("", "miru-golangci-")
+	if err != nil {
+		_, _ = fmt.Fprintf(errW, "golangci-lint for %s failed: %v\n", goos, err)
+		return err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	bin, err := hostToolPath("golangci-lint", dir)
 	if err != nil {
 		_, _ = fmt.Fprintf(errW, "golangci-lint for %s failed: %v\n", goos, err)
 		return err
@@ -310,16 +318,67 @@ func golangciArgs(newFromRev string) []string {
 }
 
 // hostToolPath builds the named `go tool` dependency for
-// the host, ignoring any inherited GOOS and GOARCH, and
-// returns the path of its binary.
-func hostToolPath(name string) (string, error) {
-	cmd := cmdutil.GoCommand("tool", "-n", name)
+// the host into dir, ignoring any inherited GOOS and GOARCH,
+// and returns the path of its binary. It builds with
+// `go build -o` rather than `go tool -n` because the latter
+// returns a deleted temporary path when GOCACHEPROG is set.
+func hostToolPath(name, dir string) (string, error) {
+	pkg, err := toolPackage(name)
+	if err != nil {
+		return "", fmt.Errorf("resolve go tool %s: %w", name, err)
+	}
+	bin := filepath.Join(dir, name+exeSuffix())
+	if _, err := runHostGo("build", "-o", bin, pkg); err != nil {
+		return "", fmt.Errorf("build go tool %s: %w", name, err)
+	}
+	return bin, nil
+}
+
+// toolPackage returns the package of the go.mod tool
+// directive that `go tool name` would run.
+func toolPackage(name string) (string, error) {
+	out, err := runHostGo("list", "-f", "{{.ImportPath}}", "tool")
+	if err != nil {
+		return "", err
+	}
+	for _, pkg := range strings.Fields(out) {
+		if toolName(pkg) == name {
+			return pkg, nil
+		}
+	}
+	return "", fmt.Errorf("no tool named %s in go.mod", name)
+}
+
+// toolName mirrors cmd/go: the last path element, skipping a
+// trailing major-version suffix such as /v2.
+func toolName(pkg string) string {
+	elem := path.Base(pkg)
+	if isMajorVersion(elem) {
+		return path.Base(path.Dir(pkg))
+	}
+	return elem
+}
+
+func exeSuffix() string {
+	if runtime.GOOS == "windows" {
+		return ".exe"
+	}
+	return ""
+}
+
+func isMajorVersion(elem string) bool {
+	n, ok := strings.CutPrefix(elem, "v")
+	return ok && n != "" && strings.Trim(n, "0123456789") == ""
+}
+
+func runHostGo(args ...string) (string, error) {
+	cmd := cmdutil.GoCommand(args...)
 	cmd.Env = append(cmd.Env, "GOOS="+runtime.GOOS, "GOARCH="+runtime.GOARCH)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("resolve go tool %s: %w\n%s", name, err, stderr.String())
+		return "", fmt.Errorf("%w\n%s", err, stderr.String())
 	}
 	return strings.TrimSpace(stdout.String()), nil
 }
