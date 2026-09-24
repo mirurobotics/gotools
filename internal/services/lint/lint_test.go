@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -33,19 +34,21 @@ func fakeGolangci(t *testing.T, exitCode int) string {
 	return writeScript(t, "golangci-lint", body+fmt.Sprintf("exit %d\n", exitCode))
 }
 
-// fakeGoTool makes PATH hold only a `go` stand-in that prints
-// bin for `go tool -n golangci-lint` and echoes any other
-// arguments.
+// fakeGoTool makes PATH hold only a `go` stand-in that lists
+// golangci-lint as the module's tool, copies bin to the -o
+// target of `go build`, and echoes any other arguments.
 func fakeGoTool(t *testing.T, bin string) {
 	t.Helper()
-	body := "if [ \"$*\" = \"tool -n golangci-lint\" ]; then\n" +
-		"\techo '" + bin + "'\n" +
-		"else\n" +
-		"\techo \"go $*\"\n" +
-		"fi\n"
+	body := "case \"$1\" in\n" +
+		"list) echo '" + golangciPkg + "' ;;\n" +
+		"build) /bin/cp '" + bin + "' \"$3\" ;;\n" +
+		"*) echo \"go $*\" ;;\n" +
+		"esac\n"
 	goBin := writeScript(t, "go", body)
 	t.Setenv("PATH", filepath.Dir(goBin))
 }
+
+const golangciPkg = "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 
 func timingNames(timings []stepTiming) []string {
 	names := make([]string, 0, len(timings))
@@ -519,31 +522,66 @@ func TestGolangciArgs(t *testing.T) {
 	}
 }
 
-func TestHostToolPath_IgnoresInheritedTarget(t *testing.T) {
-	want, err := hostToolPath("golangci-lint")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !filepath.IsAbs(want) {
-		t.Fatalf("hostToolPath = %q, want an absolute path", want)
-	}
-	if info, err := os.Stat(want); err != nil || !info.Mode().IsRegular() {
-		t.Fatalf("hostToolPath = %q, want a regular file (stat error: %v)", want, err)
-	}
+func TestBuildHostTool_IgnoresInheritedTarget(t *testing.T) {
 	t.Setenv("GOOS", "windows")
 	t.Setenv("GOARCH", "386")
-	got, err := hostToolPath("golangci-lint")
+	dir := t.TempDir()
+	bin, err := buildHostTool("golangci-lint", dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != want {
-		t.Errorf("hostToolPath with GOOS/GOARCH set = %q, want %q", got, want)
+	if filepath.Dir(bin) != dir {
+		t.Fatalf("buildHostTool = %q, want a binary in %q", bin, dir)
+	}
+	// The binary exists after the call returns and runs on the host.
+	//nolint:gosec,noctx // G204: trusted subprocess
+	if err := exec.Command(bin, "version").Run(); err != nil {
+		t.Fatalf("run %s version: %v", bin, err)
 	}
 }
 
-func TestHostToolPath_UnknownTool(t *testing.T) {
-	if _, err := hostToolPath("definitely-not-a-go-tool"); err == nil {
+func TestBuildHostTool_UnknownTool(t *testing.T) {
+	_, err := buildHostTool("definitely-not-a-go-tool", t.TempDir())
+	if err == nil {
 		t.Fatal("expected error for unknown tool")
+	}
+	if !strings.Contains(err.Error(), "not a tool of this module") {
+		t.Errorf("err = %v, want it to name the missing tool", err)
+	}
+}
+
+func TestBuildHostTool_BuildFailure(t *testing.T) {
+	goBin := writeScript(t, "go", "case \"$1\" in\n"+
+		"list) echo '"+golangciPkg+"' ;;\n"+
+		"*) echo 'build broke' >&2; exit 1 ;;\n"+
+		"esac\n")
+	t.Setenv("PATH", filepath.Dir(goBin))
+	_, err := buildHostTool("golangci-lint", t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "build go tool golangci-lint") {
+		t.Fatalf("err = %v, want a build failure", err)
+	}
+}
+
+func TestToolName(t *testing.T) {
+	tests := []struct {
+		pkg  string
+		want string
+	}{
+		{pkg: golangciPkg, want: "golangci-lint"},
+		{pkg: "mvdan.cc/gofumpt", want: "gofumpt"},
+		{pkg: "example.com/cmd/tool/v2", want: "tool"},
+		{pkg: "example.com/cmd/tool/v10", want: "tool"},
+		{pkg: "example.com/cmd/v1", want: "v1"},
+		{pkg: "example.com/cmd/v02", want: "v02"},
+		{pkg: "example.com/cmd/vx", want: "vx"},
+		{pkg: "v2", want: "v2"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.pkg, func(t *testing.T) {
+			if got := toolName(tt.pkg); got != tt.want {
+				t.Errorf("toolName(%q) = %q, want %q", tt.pkg, got, tt.want)
+			}
+		})
 	}
 }
 
