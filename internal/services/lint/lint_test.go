@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -33,16 +34,16 @@ func fakeGolangci(t *testing.T, exitCode int) string {
 	return writeScript(t, "golangci-lint", body+fmt.Sprintf("exit %d\n", exitCode))
 }
 
-// fakeGoTool makes PATH hold only a `go` stand-in that prints
-// bin for `go tool -n golangci-lint` and echoes any other
-// arguments.
+// fakeGoTool makes PATH hold only a `go` stand-in that lists
+// golangci-lint as a tool, copies bin to the -o path of
+// `go build`, and echoes any other arguments.
 func fakeGoTool(t *testing.T, bin string) {
 	t.Helper()
-	body := "if [ \"$*\" = \"tool -n golangci-lint\" ]; then\n" +
-		"\techo '" + bin + "'\n" +
-		"else\n" +
-		"\techo \"go $*\"\n" +
-		"fi\n"
+	body := "case \"$1\" in\n" +
+		"list) echo 'github.com/golangci/golangci-lint/v2/cmd/golangci-lint' ;;\n" +
+		"build) /bin/cp '" + bin + "' \"$3\" ;;\n" +
+		"*) echo \"go $*\" ;;\n" +
+		"esac\n"
 	goBin := writeScript(t, "go", body)
 	t.Setenv("PATH", filepath.Dir(goBin))
 }
@@ -520,30 +521,83 @@ func TestGolangciArgs(t *testing.T) {
 }
 
 func TestHostToolPath_IgnoresInheritedTarget(t *testing.T) {
-	want, err := hostToolPath("golangci-lint")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !filepath.IsAbs(want) {
-		t.Fatalf("hostToolPath = %q, want an absolute path", want)
-	}
-	if info, err := os.Stat(want); err != nil || !info.Mode().IsRegular() {
-		t.Fatalf("hostToolPath = %q, want a regular file (stat error: %v)", want, err)
-	}
 	t.Setenv("GOOS", "windows")
 	t.Setenv("GOARCH", "386")
-	got, err := hostToolPath("golangci-lint")
+	bin, err := hostToolPath("golangci-lint", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != want {
-		t.Errorf("hostToolPath with GOOS/GOARCH set = %q, want %q", got, want)
+	if info, err := os.Stat(bin); err != nil || !info.Mode().IsRegular() {
+		t.Fatalf("hostToolPath = %q, want a regular file (stat error: %v)", bin, err)
+	}
+	t.Setenv("GOOS", runtime.GOOS)
+	t.Setenv("GOARCH", runtime.GOARCH)
+	//nolint:gosec,noctx // G204: binary built by the test
+	if out, err := exec.Command(bin, "version").CombinedOutput(); err != nil {
+		t.Fatalf("built binary does not run on the host: %v\n%s", err, out)
 	}
 }
 
 func TestHostToolPath_UnknownTool(t *testing.T) {
-	if _, err := hostToolPath("definitely-not-a-go-tool"); err == nil {
-		t.Fatal("expected error for unknown tool")
+	_, err := hostToolPath("definitely-not-a-go-tool", t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "not a tool in go.mod") {
+		t.Fatalf("err = %v, want a not-a-tool error", err)
+	}
+}
+
+func TestHostToolPath_BuildFailure(t *testing.T) {
+	goBin := writeScript(t, "go", "case \"$1\" in\n"+
+		"list) echo example.com/golangci-lint ;;\n"+
+		"*) echo boom >&2; exit 1 ;;\n"+
+		"esac\n")
+	t.Setenv("PATH", filepath.Dir(goBin))
+	_, err := hostToolPath("golangci-lint", t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "build go tool golangci-lint") {
+		t.Fatalf("err = %v, want a build error", err)
+	}
+	if !strings.Contains(err.Error(), "boom") {
+		t.Errorf("err = %v, want it to carry go's stderr", err)
+	}
+}
+
+func TestFindTool(t *testing.T) {
+	pkgs := []string{
+		"github.com/golangci/golangci-lint/v2/cmd/golangci-lint",
+		"mvdan.cc/gofumpt",
+		"example.com/tool/v3",
+		"example.com/v1",
+	}
+	tests := []struct {
+		name string
+		want string
+		ok   bool
+	}{
+		{"golangci-lint", pkgs[0], true},
+		{"gofumpt", pkgs[1], true},
+		{"tool", pkgs[2], true},
+		{"v3", "", false},
+		{"v1", pkgs[3], true},
+		{"missing", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := findTool(pkgs, tt.name)
+			if got != tt.want || ok != tt.ok {
+				t.Errorf("findTool(%q) = %q, %v; want %q, %v",
+					tt.name, got, ok, tt.want, tt.ok)
+			}
+		})
+	}
+}
+
+func TestIsMajorVersion(t *testing.T) {
+	for elem, want := range map[string]bool{
+		"v2": true, "v10": true, "v1": false, "v0": false, "v05": false,
+		"v": false, "v2a": false, "cmd": false, "": false,
+	} {
+		if got := isMajorVersion(elem); got != want {
+			t.Errorf("isMajorVersion(%q) = %v, want %v", elem, got, want)
+		}
 	}
 }
 
