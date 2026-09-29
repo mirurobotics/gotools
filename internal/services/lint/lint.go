@@ -311,10 +311,14 @@ func golangciArgs(newFromRev string) []string {
 
 // hostToolPath builds the named `go tool` dependency for
 // the host, ignoring any inherited GOOS and GOARCH, and
-// returns the path of its binary.
+// returns the path of its binary. GOCACHEPROG is cleared
+// because go caches tool binaries only in the on-disk
+// cache; under a cache program `go tool -n` prints a
+// temporary path that is deleted before it can run.
 func hostToolPath(name string) (string, error) {
 	cmd := cmdutil.GoCommand("tool", "-n", name)
-	cmd.Env = append(cmd.Env, "GOOS="+runtime.GOOS, "GOARCH="+runtime.GOARCH)
+	cmd.Env = append(cmd.Env,
+		"GOOS="+runtime.GOOS, "GOARCH="+runtime.GOARCH, "GOCACHEPROG=")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
