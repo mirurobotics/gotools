@@ -45,6 +45,6 @@ jobs:
 
   surface-lint:
     # yamllint disable-line rule:line-length
-    uses: mirurobotics/.github/.github/workflows/surface-lint.yml@78e2fba753ddf238696af92184931ee08d3b0016
+    uses: mirurobotics/.github/.github/workflows/surface-lint.yml@6472b6d5b762eb9246ceb094d0912883e04081a1
     with:
       runs-on: blacksmith-4vcpu-ubuntu-2404
