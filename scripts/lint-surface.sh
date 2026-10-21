@@ -7,6 +7,6 @@ command -v actionlint >/dev/null 2>&1 || { echo "error: actionlint not installed
 
 yamllint -c .yamllint.yml .
 
-find . -name '*.sh' ! -path './.agents/*' -exec shellcheck {} +
+find . -name '*.sh' -exec shellcheck {} +
 
 actionlint
