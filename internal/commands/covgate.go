@@ -33,6 +33,11 @@ func NewCovgateCommand() *cobra.Command {
 		"comma-separated list of Go list patterns to exclude from coverage measurement",
 	)
 	fl.StringVar(
+		&opts.First, "first", "",
+		"comma-separated list of Go list patterns to start ahead of "+
+			"all other packages (e.g. the slowest ones)",
+	)
+	fl.StringVar(
 		&opts.SrcPrefix, "src-prefix", "pkg",
 		"source prefix for mapping external test dirs",
 	)

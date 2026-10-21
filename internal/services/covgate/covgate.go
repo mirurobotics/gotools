@@ -20,7 +20,13 @@ type Opts struct {
 	// Exclude is a comma-separated list of Go list patterns whose
 	// matched import paths are removed from the measurement set
 	// before tests run. Empty means no exclusion.
-	Exclude            string
+	Exclude string
+	// First is a comma-separated list of Go list patterns whose
+	// matched packages start ahead of all others, in pattern
+	// order. Listing the slowest packages here keeps them from
+	// queueing behind short ones and stretching the end of the
+	// run. Empty means list order.
+	First              string
 	SrcPrefix          string
 	TestDir            string
 	DefaultThreshold   float64
@@ -109,6 +115,11 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
+	order, err := r.dispatchOrder(items, opts.First)
+	if err != nil {
+		return err
+	}
+
 	r.writeRunHeader(w, len(items), parallelism)
 
 	ctx := checkPackageCtx{
@@ -121,7 +132,7 @@ func (r *runner) run(opts Opts) error {
 	}
 
 	start := time.Now()
-	results := r.runPackages(items, ctx, parallelism, w)
+	results := r.runPackages(items, order, ctx, parallelism, w)
 	wallTime := time.Since(start)
 	return r.printResults(w, results, excluded, module, wallTime)
 }
@@ -206,11 +217,7 @@ func (r *runner) applyExclude(
 	}
 
 	excludedSet := make(map[string]struct{})
-	for _, raw := range strings.Split(exclude, ",") {
-		entry := strings.TrimSpace(raw)
-		if entry == "" {
-			continue
-		}
+	for _, entry := range splitPatterns(exclude) {
 		matched, listErr := r.goListPackages(entry)
 		if listErr != nil {
 			return nil, nil, fmt.Errorf("resolve exclude %q: %w", entry, listErr)
@@ -239,8 +246,60 @@ func (r *runner) applyExclude(
 	return kept, excluded, nil
 }
 
+// dispatchOrder returns the indexes of items in the order they
+// start. Items matched by the comma-separated first patterns go
+// ahead of the rest, in pattern order; all other items keep list
+// order. Results stay indexed by list position, so the printed
+// table is the same whatever the start order.
+func (r *runner) dispatchOrder(items []workItem, first string) ([]int, error) {
+	pos := make(map[string]int, len(items))
+	for i, it := range items {
+		pos[it.pkg] = i
+	}
+	queued := make([]bool, len(items))
+	order := make([]int, 0, len(items))
+	for _, entry := range splitPatterns(first) {
+		matched, err := r.goListPackages(entry)
+		if err != nil {
+			return nil, fmt.Errorf("resolve first %q: %w", entry, err)
+		}
+		for _, pkg := range matched {
+			i, ok := pos[pkg]
+			if !ok || queued[i] {
+				continue
+			}
+			queued[i] = true
+			order = append(order, i)
+		}
+	}
+	for i := range items {
+		if !queued[i] {
+			order = append(order, i)
+		}
+	}
+	return order, nil
+}
+
+// splitPatterns splits a comma-separated pattern list, trimming
+// whitespace and dropping empty entries.
+func splitPatterns(spec string) []string {
+	var out []string
+	for _, raw := range strings.Split(spec, ",") {
+		if entry := strings.TrimSpace(raw); entry != "" {
+			out = append(out, entry)
+		}
+	}
+	return out
+}
+
+// runPackages runs items with up to parallelism at once, starting
+// them in the given order. Results are indexed by list position.
 func (r *runner) runPackages(
-	items []workItem, ctx checkPackageCtx, parallelism int, w io.Writer,
+	items []workItem,
+	order []int,
+	ctx checkPackageCtx,
+	parallelism int,
+	w io.Writer,
 ) []checkResult {
 	total := len(items)
 	results := make([]checkResult, total)
@@ -250,7 +309,8 @@ func (r *runner) runPackages(
 	countWidth := len(strconv.Itoa(total))
 	colWidth := progressColWidth(total)
 
-	for i, item := range items {
+	for _, i := range order {
+		item := items[i]
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(idx int, it workItem) {

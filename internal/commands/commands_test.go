@@ -363,6 +363,7 @@ func TestNewCovgateCommand_Flags(t *testing.T) {
 	}{
 		{"packages", "string"},
 		{"exclude", "string"},
+		{"first", "string"},
 		{"src-prefix", "string"},
 		{"test-dir", "string"},
 		{"default-threshold", "float64"},
@@ -388,6 +389,7 @@ func TestNewCovgateCommand_FlagDefaults(t *testing.T) {
 	stringDefaults := map[string]string{
 		"packages":   "./...",
 		"exclude":    "",
+		"first":      "",
 		"src-prefix": "pkg",
 		"test-dir":   "",
 	}

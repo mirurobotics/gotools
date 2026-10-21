@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1309,5 +1310,118 @@ func TestRun_OrphanTests_ListError(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error when the test-dir listing fails")
+	}
+}
+
+// firstRunner returns a runner with parallelism 1 whose measure
+// records the order packages start in.
+func firstRunner(lookup map[string][]string, started *[]string) runner {
+	var mu sync.Mutex
+	//nolint:exhaustruct // test uses partial initialization
+	return runner{
+		goModule: func() (string, error) { return modName, nil },
+		goListPackages: func(pattern string) ([]string, error) {
+			out, ok := lookup[pattern]
+			if !ok {
+				return nil, fmt.Errorf("list failed")
+			}
+			return out, nil
+		},
+		measure: func(pkg string, _ []string) (float64, []byte, error) {
+			mu.Lock()
+			*started = append(*started, pkg)
+			mu.Unlock()
+			return 90.0, nil, nil
+		},
+		parallelism: 1,
+	}
+}
+
+func TestRun_First(t *testing.T) {
+	const (
+		pkgA = modName + "/pkg/a"
+		pkgB = modName + "/pkg/b"
+		pkgC = modName + "/pkg/c"
+		pkgD = modName + "/pkg/d"
+	)
+	lookup := map[string][]string{
+		"./...":   {pkgA, pkgB, pkgC, pkgD},
+		"./pkg/d": {pkgD},
+		"./pkg/b": {pkgB},
+		"./pkg/c": {pkgC},
+		"./slow":  {pkgB, pkgD}, // fake listing spanning two packages
+		"./other": {modName + "/other"},
+	}
+
+	cases := []struct {
+		name    string
+		first   string
+		exclude string
+		want    []string
+	}{
+		{"Empty", "", "", []string{pkgA, pkgB, pkgC, pkgD}},
+		{"PatternOrder", "./pkg/d, ./pkg/b", "", []string{pkgD, pkgB, pkgA, pkgC}},
+		{
+			"DuplicateAndUnknownIgnored",
+			"./pkg/d,,./slow,./other",
+			"",
+			[]string{pkgD, pkgB, pkgA, pkgC},
+		},
+		{"ExcludedNotRun", "./pkg/c,./pkg/d", "./pkg/c", []string{pkgD, pkgA, pkgB}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var started []string
+			r := firstRunner(lookup, &started)
+			var buf bytes.Buffer
+			//nolint:exhaustruct // test uses partial initialization
+			err := r.run(Opts{
+				Out:              &buf,
+				DefaultThreshold: 80.0,
+				Packages:         "./...",
+				Exclude:          tc.exclude,
+				First:            tc.first,
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if strings.Join(started, " ") != strings.Join(tc.want, " ") {
+				t.Errorf("start order = %v, want %v", started, tc.want)
+			}
+
+			// The printed table keeps list order whatever the start order.
+			out := buf.String()
+			idxA := strings.Index(out, "pkg/a")
+			idxB := strings.Index(out, "pkg/b")
+			idxD := strings.Index(out, "pkg/d")
+			if idxA >= idxB || idxB >= idxD {
+				t.Errorf("output not in list order:\n%s", out)
+			}
+		})
+	}
+}
+
+func TestRun_First_GoListError(t *testing.T) {
+	var started []string
+	r := firstRunner(map[string][]string{"./...": {modName + "/pkg/a"}}, &started)
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	err := r.run(Opts{
+		Out:              &buf,
+		DefaultThreshold: 80.0,
+		Packages:         "./...",
+		First:            "./pkg/bogus",
+	})
+	if err == nil {
+		t.Fatal("expected error from first pattern resolution")
+	}
+	for _, want := range []string{"resolve first", "./pkg/bogus", "list failed"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q: %v", want, err)
+		}
+	}
+	if len(started) != 0 {
+		t.Errorf("expected no packages to start, got %v", started)
 	}
 }
