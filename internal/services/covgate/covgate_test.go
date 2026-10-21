@@ -1425,3 +1425,30 @@ func TestRun_First_GoListError(t *testing.T) {
 		t.Errorf("expected no packages to start, got %v", started)
 	}
 }
+
+func TestRun_First_ProgressCountsCompletions(t *testing.T) {
+	var started []string
+	r := firstRunner(map[string][]string{
+		"./...":   {modName + "/pkg/a", modName + "/pkg/b", modName + "/pkg/c"},
+		"./pkg/c": {modName + "/pkg/c"},
+	}, &started)
+	r.emitProgress = true
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	err := r.run(Opts{
+		Out:              &buf,
+		DefaultThreshold: 80.0,
+		Packages:         "./...",
+		First:            "./pkg/c",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := buf.String()
+	if !hasProgressLineWith(out, "[1/3]", "pkg/c") {
+		t.Errorf("expected pkg/c, started first, to be labeled [1/3]:\n%s", out)
+	}
+	if !hasProgressLineWith(out, "[3/3]", "pkg/b") {
+		t.Errorf("expected pkg/b, started last, to be labeled [3/3]:\n%s", out)
+	}
+}

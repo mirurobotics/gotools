@@ -306,6 +306,7 @@ func (r *runner) runPackages(
 	sem := make(chan struct{}, parallelism)
 	var wg sync.WaitGroup
 	var progressMu sync.Mutex
+	done := 0
 	countWidth := len(strconv.Itoa(total))
 	colWidth := progressColWidth(total)
 
@@ -322,8 +323,11 @@ func (r *runner) runPackages(
 				results[idx] = r.checkPackage(it.pkg, ctx)
 			}
 			if r.emitProgress {
-				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, total)
+				// Count completions, not list position: with --first the
+				// start order can differ a lot from list order.
 				progressMu.Lock()
+				done++
+				label := fmt.Sprintf("[%*d/%d]", countWidth, done, total)
 				_, _ = fmt.Fprintf(
 					w, "%-*s  %s",
 					colWidth, label, firstLine(results[idx].output),
