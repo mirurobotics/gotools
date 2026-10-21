@@ -16,6 +16,3 @@ rules:
   # minimum from the default 2 to 1 to match the existing convention.
   comments:
     min-spaces-from-content: 1
-
-ignore: |
-  .agents/
