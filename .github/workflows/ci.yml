@@ -14,7 +14,7 @@ jobs:
   lint:
     timeout-minutes: 10
     name: lint
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest # standard GitHub-hosted runners are free in public repos
     steps:
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,7 +30,7 @@ jobs:
   test:
     timeout-minutes: 10
     name: test
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest # standard GitHub-hosted runners are free in public repos
     steps:
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,4 +47,4 @@ jobs:
     # yamllint disable-line rule:line-length
     uses: mirurobotics/.github/.github/workflows/surface-lint.yml@6472b6d5b762eb9246ceb094d0912883e04081a1
     with:
-      runs-on: blacksmith-4vcpu-ubuntu-2404
+      runs-on: ubuntu-latest # standard GitHub-hosted runners are free in public repos

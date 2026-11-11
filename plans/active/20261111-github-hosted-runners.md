@@ -42,8 +42,9 @@ No source file is added. The edited `runs-on` lines mirror the exemplar docs#320
 
 ## Progress
 
-- [ ] Replace the six Blacksmith labels with `ubuntu-latest` plus the inline comment, and remove the three Blacksmith labels from `.github/actionlint.yml`.
-- [ ] Commit `ci: run gotools workflows on GitHub-hosted ubuntu-latest runners`.
+- [x] Source written
+- [x] Replace the six Blacksmith labels with `ubuntu-latest` plus the inline comment, and remove the three Blacksmith labels from `.github/actionlint.yml`.
+- [x] Commit `ci: run gotools workflows on GitHub-hosted ubuntu-latest runners`.
 - [ ] Push and open the draft PR; CI and a dispatched CodeQL run pass on the branch head.
 - [ ] Preflight reports `CLEAN`.
 - [ ] After merge: AI Review on the next PR, the `ci.yml` push run on `main` and the next nightly CodeQL run pass on `ubuntu-latest`.
