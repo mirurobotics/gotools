@@ -33,12 +33,11 @@ No source file is added. The edited `runs-on` lines mirror the exemplar docs#320
 ### Left out
 
 - The agent and setup-cli workflows: proposed follow-up PRs that cite docs#320, at most three open at a time. In agent only the Linux jobs are candidates; its Windows jobs (`blacksmith-4vcpu-windows-2025` in `ci.yml` and `release.yml`) stay on Blacksmith, and `builder.yml` uses `useblacksmith/*` Docker actions that need their own replacement.
-- The `ubuntu-latest-m` entry in `.github/actionlint.yml`: it predates the Blacksmith move and no gotools workflow uses it. Proposed follow-up: remove it in a separate PR.
 - Larger or ARM runners, timeout or concurrency changes, and bumping the pinned reusable-workflow SHAs: not needed to move off Blacksmith.
 
 ### Open questions
 
-- Add `# yamllint disable-line rule:line-length` above each changed line? The new lines are 84 and 86 characters, over yamllint's default 80, and the repo puts a disable comment before its other long lines. Default: no. `.yamllint.yml` sets `line-length` to `level: warning`, and yamllint without `--strict` exits 0 on warnings, so `surface-lint` stays green; the line then matches the exemplar exactly. If a reviewer wants the warnings silenced, add the five disable comments.
+- Add `# yamllint disable-line rule:line-length` above each changed line? The new lines are 84 and 86 characters, over yamllint's default 80, and the repo puts a disable comment before its other long lines. Default: no. `.yamllint.yml` sets `line-length` to `level: warning`, and yamllint without `--strict` exits 0 on warnings, so `surface-lint` stays green; the line then matches the exemplar exactly. If a reviewer wants the warnings silenced, add the six disable comments. These are the repo's first long lines without a disable comment, on purpose.
 
 ## Progress
 
@@ -55,6 +54,7 @@ No source file is added. The edited `runs-on` lines mirror the exemplar docs#320
 
 ## Decision Log
 
+- 2026-11-11: Also remove the unused `ubuntu-latest-m` label from `.github/actionlint.yml`, per the design review and the author. It is a GitHub larger runner, billed even in public repos, so keeping it allowlisted invites the cost this PR removes. The file now matches `core/.github/actionlint.yml`.
 - 2026-11-11: Label, inline comment and core-count reasoning are taken unchanged from the exemplar docs#320, whose review settled them.
 
 ## Outcomes & Retrospective
@@ -84,7 +84,7 @@ When each workflow runs, which decides what the PR itself can prove:
 
 ## Plan of Work
 
-In the three files under `.github/workflows/`, replace each Blacksmith label with `ubuntu-latest # standard GitHub-hosted runners are free in public repos`, leaving indentation and every other line untouched. In `.github/actionlint.yml`, delete the three `blacksmith-*` lines and keep `ubuntu-latest-m`. One commit, one milestone.
+In the three files under `.github/workflows/`, replace each Blacksmith label with `ubuntu-latest # standard GitHub-hosted runners are free in public repos`, leaving indentation and every other line untouched. In `.github/actionlint.yml`, delete the three `blacksmith-*` lines and `ubuntu-latest-m` (see Decision Log). One commit, one milestone.
 
 ## Concrete Steps
 
@@ -110,7 +110,7 @@ All commands run from the gotools repo root, `/home/user/gotools`.
        grep -rn 'blacksmith' .github/          # expect: no output
        grep -rc 'runs-on: ubuntu-latest # standard GitHub-hosted runners are free in public repos' .github/workflows/
        # expect: .github/workflows/ai-review.yml:1, ci.yml:3, codeql-analysis.yml:2
-       cat .github/actionlint.yml              # expect: only ubuntu-latest-m under labels
+       cat .github/actionlint.yml              # expect: no self-hosted-runner labels
        git diff --stat                         # expect: 4 files, 6 insertions, 9 deletions
 
 4. Commit the milestone:

@@ -1,4 +1,2 @@
 # See: https://github.com/rhysd/actionlint/blob/main/docs/config.md
-self-hosted-runner:
-  labels:
-    - ubuntu-latest-m
+# No custom configuration needed — workflows are clean.
