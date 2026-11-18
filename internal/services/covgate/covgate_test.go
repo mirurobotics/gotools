@@ -13,7 +13,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/testutil"
 )
 
-func TestPrintHeader(t *testing.T) {
+func TestTable_Header(t *testing.T) {
 	var buf bytes.Buffer
 	gocover.Progress{Enabled: false, Table: table()}.WriteHeader(&buf, 0, 0)
 	out := buf.String()
