@@ -2,7 +2,10 @@ package tag
 
 import (
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -10,12 +13,36 @@ import (
 // the working directory for the test, and adds one commit.
 func initRepo(t *testing.T) {
 	t.Helper()
-	t.Chdir(t.TempDir())
+	isolateGit(t)
+	enterDir(t, t.TempDir())
 	runGit(t, "init", "-q")
 	runGit(t,
 		"-c", "user.name=test", "-c", "user.email=test@example.com",
 		"commit", "-q", "--allow-empty", "-m", "init",
 	)
+}
+
+// isolateGit keeps git away from the caller's repository and config:
+// no inherited GIT_DIR/GIT_WORK_TREE, and no global or system config
+// (e.g. commit.gpgsign).
+func isolateGit(t *testing.T) {
+	t.Helper()
+	for _, k := range []string{"GIT_DIR", "GIT_WORK_TREE"} {
+		t.Setenv(k, "")
+		if err := os.Unsetenv(k); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+}
+
+// enterDir makes dir the working directory and stops git from
+// discovering a repository above it.
+func enterDir(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(dir))
+	t.Chdir(dir)
 }
 
 func runGit(t *testing.T, args ...string) {
@@ -46,8 +73,8 @@ func TestGitBackedHelpers(t *testing.T) {
 	if got, err := Latest("v", io.Discard); err != nil || got != "v1.11.0-rc1" {
 		t.Errorf("Latest = %q, %v; want v1.11.0-rc1", got, err)
 	}
-	if got, err := Current(nil); err != nil || got == "" {
-		t.Errorf("Current = %q, %v; want a tag on HEAD", got, err)
+	if got, err := Current(nil); err != nil || !slices.Contains(tags, got) {
+		t.Errorf("Current = %q, %v; want one of %v", got, err, tags)
 	}
 }
 
@@ -56,7 +83,7 @@ func TestGitBackedHelpers_Errors(t *testing.T) {
 	if _, err := Current(io.Discard); err == nil {
 		t.Error("Current: want error when HEAD has no tag")
 	}
-	t.Chdir(t.TempDir())
+	enterDir(t, t.TempDir())
 	if _, err := GitTags(io.Discard); err == nil {
 		t.Error("GitTags: want error outside a git repository")
 	}

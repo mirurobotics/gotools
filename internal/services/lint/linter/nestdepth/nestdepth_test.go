@@ -62,7 +62,7 @@ func f() {
 				" — consider early returns or extracting a helper",
 		},
 		{
-			name: "at default limit of 2",
+			name: "for and if at limit 2",
 			src: `package foo
 
 func f(xs []int) {
@@ -78,7 +78,7 @@ func f(xs []int) {
 			wantMsg:  "",
 		},
 		{
-			name: "over default limit of 2",
+			name: "nested range loops over limit 2",
 			src: `package foo
 
 func f(xss [][]int) {

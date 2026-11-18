@@ -169,8 +169,8 @@ func (r *runner) findOrphanTests(
 	return orphans, nil
 }
 
-// claimedTestDirs maps each source package to the test directory it
-// claims through the src-prefix mapping. Packages outside srcPrefix
+// claimedTestDirs returns the set of test directories claimed by source
+// packages through the src-prefix mapping. Packages outside srcPrefix
 // claim nothing, and an empty srcPrefix claims nothing at all.
 func claimedTestDirs(
 	pkgs []string, module, testDir, srcPrefix string,
