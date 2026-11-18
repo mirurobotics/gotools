@@ -29,6 +29,7 @@ type runner struct {
 	emitProgress   bool
 }
 
+//nolint:privdoc // duplicated in covgate; keep them in sync
 func effectiveParallelism(opts Opts) int {
 	if opts.Parallelism > 0 {
 		return opts.Parallelism

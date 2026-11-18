@@ -74,6 +74,18 @@ var (
 	V, v = 1, 2
 )
 
+// Group has an exported spec and an unexported one.
+var (
+	A = 1
+	b = 2
+)
+
+// State is an exported var with a struct type.
+var State struct {
+	// Count is exported.
+	Count int
+}
+
 // m is a method on an unknown receiver.
 func (*[2]T) M() {}
 `,
@@ -134,11 +146,34 @@ var (
 			wantLines: []int{3, 5, 10, 11, 15, 19, 23, 26, 29, 32, 37, 41, 44, 46, 48},
 		},
 		{
+			name: "prose mixed with directives flagged on the prose line",
+			src: `package foo
+
+// f does a thing.
+//
+//nolint:funclen // reason
+func f() {}
+
+//nolint:funclen // reason
+// g does a thing.
+func g() {}
+
+var state struct {
+	count int // hits
+}
+`,
+			wantLines: []int{3, 9, 13},
+		},
+		{
 			name: "directives and blank lines allowed",
 			src: `package foo
 
 //nolint:funclen // reason
 func f() {}
+
+//go:noinline
+//nolint:funclen // reason
+func g() {}
 
 //export callback
 func callback() {}

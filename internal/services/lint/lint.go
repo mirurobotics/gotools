@@ -294,6 +294,7 @@ func golangciArgs(newFromRev string) []string {
 	return args
 }
 
+//nolint:privdoc // GOCACHEPROG= avoids a temporary tool path
 func hostToolPath(name string) (string, error) {
 	cmd := cmdutil.GoCommand("tool", "-n", name)
 	cmd.Env = append(cmd.Env,

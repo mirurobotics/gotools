@@ -9,30 +9,29 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-const message = "comment on unexported identifier; " +
-	"only exported identifiers may be documented"
+const message = "comment on identifier outside the exported API; " +
+	"only the exported API may be documented"
 
-// Check reports doc and trailing comments on unexported top-level identifiers.
+// Check reports doc and trailing comments on identifiers outside the exported API.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	groups := Groups(f)
-	diags := make([]analysis.Diagnostic, 0, len(groups))
-	for _, cg := range groups {
+	prose := proseComments(f)
+	diags := make([]analysis.Diagnostic, 0, len(prose))
+	for _, c := range prose {
 		diags = append(diags, analysis.Diagnostic{
 			File:    filename,
-			Line:    fset.Position(cg.Pos()).Line,
+			Line:    fset.Position(c.Pos()).Line,
 			Message: message,
 		})
 	}
 	return diags
 }
 
-// Groups returns the comment groups on unexported identifiers that hold prose.
-func Groups(f *ast.File) []*ast.CommentGroup {
-	var groups []*ast.CommentGroup
+func proseComments(f *ast.File) []*ast.Comment {
+	var groups []*ast.Comment
 	add := func(cgs ...*ast.CommentGroup) {
 		for _, cg := range cgs {
-			if hasProse(cg) {
-				groups = append(groups, cg)
+			if c := firstProse(cg); c != nil {
+				groups = append(groups, c)
 			}
 		}
 	}
@@ -46,7 +45,7 @@ func Groups(f *ast.File) []*ast.CommentGroup {
 			add(genDeclGroups(d)...)
 		}
 	}
-	slices.SortFunc(groups, func(a, b *ast.CommentGroup) int {
+	slices.SortFunc(groups, func(a, b *ast.Comment) int {
 		return int(a.Pos() - b.Pos())
 	})
 	return groups
@@ -72,6 +71,9 @@ func genDeclGroups(d *ast.GenDecl) []*ast.CommentGroup {
 			anyPublic = anyPublic || public
 			if !public {
 				groups = append(groups, s.Doc, s.Comment)
+			}
+			if s.Type != nil {
+				groups = append(groups, fieldGroups(s.Type, public)...)
 			}
 		}
 	}
@@ -155,15 +157,15 @@ func anyExported(names []*ast.Ident) bool {
 	return false
 }
 
-func hasProse(cg *ast.CommentGroup) bool {
+func firstProse(cg *ast.CommentGroup) *ast.Comment {
 	if cg == nil {
-		return false
+		return nil
 	}
 	for _, c := range cg.List {
 		blank := strings.TrimSpace(strings.TrimPrefix(c.Text, "//")) == ""
 		if !blank && !analysis.IsDirective(c.Text) {
-			return true
+			return c
 		}
 	}
-	return false
+	return nil
 }

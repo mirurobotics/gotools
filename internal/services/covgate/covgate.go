@@ -43,6 +43,7 @@ type workItem struct {
 	testOnly bool
 }
 
+//nolint:privdoc // duplicated in covratchet; keep them in sync
 func effectiveParallelism(opts Opts) int {
 	if opts.Parallelism > 0 {
 		return opts.Parallelism
