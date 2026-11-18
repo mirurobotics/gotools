@@ -185,6 +185,40 @@ func F() { fmt.Println() }
 			wantMsg:   "doc comment is 2 lines (limit 1)",
 		},
 		{
+			name:     "doc on a multi-spec import block with C checked",
+			filename: "foo.go",
+			src: `package foo
+
+// Imports for foo,
+// over two lines.
+import (
+	"fmt"
+	"C"
+)
+
+var _ = fmt.Sprint
+`,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
+			wantLines: []int{3},
+			wantMsg:   "",
+		},
+		{
+			name:     "block doc above a single C spec with its own preamble checked",
+			filename: "foo.go",
+			src: `package foo
+
+// Imports for foo,
+// over two lines.
+import (
+	// #include <stdlib.h>
+	"C"
+)
+`,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
+			wantLines: []int{3},
+			wantMsg:   "",
+		},
+		{
 			name:     "disabled when limit is zero",
 			filename: "foo.go",
 			src: `package foo
