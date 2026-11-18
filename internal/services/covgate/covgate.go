@@ -89,22 +89,7 @@ func (r *runner) run(opts Opts) error {
 		opts.DefaultThreshold,
 	)
 
-	module, err := r.goModule()
-	if err != nil {
-		return err
-	}
-
-	pkgs, err := r.goListPackages(opts.Packages)
-	if err != nil {
-		return err
-	}
-
-	orphans, err := r.findOrphanTests(pkgs, module, opts)
-	if err != nil {
-		return err
-	}
-
-	items, excluded, err := r.buildWorkItems(pkgs, orphans, opts.Exclude, w)
+	module, items, excluded, err := r.discover(opts, w)
 	if err != nil {
 		return err
 	}
@@ -124,6 +109,34 @@ func (r *runner) run(opts Opts) error {
 	results := r.runPackages(items, ctx, parallelism, w)
 	wallTime := time.Since(start)
 	return r.printResults(w, results, excluded, module, wallTime)
+}
+
+// discover resolves the module, lists source and orphan test packages,
+// and returns the work items left after --exclude along with the
+// excluded packages.
+func (r *runner) discover(
+	opts Opts, w io.Writer,
+) (module string, items []workItem, excluded []string, err error) {
+	module, err = r.goModule()
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	pkgs, err := r.goListPackages(opts.Packages)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	orphans, err := r.findOrphanTests(pkgs, module, opts)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	items, excluded, err = r.buildWorkItems(pkgs, orphans, opts.Exclude, w)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	return module, items, excluded, nil
 }
 
 // findOrphanTests returns test-bearing packages under --test-dir
@@ -192,6 +205,26 @@ func (r *runner) buildWorkItems(
 	return items, excluded, nil
 }
 
+// resolveExcludes expands each comma-separated exclude pattern with go
+// list and returns the set of matched packages.
+func (r *runner) resolveExcludes(exclude string) (map[string]struct{}, error) {
+	excludedSet := make(map[string]struct{})
+	for _, raw := range strings.Split(exclude, ",") {
+		entry := strings.TrimSpace(raw)
+		if entry == "" {
+			continue
+		}
+		matched, err := r.goListPackages(entry)
+		if err != nil {
+			return nil, fmt.Errorf("resolve exclude %q: %w", entry, err)
+		}
+		for _, p := range matched {
+			excludedSet[p] = struct{}{}
+		}
+	}
+	return excludedSet, nil
+}
+
 // applyExclude removes packages matched by the comma-separated
 // exclude patterns from pkgs. It preserves the original order of
 // pkgs in both returned slices and prints a one-line notice to w
@@ -205,19 +238,9 @@ func (r *runner) applyExclude(
 		return pkgs, nil, nil
 	}
 
-	excludedSet := make(map[string]struct{})
-	for _, raw := range strings.Split(exclude, ",") {
-		entry := strings.TrimSpace(raw)
-		if entry == "" {
-			continue
-		}
-		matched, listErr := r.goListPackages(entry)
-		if listErr != nil {
-			return nil, nil, fmt.Errorf("resolve exclude %q: %w", entry, listErr)
-		}
-		for _, p := range matched {
-			excludedSet[p] = struct{}{}
-		}
+	excludedSet, err := r.resolveExcludes(exclude)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	kept = make([]string, 0, len(pkgs))
@@ -256,11 +279,7 @@ func (r *runner) runPackages(
 		go func(idx int, it workItem) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			if it.testOnly {
-				results[idx] = r.checkTestOnly(it.pkg, ctx)
-			} else {
-				results[idx] = r.checkPackage(it.pkg, ctx)
-			}
+			results[idx] = r.checkItem(it, ctx)
 			if r.emitProgress {
 				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, total)
 				progressMu.Lock()
@@ -274,6 +293,15 @@ func (r *runner) runPackages(
 	}
 	wg.Wait()
 	return results
+}
+
+// checkItem checks one work item, choosing the test-only check for
+// orphan test packages.
+func (r *runner) checkItem(it workItem, ctx checkPackageCtx) checkResult {
+	if it.testOnly {
+		return r.checkTestOnly(it.pkg, ctx)
+	}
+	return r.checkPackage(it.pkg, ctx)
 }
 
 // writeRunHeader writes the announce line and the progress table
@@ -398,60 +426,62 @@ type checkPackageCtx struct {
 
 func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 	relPkg := gocover.RelPkg(pkg, ctx.module)
-	pkgDir := "./" + relPkg
-	explicit, hasExplicitCovgate := gocover.LookupThreshold(pkgDir)
-	threshold := ctx.threshold
-	if hasExplicitCovgate {
-		threshold = explicit
-	}
-
+	threshold, hasExplicitCovgate := packageThreshold(relPkg, ctx.threshold)
 	testPaths := gocover.BuildTestPaths(pkg, relPkg, ctx.srcPrefix, ctx.testDir)
 
 	start := time.Now()
 	coverage, output, testErr := r.measure(pkg, testPaths)
 	elapsed := time.Since(start)
 
-	var b strings.Builder
 	if testErr != nil {
-		_, _ = fmt.Fprintf(
-			&b, "%-7s  %8s  %8s  %8s  %s\n",
-			"FAIL", "---", "---", fmtDuration(elapsed),
-			relPkg+" (tests failed)",
-		)
-		_, _ = fmt.Fprintln(&b)
-		_, _ = fmt.Fprint(&b, string(output))
-		_, _ = fmt.Fprintln(&b)
-		return checkResult{b.String(), false, elapsed}
+		return testsFailedResult(relPkg, output, elapsed)
 	}
 
+	row := func(status, suffix string) string {
+		return fmt.Sprintf(
+			"%-7s  %7.1f%%  %7.1f%%  %8s  %s%s\n",
+			status, coverage, threshold, fmtDuration(elapsed), relPkg, suffix,
+		)
+	}
 	if coverage < threshold {
-		_, _ = fmt.Fprintf(
-			&b, "%-7s  %7.1f%%  %7.1f%%  %8s  %s\n",
-			"FAIL", coverage, threshold, fmtDuration(elapsed), relPkg,
-		)
-		return checkResult{b.String(), false, elapsed}
+		return checkResult{row("FAIL", ""), false, elapsed}
 	}
-
 	if ctx.tightnessEnabled && hasExplicitCovgate && coverage > 0 {
-		gap := coverage - threshold
-		if gap > ctx.tightnessTolerance {
-			recommended := coverage - ctx.tightnessTolerance
-			_, _ = fmt.Fprintf(
-				&b, "%-7s  %7.1f%%  %7.1f%%  %8s  "+
-					"%s (required lags actual by %.1fpp; "+
-					"update .covgate to >= %.1f)\n",
-				"LOOSE", coverage, threshold, fmtDuration(elapsed),
-				relPkg, gap, recommended,
+		if gap := coverage - threshold; gap > ctx.tightnessTolerance {
+			suffix := fmt.Sprintf(
+				" (required lags actual by %.1fpp; update .covgate to >= %.1f)",
+				gap, coverage-ctx.tightnessTolerance,
 			)
-			return checkResult{b.String(), false, elapsed}
+			return checkResult{row("LOOSE", suffix), false, elapsed}
 		}
 	}
+	return checkResult{row("PASS", ""), true, elapsed}
+}
 
+// packageThreshold returns the package's .covgate threshold if it has one,
+// otherwise the default. explicit reports whether a .covgate was found.
+func packageThreshold(relPkg string, def float64) (threshold float64, explicit bool) {
+	if v, ok := gocover.LookupThreshold("./" + relPkg); ok {
+		return v, true
+	}
+	return def, false
+}
+
+// testsFailedResult formats a FAIL row for a package whose tests failed,
+// followed by the test output.
+func testsFailedResult(
+	relPkg string, output []byte, elapsed time.Duration,
+) checkResult {
+	var b strings.Builder
 	_, _ = fmt.Fprintf(
-		&b, "%-7s  %7.1f%%  %7.1f%%  %8s  %s\n",
-		"PASS", coverage, threshold, fmtDuration(elapsed), relPkg,
+		&b, "%-7s  %8s  %8s  %8s  %s\n",
+		"FAIL", "---", "---", fmtDuration(elapsed),
+		relPkg+" (tests failed)",
 	)
-	return checkResult{b.String(), true, elapsed}
+	_, _ = fmt.Fprintln(&b)
+	_, _ = fmt.Fprint(&b, string(output))
+	_, _ = fmt.Fprintln(&b)
+	return checkResult{b.String(), false, elapsed}
 }
 
 // checkTestOnly runs a test-only package without coverage
@@ -466,19 +496,11 @@ func (r *runner) checkTestOnly(pkg string, ctx checkPackageCtx) checkResult {
 	output, testErr := r.runTests([]string{"./" + relPkg})
 	elapsed := time.Since(start)
 
-	var b strings.Builder
 	if testErr != nil {
-		_, _ = fmt.Fprintf(
-			&b, "%-7s  %8s  %8s  %8s  %s\n",
-			"FAIL", "---", "---", fmtDuration(elapsed),
-			relPkg+" (tests failed)",
-		)
-		_, _ = fmt.Fprintln(&b)
-		_, _ = fmt.Fprint(&b, string(output))
-		_, _ = fmt.Fprintln(&b)
-		return checkResult{b.String(), false, elapsed}
+		return testsFailedResult(relPkg, output, elapsed)
 	}
 
+	var b strings.Builder
 	_, _ = fmt.Fprintf(
 		&b, "%-7s  %8s  %8s  %8s  %s\n",
 		"PASS", "---", "---", fmtDuration(elapsed), relPkg,

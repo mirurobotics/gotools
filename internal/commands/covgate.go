@@ -26,6 +26,15 @@ func NewCovgateCommand() *cobra.Command {
 		},
 	}
 
+	addCovgateTargetFlags(cmd, &opts)
+	addCovgateThresholdFlags(cmd, &opts)
+
+	return cmd
+}
+
+// addCovgateTargetFlags registers the flags that pick which packages and
+// tests covgate measures.
+func addCovgateTargetFlags(cmd *cobra.Command, opts *covgate.Opts) {
 	fl := cmd.Flags()
 	fl.StringVar(&opts.Packages, "packages", "./...", "Go package pattern for go list")
 	fl.StringVar(
@@ -40,6 +49,12 @@ func NewCovgateCommand() *cobra.Command {
 		&opts.TestDir, "test-dir", "",
 		"external test directory (empty = none)",
 	)
+}
+
+// addCovgateThresholdFlags registers the threshold, tightness, and
+// parallelism flags.
+func addCovgateThresholdFlags(cmd *cobra.Command, opts *covgate.Opts) {
+	fl := cmd.Flags()
 	fl.Float64Var(
 		&opts.DefaultThreshold, "default-threshold", 80.0,
 		"fallback threshold when no .covgate exists",
@@ -58,6 +73,4 @@ func NewCovgateCommand() *cobra.Command {
 		"max allowed gap in percentage points between "+
 			"actual coverage and required threshold",
 	)
-
-	return cmd
 }

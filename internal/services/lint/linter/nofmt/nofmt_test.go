@@ -1,6 +1,7 @@
 package nofmt
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"testing"
@@ -156,6 +157,33 @@ func TestCheck(t *testing.T) {
 			}
 			if tt.wantN > 0 && tt.wantMsg != "" && diags[0].Message != tt.wantMsg {
 				t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
+			}
+		})
+	}
+}
+
+func TestCallName(t *testing.T) {
+	tests := []struct {
+		expr string
+		want string
+	}{
+		{"fmt.Println()", "fmt.Println"},
+		{"println()", "println"},
+		{"a.fmt.Println()", ""},
+		{"func() {}()", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.expr, func(t *testing.T) {
+			e, err := parser.ParseExpr(tt.expr)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			call, ok := e.(*ast.CallExpr)
+			if !ok {
+				t.Fatalf("%q is not a call", tt.expr)
+			}
+			if got := callName(call); got != tt.want {
+				t.Errorf("callName(%q) = %q, want %q", tt.expr, got, tt.want)
 			}
 		})
 	}

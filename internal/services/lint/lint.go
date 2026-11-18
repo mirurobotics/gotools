@@ -156,52 +156,53 @@ func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
 	return failures, timings
 }
 
-func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTiming) {
-	type result struct {
-		timing stepTiming
-		failed bool
-		outBuf string
-	}
+// analyzerResult is the outcome of one analyzer run in runAnalyzersParallel.
+type analyzerResult struct {
+	timing stepTiming
+	failed bool
+}
 
+// timedRun runs fn and records its duration under name.
+func timedRun(name string, fn func() error) analyzerResult {
+	start := time.Now()
+	err := fn()
+	return analyzerResult{
+		timing: stepTiming{name, time.Since(start)},
+		failed: err != nil,
+	}
+}
+
+func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTiming) {
 	var (
-		wg  sync.WaitGroup
-		gcR result
-		dcR result
+		wg    sync.WaitGroup
+		gcR   analyzerResult
+		dcR   analyzerResult
+		dcBuf bytes.Buffer
 	)
 
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		start := time.Now()
-		err := RunGolangci(opts.Out, opts.Err, opts.NewFromRev)
-		gcR = result{
-			timing: stepTiming{"golangci-lint", time.Since(start)},
-			failed: err != nil,
-			outBuf: "",
-		}
+		gcR = timedRun("golangci-lint", func() error {
+			return RunGolangci(opts.Out, opts.Err, opts.NewFromRev)
+		})
 	}()
 	go func() {
 		defer wg.Done()
-		var buf bytes.Buffer
-		start := time.Now()
-		err := RunDeadcode(&buf, opts.Err, opts.DeadcodeExclude)
-		dcR = result{
-			timing: stepTiming{"deadcode", time.Since(start)},
-			failed: err != nil,
-			outBuf: buf.String(),
-		}
+		dcR = timedRun("deadcode", func() error {
+			return RunDeadcode(&dcBuf, opts.Err, opts.DeadcodeExclude)
+		})
 	}()
 	wg.Wait()
 
-	if dcR.outBuf != "" {
-		_, _ = fmt.Fprint(opts.Out, dcR.outBuf)
+	if dcBuf.Len() > 0 {
+		_, _ = fmt.Fprint(opts.Out, dcBuf.String())
 	}
 	timings = append(timings, gcR.timing, dcR.timing)
-	if gcR.failed {
-		failures = append(failures, "golangci-lint")
-	}
-	if dcR.failed {
-		failures = append(failures, "deadcode")
+	for _, r := range []analyzerResult{gcR, dcR} {
+		if r.failed {
+			failures = append(failures, r.timing.name)
+		}
 	}
 	return failures, timings
 }

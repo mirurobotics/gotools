@@ -18,13 +18,9 @@ func Check(
 	f *ast.File,
 	maxParams int,
 ) []analysis.Diagnostic {
-	if maxParams <= 0 {
-		return nil
-	}
-	if analysis.IsTestFile(filename) {
-		return nil
-	}
-	if analysis.IsLintSource(filename) {
+	if maxParams <= 0 ||
+		analysis.IsTestFile(filename) ||
+		analysis.IsLintSource(filename) {
 		return nil
 	}
 
@@ -33,15 +29,7 @@ func Check(
 	var diags []analysis.Diagnostic
 	for _, decl := range f.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Type.Params == nil {
-			continue
-		}
-
-		name := fn.Name.Name
-		if name == "main" || name == "init" {
-			continue
-		}
-		if strings.HasPrefix(name, "Test") || strings.HasPrefix(name, "Benchmark") {
+		if !ok || fn.Type.Params == nil || isExemptFunc(fn.Name.Name) {
 			continue
 		}
 
@@ -55,12 +43,19 @@ func Check(
 					"function %s has %d parameters"+
 						" (limit %d);"+
 						" consider an options struct",
-					name, count, maxParams),
+					fn.Name.Name, count, maxParams),
 			})
 		}
 	}
 
 	return diags
+}
+
+// isExemptFunc reports whether a function name is exempt from the check:
+// main, init, Test*, and Benchmark*.
+func isExemptFunc(name string) bool {
+	return name == "main" || name == "init" ||
+		strings.HasPrefix(name, "Test") || strings.HasPrefix(name, "Benchmark")
 }
 
 // countParams returns the number of parameters, excluding context.Context.

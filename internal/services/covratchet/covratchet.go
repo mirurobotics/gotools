@@ -82,6 +82,12 @@ func (r *runner) run(opts Opts) error {
 	}
 	results := r.runPackages(pkgs, ctx, parallelism, w)
 
+	return r.summarize(w, results)
+}
+
+// summarize prints per-package rows (when progress output is off) and the
+// totals line, and returns an error if any package failed.
+func (r *runner) summarize(w io.Writer, results []ratchetResult) error {
 	updated, unchanged, failed := 0, 0, 0
 	for _, res := range results {
 		if !r.emitProgress {
@@ -221,6 +227,14 @@ func (r *runner) ratchetPackage(pkg, module, srcPrefix, testDir string) ratchetR
 		return writeNewCovgate(covgateFile, actual, relPkg)
 	}
 
+	return ratchetExisting(covgateFile, current, actual, relPkg)
+}
+
+// ratchetExisting compares actual coverage against the current .covgate
+// value and raises the file when coverage went up.
+func ratchetExisting(
+	covgateFile, current string, actual float64, relPkg string,
+) ratchetResult {
 	currentVal, err := strconv.ParseFloat(current, 64)
 	if err != nil {
 		line := fmt.Sprintf(

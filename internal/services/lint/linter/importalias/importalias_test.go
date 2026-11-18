@@ -113,6 +113,16 @@ import (
 			wantN:   2,
 			wantMsg: "",
 		},
+		{
+			name: "non-import declarations ignored",
+			src: `package foo
+
+import my_fmt "fmt"
+
+var x_y = my_fmt.Sprint()`,
+			wantN:   1,
+			wantMsg: "",
+		},
 	}
 
 	for _, tt := range tests {

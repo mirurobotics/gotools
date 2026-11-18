@@ -52,32 +52,8 @@ func tryInline(
 	src []byte,
 	maxLineWidth, tabWidth int,
 ) (analysis.Candidate, bool) {
-	if body == nil {
-		return analysis.Candidate{}, false //nolint:exhaustruct
-	}
-	if len(body.List) != 1 {
-		return analysis.Candidate{}, false //nolint:exhaustruct
-	}
-
-	// Already single-line.
-	if fset.Position(body.Lbrace).Line == fset.Position(body.Rbrace).Line {
-		return analysis.Candidate{}, false //nolint:exhaustruct
-	}
-
-	stmt := body.List[0]
-
-	// Statement spans multiple lines.
-	if fset.Position(stmt.Pos()).Line != fset.Position(stmt.End()).Line {
-		return analysis.Candidate{}, false //nolint:exhaustruct
-	}
-
-	// Comments inside the body.
-	if analysis.HasCommentsBetween(fset, f, body.Lbrace, body.Rbrace) {
-		return analysis.Candidate{}, false //nolint:exhaustruct
-	}
-
-	// Statement contains a function literal.
-	if analysis.ContainsFuncLit(stmt) {
+	stmt, ok := inlineableStmt(fset, f, body)
+	if !ok {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
@@ -104,6 +80,33 @@ func tryInline(
 		End:       body.Rbrace + 1,
 		Collapsed: collapsed,
 	}, true
+}
+
+// inlineableStmt returns the body's only statement when the body is
+// multi-line, the statement fits on one line, and there are no comments or
+// function literals that would make collapsing unsafe.
+func inlineableStmt(
+	fset *token.FileSet,
+	f *ast.File,
+	body *ast.BlockStmt,
+) (ast.Stmt, bool) {
+	if body == nil || len(body.List) != 1 {
+		return nil, false
+	}
+	// Already single-line.
+	if fset.Position(body.Lbrace).Line == fset.Position(body.Rbrace).Line {
+		return nil, false
+	}
+	stmt := body.List[0]
+	// Statement spans multiple lines.
+	if fset.Position(stmt.Pos()).Line != fset.Position(stmt.End()).Line {
+		return nil, false
+	}
+	if analysis.HasCommentsBetween(fset, f, body.Lbrace, body.Rbrace) ||
+		analysis.ContainsFuncLit(stmt) {
+		return nil, false
+	}
+	return stmt, true
 }
 
 // Check reports diagnostics for function declarations whose body

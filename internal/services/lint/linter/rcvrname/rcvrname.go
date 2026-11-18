@@ -29,39 +29,42 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 
 		recvName := recv.Names[0].Name
 		typeName := receiverTypeName(recv.Type)
-
-		// Check length.
-		if len(recvName) > 2 {
-			pos := fset.Position(recv.Names[0].Pos())
-			diags = append(diags, analysis.Diagnostic{
-				File: filename,
-				Line: pos.Line,
-				Message: fmt.Sprintf(
-					"receiver name %q is %d chars; use 1-2 chars (e.g., %q)",
-					recvName, len(recvName), string(recvName[0]),
-				),
-			})
+		prev, exists := firstRecv[typeName]
+		if !exists {
+			firstRecv[typeName] = recvName
 		}
 
-		// Check consistency.
-		if prev, exists := firstRecv[typeName]; exists {
-			if prev != recvName {
-				pos := fset.Position(recv.Names[0].Pos())
-				diags = append(diags, analysis.Diagnostic{
-					File: filename,
-					Line: pos.Line,
-					Message: fmt.Sprintf(
-						"receiver name %q for type %s differs from %q used elsewhere in this file",
-						recvName, typeName, prev,
-					),
-				})
-			}
-		} else {
-			firstRecv[typeName] = recvName
+		line := fset.Position(recv.Names[0].Pos()).Line
+		for _, msg := range checkRecvName(recvName, typeName, prev) {
+			diags = append(diags, analysis.Diagnostic{
+				File:    filename,
+				Line:    line,
+				Message: msg,
+			})
 		}
 	}
 
 	return diags
+}
+
+// checkRecvName returns a message for each problem with a receiver name:
+// longer than 2 characters, or different from prev (the first name used
+// for the same type in this file; empty if this is the first).
+func checkRecvName(recvName, typeName, prev string) []string {
+	var msgs []string
+	if len(recvName) > 2 {
+		msgs = append(msgs, fmt.Sprintf(
+			"receiver name %q is %d chars; use 1-2 chars (e.g., %q)",
+			recvName, len(recvName), string(recvName[0]),
+		))
+	}
+	if prev != "" && prev != recvName {
+		msgs = append(msgs, fmt.Sprintf(
+			"receiver name %q for type %s differs from %q used elsewhere in this file",
+			recvName, typeName, prev,
+		))
+	}
+	return msgs
 }
 
 // receiverTypeName extracts the type name from a receiver's type expression,

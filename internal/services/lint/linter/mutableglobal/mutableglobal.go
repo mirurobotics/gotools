@@ -34,23 +34,10 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 
 		for _, spec := range gd.Specs {
 			vs, ok := spec.(*ast.ValueSpec)
-			if !ok {
+			if !ok || hasNolint(fset, f, vs) {
 				continue
 			}
-
-			if hasNolint(fset, f, vs) {
-				continue
-			}
-
-			for i, name := range vs.Names {
-				if isInterfaceCheck(name) {
-					continue
-				}
-
-				if i < len(vs.Values) && isErrorSentinel(name, vs.Values[i]) {
-					continue
-				}
-
+			for _, name := range mutableNames(vs) {
 				pos := fset.Position(name.Pos())
 				diags = append(diags, analysis.Diagnostic{
 					File:    filename,
@@ -62,6 +49,22 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	}
 
 	return diags
+}
+
+// mutableNames returns the names in a var spec that are neither interface
+// compliance checks nor error sentinels.
+func mutableNames(vs *ast.ValueSpec) []*ast.Ident {
+	var names []*ast.Ident
+	for i, name := range vs.Names {
+		if isInterfaceCheck(name) {
+			continue
+		}
+		if i < len(vs.Values) && isErrorSentinel(name, vs.Values[i]) {
+			continue
+		}
+		names = append(names, name)
+	}
+	return names
 }
 
 // isInterfaceCheck returns true for var _ SomeInterface = ... patterns.

@@ -157,7 +157,7 @@ func TestNewCheckCommand_FlagDefaults(t *testing.T) {
 	intDefaults := map[string]int{
 		"max-line-width":  88,
 		"tab-width":       4,
-		"max-func-len":    50,
+		"max-func-len":    30,
 		"max-nest-depth":  4,
 		"max-param-count": 6,
 	}
@@ -304,7 +304,7 @@ func TestNewLintCommand_FlagDefaults(t *testing.T) {
 	intDefaults := map[string]int{
 		"max-line-width":  88,
 		"tab-width":       4,
-		"max-func-len":    50,
+		"max-func-len":    30,
 		"max-nest-depth":  4,
 		"max-param-count": 6,
 	}

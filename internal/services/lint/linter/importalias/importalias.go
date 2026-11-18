@@ -24,18 +24,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		}
 		for _, spec := range gd.Specs {
 			is, ok := spec.(*ast.ImportSpec)
-			if !ok || is.Name == nil {
-				continue
-			}
-			name := is.Name.Name
-			if name == "_" || name == "." {
-				continue
-			}
-			if !strings.Contains(name, "_") {
-				continue
-			}
-			if strings.HasPrefix(name, "test_") ||
-				strings.HasPrefix(name, "mock_") {
+			if !ok || is.Name == nil || !isBadAlias(is.Name.Name) {
 				continue
 			}
 			pos := fset.Position(is.Name.Pos())
@@ -44,10 +33,19 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 				Line: pos.Line,
 				Message: fmt.Sprintf(
 					"import alias %q contains underscore; use camelCase instead",
-					name,
+					is.Name.Name,
 				),
 			})
 		}
 	}
 	return diags
+}
+
+// isBadAlias reports whether an import alias contains an underscore and is
+// not a blank, dot, or "test_"/"mock_" prefixed alias.
+func isBadAlias(name string) bool {
+	if name == "_" || name == "." || !strings.Contains(name, "_") {
+		return false
+	}
+	return !strings.HasPrefix(name, "test_") && !strings.HasPrefix(name, "mock_")
 }

@@ -31,16 +31,7 @@ func builtinBanned() map[string]bool {
 // Check reports diagnostics for bare print/log calls outside main, test files,
 // cmd/ directories, and the linter's own source.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	if f.Name.Name == "main" {
-		return nil
-	}
-	if analysis.IsTestFile(filename) {
-		return nil
-	}
-	if analysis.IsLintSource(filename) {
-		return nil
-	}
-	if analysis.IsCmdSource(filename) {
+	if isExempt(filename, f) {
 		return nil
 	}
 
@@ -51,39 +42,49 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		if !ok {
 			return true
 		}
-
-		var name string
-		switch fn := call.Fun.(type) {
-		case *ast.SelectorExpr:
-			ident, ok := fn.X.(*ast.Ident)
-			if !ok {
-				return true
-			}
-			name = ident.Name + "." + fn.Sel.Name
-		case *ast.Ident:
-			name = fn.Name
-		default:
+		name := callName(call)
+		if !banned()[name] && !builtinBanned()[name] {
 			return true
 		}
-
-		if banned()[name] || builtinBanned()[name] {
-			if hasNolint(fset, f, call.Pos()) {
-				return true
-			}
-			pos := fset.Position(call.Pos())
-			diags = append(diags, analysis.Diagnostic{
-				File: filename,
-				Line: pos.Line,
-				Message: name +
-					" should not be used outside" +
-					" main/test; use structured logging",
-			})
+		if hasNolint(fset, f, call.Pos()) {
+			return true
 		}
-
+		pos := fset.Position(call.Pos())
+		diags = append(diags, analysis.Diagnostic{
+			File: filename,
+			Line: pos.Line,
+			Message: name +
+				" should not be used outside" +
+				" main/test; use structured logging",
+		})
 		return true
 	})
 
 	return diags
+}
+
+// isExempt reports whether the file is allowed to use bare print/log calls.
+func isExempt(filename string, f *ast.File) bool {
+	return f.Name.Name == "main" ||
+		analysis.IsTestFile(filename) ||
+		analysis.IsLintSource(filename) ||
+		analysis.IsCmdSource(filename)
+}
+
+// callName returns "pkg.Func" for selector calls, the identifier name for
+// bare calls, and "" for anything else.
+func callName(call *ast.CallExpr) string {
+	switch fn := call.Fun.(type) {
+	case *ast.SelectorExpr:
+		ident, ok := fn.X.(*ast.Ident)
+		if !ok {
+			return ""
+		}
+		return ident.Name + "." + fn.Sel.Name
+	case *ast.Ident:
+		return fn.Name
+	}
+	return ""
 }
 
 // hasNolint returns true if there is a //nolint:nofmt comment
