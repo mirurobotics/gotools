@@ -56,6 +56,38 @@ func TestCommentHelpers(t *testing.T) {
 	}
 }
 
+func TestExampleOutputs(t *testing.T) {
+	src := `package foo
+
+// Output: not in a function
+func ExampleF() {
+	// Output:
+	// 1
+}
+
+func ExampleG() {
+	// Unordered output:
+	// 2
+}
+
+func H() {
+	// Output:
+	// 3
+}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "foo_test.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(ExampleOutputs("foo_test.go", f)); got != 2 {
+		t.Errorf("ExampleOutputs in test file = %d groups, want 2", got)
+	}
+	if got := len(ExampleOutputs("foo.go", f)); got != 0 {
+		t.Errorf("ExampleOutputs in non-test file = %d groups, want 0", got)
+	}
+}
+
 func nonNil[T any](xs []*T) int {
 	n := 0
 	for _, x := range xs {

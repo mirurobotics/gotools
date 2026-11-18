@@ -3,6 +3,7 @@ package analysis
 import (
 	"go/ast"
 	"go/token"
+	"strings"
 )
 
 // DocGroups returns the doc comment groups of declarations, specs, and fields.
@@ -74,4 +75,32 @@ func InAnyBody(pos token.Pos, bodies []*ast.BlockStmt) bool {
 		}
 	}
 	return false
+}
+
+// ExampleOutputs returns the output comment groups of Example functions in a test file.
+func ExampleOutputs(filename string, f *ast.File) map[*ast.CommentGroup]bool {
+	if !IsTestFile(filename) {
+		return nil
+	}
+	var bodies []*ast.BlockStmt
+	for _, decl := range f.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if ok && fn.Body != nil && strings.HasPrefix(fn.Name.Name, "Example") {
+			bodies = append(bodies, fn.Body)
+		}
+	}
+	outputs := map[*ast.CommentGroup]bool{}
+	for _, cg := range f.Comments {
+		if isOutput(cg) && InAnyBody(cg.Pos(), bodies) {
+			outputs[cg] = true
+		}
+	}
+	return outputs
+}
+
+// isOutput reports whether cg is an example output block, matched as go/doc does.
+func isOutput(cg *ast.CommentGroup) bool {
+	text := strings.ToLower(strings.TrimSpace(cg.Text()))
+	return strings.HasPrefix(text, "output:") ||
+		strings.HasPrefix(text, "unordered output:")
 }
