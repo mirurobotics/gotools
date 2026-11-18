@@ -100,16 +100,15 @@ func runLintSteps(
 }
 
 func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming) {
-	for _, goos := range goosTargets(opts.GOOS) {
+	targets := goosTargets(opts.GOOS)
+	results := make([]analyzerResult, 0, len(targets))
+	for _, goos := range targets {
 		step := fmt.Sprintf("golangci-lint (%s)", goos)
-		start := time.Now()
-		err := RunGolangciGOOS(opts.Out, opts.Err, opts.NewFromRev, goos)
-		if err != nil {
-			failures = append(failures, step)
-		}
-		timings = append(timings, stepTiming{step, time.Since(start)})
+		results = append(results, timedRun(step, func() error {
+			return RunGolangciGOOS(opts.Out, opts.Err, opts.NewFromRev, goos)
+		}))
 	}
-	return failures, timings
+	return collectResults(results)
 }
 
 // goosTargets splits the comma-separated raw into target
@@ -139,24 +138,21 @@ func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
 	if runGolangci && runDeadcode {
 		return runAnalyzersParallel(opts)
 	}
+	var results []analyzerResult
 	if runGolangci {
-		start := time.Now()
-		if err := RunGolangci(opts.Out, opts.Err, opts.NewFromRev); err != nil {
-			failures = append(failures, "golangci-lint")
-		}
-		timings = append(timings, stepTiming{"golangci-lint", time.Since(start)})
+		results = append(results, timedRun("golangci-lint", func() error {
+			return RunGolangci(opts.Out, opts.Err, opts.NewFromRev)
+		}))
 	}
 	if runDeadcode {
-		start := time.Now()
-		if err := RunDeadcode(opts.Out, opts.Err, opts.DeadcodeExclude); err != nil {
-			failures = append(failures, "deadcode")
-		}
-		timings = append(timings, stepTiming{"deadcode", time.Since(start)})
+		results = append(results, timedRun("deadcode", func() error {
+			return RunDeadcode(opts.Out, opts.Err, opts.DeadcodeExclude)
+		}))
 	}
-	return failures, timings
+	return collectResults(results)
 }
 
-// analyzerResult is the outcome of one analyzer run in runAnalyzersParallel.
+// analyzerResult is the outcome of one timed pass/fail lint step.
 type analyzerResult struct {
 	timing stepTiming
 	failed bool
@@ -198,8 +194,16 @@ func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTimin
 	if dcBuf.Len() > 0 {
 		_, _ = fmt.Fprint(opts.Out, dcBuf.String())
 	}
-	timings = append(timings, gcR.timing, dcR.timing)
-	for _, r := range []analyzerResult{gcR, dcR} {
+	return collectResults([]analyzerResult{gcR, dcR})
+}
+
+// collectResults returns the timings of all steps, in order, and the names
+// of the steps that failed.
+func collectResults(
+	results []analyzerResult,
+) (failures []string, timings []stepTiming) {
+	for _, r := range results {
+		timings = append(timings, r.timing)
 		if r.failed {
 			failures = append(failures, r.timing.name)
 		}
