@@ -78,6 +78,16 @@ func F() { fmt.Println() }
 			wantLines: nil,
 		},
 		{
+			name: "cgo preamble on a single import allowed",
+			src: `package foo
+
+// #include <stdio.h>
+// #include <stdlib.h>
+import "C"
+`,
+			wantLines: nil,
+		},
+		{
 			name: "header, directives, and function comments skipped",
 			src: `// Copyright 2026 Example.
 

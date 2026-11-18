@@ -98,7 +98,7 @@ package foo
 			wantMsg:   "",
 		},
 		{
-			name:     "package doc in doc.go skipped",
+			name:     "doc.go package doc within its own limit allowed",
 			filename: "doc.go",
 			src: `// Package foo does things.
 // At length.
@@ -165,6 +165,24 @@ func F() {}
 			lim:       Limits{Doc: 1, DocGoPkg: 20},
 			wantLines: nil,
 			wantMsg:   "",
+		},
+		{
+			name:     "blank block comment lines trimmed",
+			filename: "foo.go",
+			src: `package foo
+
+// Plain is an import doc
+// over two lines.
+import "fmt"
+
+/*
+F does a thing.
+*/
+func F() { fmt.Println() }
+`,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
+			wantLines: []int{3},
+			wantMsg:   "doc comment is 2 lines (limit 1)",
 		},
 		{
 			name:     "disabled when limit is zero",

@@ -931,3 +931,29 @@ func writeFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestRun_Check_DocLimits(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir+"/doc.go", `// Package foo does things.
+// At some length.
+package foo
+`)
+	writeFile(t, dir+"/foo.go", `package foo
+
+// F does a thing.
+// At some length.
+func F() {}
+`)
+	cfg := defaultCfg
+	cfg.MaxDocLines = 1
+	cfg.MaxDocFileLines = 20
+	cfg.Out = &strings.Builder{}
+	diags, _, err := Run(dir, false, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := cfg.Out.(*strings.Builder).String()
+	if diags != 1 || !strings.Contains(out, "foo.go:3: doc comment is 2 lines") {
+		t.Errorf("got %d diagnostics, want only foo.go:3:\n%s", diags, out)
+	}
+}

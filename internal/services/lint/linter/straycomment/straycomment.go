@@ -13,14 +13,6 @@ const message = "comment is not attached to a declaration; " +
 // Check reports comments outside functions that are not attached to a declaration.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	attached := map[*ast.CommentGroup]bool{f.Doc: true}
-	for _, decl := range f.Decls {
-		if gd, ok := decl.(*ast.GenDecl); ok && gd.Tok == token.IMPORT {
-			attached[gd.Doc] = true
-		}
-	}
-	for _, imp := range f.Imports {
-		attached[imp.Doc] = true
-	}
 	for _, cg := range analysis.DocGroups(f) {
 		attached[cg] = true
 	}

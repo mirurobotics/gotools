@@ -31,12 +31,33 @@ func Check(
 	if d := check(fset, filename, f.Doc, pkgLimit); d != nil {
 		diags = append(diags, *d)
 	}
+	preambles := cgoPreambles(f)
 	for _, cg := range analysis.DocGroups(f) {
+		if preambles[cg] {
+			continue
+		}
 		if d := check(fset, filename, cg, lim.Doc); d != nil {
 			diags = append(diags, *d)
 		}
 	}
 	return diags
+}
+
+// cgoPreambles returns the doc groups that cmd/cgo reads as C preambles.
+func cgoPreambles(f *ast.File) map[*ast.CommentGroup]bool {
+	m := map[*ast.CommentGroup]bool{}
+	for _, decl := range f.Decls {
+		gd, ok := decl.(*ast.GenDecl)
+		if !ok || gd.Tok != token.IMPORT {
+			continue
+		}
+		for _, spec := range gd.Specs {
+			if is, ok := spec.(*ast.ImportSpec); ok && is.Path.Value == `"C"` {
+				m[gd.Doc], m[is.Doc] = true, true
+			}
+		}
+	}
+	return m
 }
 
 func check(

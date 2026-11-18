@@ -41,8 +41,8 @@ func TestCommentHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := nonNil(DocGroups(f)); got != 6 {
-		t.Errorf("DocGroups = %d non-nil groups, want 6", got)
+	if got := nonNil(DocGroups(f)); got != 7 {
+		t.Errorf("DocGroups = %d non-nil groups, want 7", got)
 	}
 	if got := nonNil(LineComments(f)); got != 3 {
 		t.Errorf("LineComments = %d non-nil groups, want 3", got)
