@@ -18,62 +18,60 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	var diags []analysis.Diagnostic
 
 	ast.Inspect(f, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
+		lit, val, ok := errorStringArg(n)
 		if !ok {
 			return true
 		}
-
-		if !isErrorCall(call) {
-			return true
-		}
-
-		if len(call.Args) == 0 {
-			return true
-		}
-
-		lit, ok := call.Args[0].(*ast.BasicLit)
-		if !ok || lit.Kind != token.STRING {
-			return true
-		}
-
-		val, err := strconv.Unquote(lit.Value)
-		if err != nil || len(val) == 0 {
-			return true
-		}
-
-		pos := fset.Position(lit.Pos())
-
-		// Check capitalization.
-		firstRune, _ := utf8.DecodeRuneInString(val)
-		isUpper := unicode.IsUpper(firstRune)
-		if isUpper && !isAcronymStart(val) {
+		line := fset.Position(lit.Pos()).Line
+		for _, msg := range checkErrorString(val) {
 			diags = append(diags, analysis.Diagnostic{
 				File:    filename,
-				Line:    pos.Line,
-				Message: fmt.Sprintf("error string %q should not be capitalized", val),
+				Line:    line,
+				Message: msg,
 			})
 		}
-
-		// Check trailing punctuation.
-		trimmed := strings.TrimRight(val, " ")
-		if len(trimmed) > 0 {
-			last := trimmed[len(trimmed)-1]
-			if last == '.' || last == '!' {
-				diags = append(diags, analysis.Diagnostic{
-					File: filename,
-					Line: pos.Line,
-					Message: fmt.Sprintf(
-						"error string %q should not end with punctuation",
-						val,
-					),
-				})
-			}
-		}
-
 		return true
 	})
 
 	return diags
+}
+
+// errorStringArg returns the string literal passed as the first argument
+// to errors.New or fmt.Errorf, along with its unquoted, non-empty value.
+func errorStringArg(n ast.Node) (*ast.BasicLit, string, bool) {
+	call, ok := n.(*ast.CallExpr)
+	if !ok || !isErrorCall(call) || len(call.Args) == 0 {
+		return nil, "", false
+	}
+	lit, ok := call.Args[0].(*ast.BasicLit)
+	if !ok || lit.Kind != token.STRING {
+		return nil, "", false
+	}
+	val, err := strconv.Unquote(lit.Value)
+	if err != nil || len(val) == 0 {
+		return nil, "", false
+	}
+	return lit, val, true
+}
+
+// checkErrorString returns a message for each style problem in an error
+// string: a capitalized first word or trailing punctuation.
+func checkErrorString(val string) []string {
+	var msgs []string
+	firstRune, _ := utf8.DecodeRuneInString(val)
+	if unicode.IsUpper(firstRune) && !isAcronymStart(val) {
+		msgs = append(msgs,
+			fmt.Sprintf("error string %q should not be capitalized", val))
+	}
+	trimmed := strings.TrimRight(val, " ")
+	if len(trimmed) > 0 {
+		last := trimmed[len(trimmed)-1]
+		if last == '.' || last == '!' {
+			msgs = append(msgs, fmt.Sprintf(
+				"error string %q should not end with punctuation", val))
+		}
+	}
+	return msgs
 }
 
 // isErrorCall checks if a call expression is errors.New or fmt.Errorf.

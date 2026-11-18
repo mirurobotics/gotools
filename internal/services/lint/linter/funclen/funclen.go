@@ -14,8 +14,6 @@ const nolintDirective = "nolint:funclen"
 
 // Check reports a diagnostic for each function whose body exceeds maxLen
 // non-blank, non-comment lines. Both FuncDecl and FuncLit are checked.
-//
-//nolint:funclen // two symmetric branches (FuncDecl/FuncLit) each need nolint check
 func Check(
 	fset *token.FileSet,
 	filename string,
@@ -33,48 +31,45 @@ func Check(
 
 	var diags []analysis.Diagnostic
 	ast.Inspect(f, func(n ast.Node) bool {
-		switch fn := n.(type) {
-		case *ast.FuncDecl:
-			if fn.Body == nil {
-				return true
-			}
-			count := countLines(fset, fn.Body, allLines)
-			if count > maxLen {
-				pos := fset.Position(fn.Pos())
-				if hasNolint(fset, f, pos.Line) {
-					return true
-				}
-				diags = append(diags, analysis.Diagnostic{
-					File: filename,
-					Line: pos.Line,
-					Message: fmt.Sprintf(
-						"function %s is %d lines (limit %d)",
-						fn.Name.Name, count, maxLen),
-				})
-			}
-		case *ast.FuncLit:
-			if fn.Body == nil {
-				return true
-			}
-			count := countLines(fset, fn.Body, allLines)
-			if count > maxLen {
-				pos := fset.Position(fn.Pos())
-				if hasNolint(fset, f, pos.Line) {
-					return true
-				}
-				diags = append(diags, analysis.Diagnostic{
-					File: filename,
-					Line: pos.Line,
-					Message: fmt.Sprintf(
-						"anonymous function is %d lines (limit %d)",
-						count, maxLen,
-					),
-				})
-			}
+		body, label, ok := funcBody(n)
+		if !ok {
+			return true
 		}
+		count := countLines(fset, body, allLines)
+		if count <= maxLen {
+			return true
+		}
+		pos := fset.Position(n.Pos())
+		if hasNolint(fset, f, pos.Line) {
+			return true
+		}
+		diags = append(diags, analysis.Diagnostic{
+			File:    filename,
+			Line:    pos.Line,
+			Message: fmt.Sprintf("%s is %d lines (limit %d)", label, count, maxLen),
+		})
 		return true
 	})
 	return diags
+}
+
+// funcBody returns the body of a function declaration or literal and a
+// label for diagnostics. ok is false for other nodes and bodiless
+// declarations.
+func funcBody(n ast.Node) (*ast.BlockStmt, string, bool) {
+	switch fn := n.(type) {
+	case *ast.FuncDecl:
+		if fn.Body == nil {
+			return nil, "", false
+		}
+		return fn.Body, "function " + fn.Name.Name, true
+	case *ast.FuncLit:
+		if fn.Body == nil {
+			return nil, "", false
+		}
+		return fn.Body, "anonymous function", true
+	}
+	return nil, "", false
 }
 
 // hasNolint returns true if there is a //nolint:funclen comment on the

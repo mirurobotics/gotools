@@ -18,41 +18,11 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	var diags []analysis.Diagnostic
 
 	ast.Inspect(f, func(n ast.Node) bool {
-		var params *ast.FieldList
-		var pos token.Pos
-
-		switch fn := n.(type) {
-		case *ast.FuncDecl:
-			if fn.Type.Params == nil {
-				return true
-			}
-			params = fn.Type.Params
-			pos = fn.Pos()
-		case *ast.FuncLit:
-			if fn.Type.Params == nil {
-				return true
-			}
-			params = fn.Type.Params
-			pos = fn.Pos()
-		default:
+		params, pos, ok := funcParams(n)
+		if !ok {
 			return true
 		}
-
-		ctxIdx := -1
-		paramIdx := 0
-		for _, field := range params.List {
-			names := len(field.Names)
-			if names == 0 {
-				names = 1
-			}
-			if analysis.IsContextType(field.Type, ctxPkg) {
-				ctxIdx = paramIdx
-				break
-			}
-			paramIdx += names
-		}
-
-		if ctxIdx > 0 && !firstParamIsTesting(params) {
+		if ctxParamIndex(params, ctxPkg) > 0 && !firstParamIsTesting(params) {
 			p := fset.Position(pos)
 			diags = append(diags, analysis.Diagnostic{
 				File:    filename,
@@ -60,11 +30,46 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 				Message: "context.Context should be the first parameter",
 			})
 		}
-
 		return true
 	})
 
 	return diags
+}
+
+// funcParams returns the parameter list and position of a function
+// declaration or literal. ok is false for other nodes and for functions
+// with a nil parameter list.
+func funcParams(n ast.Node) (*ast.FieldList, token.Pos, bool) {
+	var ft *ast.FuncType
+	switch fn := n.(type) {
+	case *ast.FuncDecl:
+		ft = fn.Type
+	case *ast.FuncLit:
+		ft = fn.Type
+	default:
+		return nil, token.NoPos, false
+	}
+	if ft.Params == nil {
+		return nil, token.NoPos, false
+	}
+	return ft.Params, n.Pos(), true
+}
+
+// ctxParamIndex returns the index of the first context.Context parameter,
+// or -1 if there is none.
+func ctxParamIndex(params *ast.FieldList, ctxPkg string) int {
+	paramIdx := 0
+	for _, field := range params.List {
+		if analysis.IsContextType(field.Type, ctxPkg) {
+			return paramIdx
+		}
+		names := len(field.Names)
+		if names == 0 {
+			names = 1
+		}
+		paramIdx += names
+	}
+	return -1
 }
 
 // firstParamIsTesting returns true if the first parameter's type is

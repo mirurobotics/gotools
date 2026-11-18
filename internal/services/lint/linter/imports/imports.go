@@ -53,28 +53,31 @@ func ExtractBlocks(f *ast.File) []ImportBlock {
 		}
 
 		for _, spec := range gd.Specs {
-			is, ok := spec.(*ast.ImportSpec)
-			if !ok {
-				continue
+			if is, ok := spec.(*ast.ImportSpec); ok {
+				block.Imports = append(block.Imports, newImport(is))
 			}
-			path, _ := strconv.Unquote(is.Path.Value)
-			imp := Import{
-				Path:  path,
-				Name:  "",
-				Pos:   is.Pos(),
-				End:   is.End(),
-				Group: classify(path),
-			}
-			if is.Name != nil {
-				imp.Name = is.Name.Name
-			}
-			block.Imports = append(block.Imports, imp)
 		}
 
 		blocks = append(blocks, block)
 	}
 
 	return blocks
+}
+
+// newImport converts an import spec to an Import.
+func newImport(is *ast.ImportSpec) Import {
+	path, _ := strconv.Unquote(is.Path.Value)
+	imp := Import{
+		Path:  path,
+		Name:  "",
+		Pos:   is.Pos(),
+		End:   is.End(),
+		Group: classify(path),
+	}
+	if is.Name != nil {
+		imp.Name = is.Name.Name
+	}
+	return imp
 }
 
 func classify(path string) ImportGroup {

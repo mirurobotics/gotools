@@ -59,15 +59,20 @@ func rebuildBlock(block ImportBlock) string {
 			b.WriteString("\n")
 		}
 		first = false
-		for _, imp := range imps {
-			if imp.Name != "" {
-				fmt.Fprintf(&b, "\t%s %q\n", imp.Name, imp.Path)
-			} else {
-				fmt.Fprintf(&b, "\t%q\n", imp.Path)
-			}
-		}
+		writeImports(&b, imps)
 	}
 
 	b.WriteString(")")
 	return b.String()
+}
+
+// writeImports writes one line per import, with its alias if present.
+func writeImports(b *strings.Builder, imps []Import) {
+	for _, imp := range imps {
+		if imp.Name != "" {
+			fmt.Fprintf(b, "\t%s %q\n", imp.Name, imp.Path)
+		} else {
+			fmt.Fprintf(b, "\t%q\n", imp.Path)
+		}
+	}
 }

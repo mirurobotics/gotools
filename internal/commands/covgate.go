@@ -6,6 +6,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/covgate"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // NewCovgateCommand returns a cobra command that checks
@@ -27,6 +28,15 @@ func NewCovgateCommand() *cobra.Command {
 	}
 
 	fl := cmd.Flags()
+	bindCovgatePackageFlags(fl, &opts)
+	bindCovgateThresholdFlags(fl, &opts)
+
+	return cmd
+}
+
+// bindCovgatePackageFlags binds the flags that pick which packages and
+// tests covgate measures and how many it runs at once.
+func bindCovgatePackageFlags(fl *pflag.FlagSet, opts *covgate.Opts) {
 	fl.StringVar(&opts.Packages, "packages", "./...", "Go package pattern for go list")
 	fl.StringVar(
 		&opts.Exclude, "exclude", "",
@@ -40,13 +50,17 @@ func NewCovgateCommand() *cobra.Command {
 		&opts.TestDir, "test-dir", "",
 		"external test directory (empty = none)",
 	)
-	fl.Float64Var(
-		&opts.DefaultThreshold, "default-threshold", 80.0,
-		"fallback threshold when no .covgate exists",
-	)
 	fl.IntVarP(
 		&opts.Parallelism, "parallelism", "p", 0,
 		"max concurrent package measurements (0 = NumCPU; emits progress)",
+	)
+}
+
+// bindCovgateThresholdFlags binds the default threshold and tightness flags.
+func bindCovgateThresholdFlags(fl *pflag.FlagSet, opts *covgate.Opts) {
+	fl.Float64Var(
+		&opts.DefaultThreshold, "default-threshold", 80.0,
+		"fallback threshold when no .covgate exists",
 	)
 	fl.BoolVar(
 		&opts.TightnessEnabled, "tightness", true,
@@ -58,6 +72,4 @@ func NewCovgateCommand() *cobra.Command {
 		"max allowed gap in percentage points between "+
 			"actual coverage and required threshold",
 	)
-
-	return cmd
 }

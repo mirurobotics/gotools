@@ -14,36 +14,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		return nil
 	}
 
-	// Collect positions of type assertions that are safe (in comma-ok assigns
-	// or type switch headers).
-	safe := map[token.Pos]bool{}
-
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch s := n.(type) {
-		case *ast.AssignStmt:
-			// val, ok := x.(T) — 2 LHS values
-			if len(s.Lhs) == 2 && len(s.Rhs) == 1 {
-				if ta, ok := s.Rhs[0].(*ast.TypeAssertExpr); ok {
-					safe[ta.Pos()] = true
-				}
-			}
-		case *ast.TypeSwitchStmt:
-			// switch x.(type) — the assign inside is safe
-			switch a := s.Assign.(type) {
-			case *ast.ExprStmt:
-				if ta, ok := a.X.(*ast.TypeAssertExpr); ok {
-					safe[ta.Pos()] = true
-				}
-			case *ast.AssignStmt:
-				if len(a.Rhs) == 1 {
-					if ta, ok := a.Rhs[0].(*ast.TypeAssertExpr); ok {
-						safe[ta.Pos()] = true
-					}
-				}
-			}
-		}
-		return true
-	})
+	safe := safeAssertions(f)
 
 	var diags []analysis.Diagnostic
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -51,11 +22,8 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		if !ok {
 			return true
 		}
-		if safe[ta.Pos()] {
-			return true
-		}
-		// type switch uses nil Type
-		if ta.Type == nil {
+		// comma-ok/type-switch assign, or x.(type) (nil Type)
+		if safe[ta.Pos()] || ta.Type == nil {
 			return true
 		}
 		pos := fset.Position(ta.Pos())
@@ -68,4 +36,39 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	})
 
 	return diags
+}
+
+// safeAssertions collects positions of type assertions that are safe (in
+// comma-ok assigns or type switch headers).
+func safeAssertions(f *ast.File) map[token.Pos]bool {
+	safe := map[token.Pos]bool{}
+	ast.Inspect(f, func(n ast.Node) bool {
+		switch s := n.(type) {
+		case *ast.AssignStmt:
+			// val, ok := x.(T) — 2 LHS values
+			if len(s.Lhs) == 2 {
+				markSingleAssert(safe, s.Rhs)
+			}
+		case *ast.TypeSwitchStmt:
+			// switch x.(type) — the assign inside is safe
+			switch a := s.Assign.(type) {
+			case *ast.ExprStmt:
+				markSingleAssert(safe, []ast.Expr{a.X})
+			case *ast.AssignStmt:
+				markSingleAssert(safe, a.Rhs)
+			}
+		}
+		return true
+	})
+	return safe
+}
+
+// markSingleAssert marks rhs[0] as safe when rhs is a single type assertion.
+func markSingleAssert(safe map[token.Pos]bool, rhs []ast.Expr) {
+	if len(rhs) != 1 {
+		return
+	}
+	if ta, ok := rhs[0].(*ast.TypeAssertExpr); ok {
+		safe[ta.Pos()] = true
+	}
 }

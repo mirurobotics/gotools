@@ -76,7 +76,7 @@ func bindLinterConfigFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
 		"tab width for calculating visual line width",
 	)
 	fl.IntVar(
-		&flags.MaxFuncLen, "max-func-len", 50,
+		&flags.MaxFuncLen, "max-func-len", 30,
 		"maximum function length (non-blank, non-comment)",
 	)
 	fl.IntVar(

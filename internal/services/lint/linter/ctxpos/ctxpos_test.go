@@ -1,6 +1,7 @@
 package ctxpos
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"testing"
@@ -168,6 +169,41 @@ func TestCheck(t *testing.T) {
 			}
 			if tt.wantN > 0 && tt.wantMsg != "" && diags[0].Message != tt.wantMsg {
 				t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
+			}
+		})
+	}
+}
+
+func TestFuncParams_NilParams(t *testing.T) {
+	//nolint:exhaustruct // only Type matters here
+	fn := &ast.FuncDecl{Type: &ast.FuncType{}}
+	if _, _, ok := funcParams(fn); ok {
+		t.Error("funcParams should report false for nil params")
+	}
+}
+
+func TestCtxParamIndex(t *testing.T) {
+	tests := []struct {
+		name string
+		sig  string
+		want int
+	}{
+		{"unnamed params", "func(int, string, context.Context)", 2},
+		{"grouped params", "func(a, b int, ctx context.Context)", 2},
+		{"no context", "func(a int)", -1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e, err := parser.ParseExpr(tt.sig)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			ft, ok := e.(*ast.FuncType)
+			if !ok {
+				t.Fatalf("%q is not a func type", tt.sig)
+			}
+			if got := ctxParamIndex(ft.Params, "context"); got != tt.want {
+				t.Errorf("ctxParamIndex(%q) = %d, want %d", tt.sig, got, tt.want)
 			}
 		})
 	}

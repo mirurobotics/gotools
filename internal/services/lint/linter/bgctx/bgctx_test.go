@@ -1,6 +1,7 @@
 package bgctx
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"testing"
@@ -154,6 +155,33 @@ func f() context.Context {
 			}
 			if tt.wantN > 0 && tt.wantMsg != "" && diags[0].Message != tt.wantMsg {
 				t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
+			}
+		})
+	}
+}
+
+func TestIsBackgroundCall(t *testing.T) {
+	tests := []struct {
+		expr string
+		want bool
+	}{
+		{"context.Background()", true},
+		{"context.TODO()", false},
+		{"Background()", false},
+		{"a.context.Background()", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.expr, func(t *testing.T) {
+			e, err := parser.ParseExpr(tt.expr)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			call, ok := e.(*ast.CallExpr)
+			if !ok {
+				t.Fatalf("%q is not a call", tt.expr)
+			}
+			if got := isBackgroundCall(call, "context"); got != tt.want {
+				t.Errorf("isBackgroundCall(%q) = %v, want %v", tt.expr, got, tt.want)
 			}
 		})
 	}

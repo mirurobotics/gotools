@@ -28,21 +28,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 
 	ast.Inspect(f, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-
-		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok {
-			return true
-		}
-
-		ident, ok := sel.X.(*ast.Ident)
-		if !ok {
-			return true
-		}
-
-		if ident.Name != ctxPkg || sel.Sel.Name != "Background" {
+		if !ok || !isBackgroundCall(call, ctxPkg) {
 			return true
 		}
 
@@ -62,6 +48,19 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	})
 
 	return diags
+}
+
+// isBackgroundCall reports whether call is ctxPkg.Background().
+func isBackgroundCall(call *ast.CallExpr, ctxPkg string) bool {
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	ident, ok := sel.X.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	return ident.Name == ctxPkg && sel.Sel.Name == "Background"
 }
 
 // hasNolint returns true if there is a //nolint:bgctx comment on the given line.

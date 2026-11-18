@@ -18,34 +18,29 @@ func FindCandidates(
 	maxLineWidth, tabWidth int,
 ) []analysis.Candidate {
 	var candidates []analysis.Candidate
-
-	for _, decl := range f.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok {
-			continue
-		}
-		c, ok := tryCollapseSig(
-			fset, f, fn.Type.Func, fn.Recv,
-			fn.Name.Name, fn.Type, fn.Body,
-			src, maxLineWidth, tabWidth,
-		)
+	add := func(c analysis.Candidate, ok bool) {
 		if ok {
 			candidates = append(candidates, c)
 		}
 	}
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		lit, ok := n.(*ast.FuncLit)
-		if !ok {
-			return true
+	for _, decl := range f.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok {
+			add(tryCollapseSig(
+				fset, f, fn.Type.Func, fn.Recv,
+				fn.Name.Name, fn.Type, fn.Body,
+				src, maxLineWidth, tabWidth,
+			))
 		}
-		c, ok := tryCollapseSig(
-			fset, f, lit.Type.Func, nil,
-			"", lit.Type, lit.Body,
-			src, maxLineWidth, tabWidth,
-		)
-		if ok {
-			candidates = append(candidates, c)
+	}
+
+	ast.Inspect(f, func(n ast.Node) bool {
+		if lit, ok := n.(*ast.FuncLit); ok {
+			add(tryCollapseSig(
+				fset, f, lit.Type.Func, nil,
+				"", lit.Type, lit.Body,
+				src, maxLineWidth, tabWidth,
+			))
 		}
 		return true
 	})
@@ -127,17 +122,7 @@ func buildCollapsed(
 ) string {
 	var b strings.Builder
 
-	if name != "" {
-		b.WriteString("func ")
-		if recv != nil && len(recv.List) > 0 {
-			b.WriteString("(")
-			b.WriteString(fieldListText(fset, recv, src))
-			b.WriteString(") ")
-		}
-		b.WriteString(name)
-	} else {
-		b.WriteString("func")
-	}
+	writeFuncName(&b, fset, recv, name, src)
 
 	if funcType.TypeParams != nil && len(funcType.TypeParams.List) > 0 {
 		b.WriteString("[")
@@ -149,19 +134,53 @@ func buildCollapsed(
 	b.WriteString(fieldListText(fset, funcType.Params, src))
 	b.WriteString(")")
 
-	if funcType.Results != nil && len(funcType.Results.List) > 0 {
-		if funcType.Results.Opening.IsValid() {
-			b.WriteString(" (")
-			b.WriteString(fieldListText(fset, funcType.Results, src))
-			b.WriteString(")")
-		} else {
-			b.WriteString(" ")
-			b.WriteString(fieldListText(fset, funcType.Results, src))
-		}
-	}
+	writeResults(&b, fset, funcType.Results, src)
 
 	b.WriteString(" {")
 	return b.String()
+}
+
+// writeFuncName writes "func", plus the receiver and name for declarations.
+// Function literals have an empty name.
+func writeFuncName(
+	b *strings.Builder,
+	fset *token.FileSet,
+	recv *ast.FieldList,
+	name string,
+	src []byte,
+) {
+	b.WriteString("func")
+	if name == "" {
+		return
+	}
+	b.WriteString(" ")
+	if recv != nil && len(recv.List) > 0 {
+		b.WriteString("(")
+		b.WriteString(fieldListText(fset, recv, src))
+		b.WriteString(") ")
+	}
+	b.WriteString(name)
+}
+
+// writeResults writes the result list, keeping parentheses only when the
+// source had them.
+func writeResults(
+	b *strings.Builder,
+	fset *token.FileSet,
+	results *ast.FieldList,
+	src []byte,
+) {
+	if results == nil || len(results.List) == 0 {
+		return
+	}
+	if results.Opening.IsValid() {
+		b.WriteString(" (")
+		b.WriteString(fieldListText(fset, results, src))
+		b.WriteString(")")
+		return
+	}
+	b.WriteString(" ")
+	b.WriteString(fieldListText(fset, results, src))
 }
 
 func fieldListText(fset *token.FileSet, fields *ast.FieldList, src []byte) string {

@@ -70,33 +70,15 @@ func (c *checker) deeper(pos token.Pos, depth int) (int, bool) {
 }
 
 func (c *checker) checkStmt(stmt ast.Stmt, depth int) {
+	if body := nestingBody(stmt); body != nil {
+		if d, ok := c.deeper(stmt.Pos(), depth); ok {
+			c.checkBlock(body.List, d)
+		}
+	}
 	switch s := stmt.(type) {
 	case *ast.IfStmt:
-		if d, ok := c.deeper(s.Pos(), depth); ok {
-			c.checkBlock(s.Body.List, d)
-		}
 		if s.Else != nil {
 			c.checkStmt(s.Else, depth)
-		}
-	case *ast.ForStmt:
-		if d, ok := c.deeper(s.Pos(), depth); ok {
-			c.checkBlock(s.Body.List, d)
-		}
-	case *ast.RangeStmt:
-		if d, ok := c.deeper(s.Pos(), depth); ok {
-			c.checkBlock(s.Body.List, d)
-		}
-	case *ast.SwitchStmt:
-		if d, ok := c.deeper(s.Pos(), depth); ok {
-			c.checkBlock(s.Body.List, d)
-		}
-	case *ast.TypeSwitchStmt:
-		if d, ok := c.deeper(s.Pos(), depth); ok {
-			c.checkBlock(s.Body.List, d)
-		}
-	case *ast.SelectStmt:
-		if d, ok := c.deeper(s.Pos(), depth); ok {
-			c.checkBlock(s.Body.List, d)
 		}
 	case *ast.CaseClause:
 		c.checkBlock(s.Body, depth)
@@ -107,6 +89,26 @@ func (c *checker) checkStmt(stmt ast.Stmt, depth int) {
 	case *ast.LabeledStmt:
 		c.checkStmt(s.Stmt, depth)
 	}
+}
+
+// nestingBody returns the body of a statement that adds a nesting level
+// (if, for, range, switch, type switch, select), or nil otherwise.
+func nestingBody(stmt ast.Stmt) *ast.BlockStmt {
+	switch s := stmt.(type) {
+	case *ast.IfStmt:
+		return s.Body
+	case *ast.ForStmt:
+		return s.Body
+	case *ast.RangeStmt:
+		return s.Body
+	case *ast.SwitchStmt:
+		return s.Body
+	case *ast.TypeSwitchStmt:
+		return s.Body
+	case *ast.SelectStmt:
+		return s.Body
+	}
+	return nil
 }
 
 func (c *checker) report(pos token.Pos, depth int) {
