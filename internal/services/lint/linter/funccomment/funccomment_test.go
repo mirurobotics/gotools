@@ -9,11 +9,13 @@ import (
 func TestCheck(t *testing.T) {
 	tests := []struct {
 		name      string
+		filename  string
 		src       string
 		wantLines []int
 	}{
 		{
-			name: "line comment in body flagged",
+			filename: "foo.go",
+			name:     "line comment in body flagged",
 			src: `package foo
 
 func f() {
@@ -25,7 +27,8 @@ func f() {
 			wantLines: []int{4},
 		},
 		{
-			name: "trailing and block comments flagged",
+			filename: "foo.go",
+			name:     "trailing and block comments flagged",
 			src: `package foo
 
 func f() int {
@@ -37,7 +40,8 @@ func f() int {
 			wantLines: []int{4, 5},
 		},
 		{
-			name: "func literal flagged",
+			filename: "foo.go",
+			name:     "func literal flagged",
 			src: `package foo
 
 var g = func() {
@@ -47,7 +51,8 @@ var g = func() {
 			wantLines: []int{4},
 		},
 		{
-			name: "directives allowed",
+			filename: "foo.go",
+			name:     "directives allowed",
 			src: `package foo
 
 func f() {
@@ -59,7 +64,39 @@ func f() {
 			wantLines: nil,
 		},
 		{
-			name: "doc comments and declarations without body allowed",
+			filename: "foo_test.go",
+			name:     "example output allowed",
+			src: `package foo
+
+func Example() {
+	println(1)
+	// Output:
+	// 1
+}
+
+func ExampleUnordered() {
+	println(1)
+	// Unordered output:
+	// 1
+}
+`,
+			wantLines: nil,
+		},
+		{
+			filename: "foo.go",
+			name:     "output comment outside example test flagged",
+			src: `package foo
+
+func Example() {
+	// Output:
+	// 1
+}
+`,
+			wantLines: []int{4, 5},
+		},
+		{
+			filename: "foo.go",
+			name:     "doc comments and declarations without body allowed",
 			src: `package foo
 
 // f does a thing.
@@ -74,11 +111,11 @@ func g()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
+			f, err := parser.ParseFile(fset, tt.filename, tt.src, parser.ParseComments)
 			if err != nil {
 				t.Fatal(err)
 			}
-			diags := Check(fset, "foo.go", f)
+			diags := Check(fset, tt.filename, f)
 			if len(diags) != len(tt.wantLines) {
 				t.Fatalf(
 					"got %d diagnostics, want %d: %v",
