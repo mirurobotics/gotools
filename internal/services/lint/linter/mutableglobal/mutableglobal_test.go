@@ -1,6 +1,7 @@
 package mutableglobal
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"testing"
@@ -346,5 +347,17 @@ var ERR = errors.New("x")
 				t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
 			}
 		})
+	}
+}
+
+func TestIsErrorConstructor_NotPkgSelector(t *testing.T) {
+	for _, src := range []string{"newErr()", "a.b.New()"} {
+		expr, err := parser.ParseExpr(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if isErrorConstructor(expr.(*ast.CallExpr)) {
+			t.Errorf("isErrorConstructor(%s) = true, want false", src)
+		}
 	}
 }

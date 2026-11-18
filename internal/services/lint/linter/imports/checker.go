@@ -7,9 +7,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports a single diagnostic per import block that doesn't match
-// its canonical form. This uses the same rebuildBlock logic as the fixer,
-// so checker and fixer can never disagree about what's correct.
+// Check reports each import block that differs from its canonical form.
 func Check(
 	fset *token.FileSet,
 	filename string,

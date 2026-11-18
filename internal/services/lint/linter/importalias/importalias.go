@@ -9,9 +9,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports a diagnostic for each import alias that contains an
-// underscore. Aliases with a "test_" or "mock_" prefix are allowed.
-// Test files are exempt.
+// Check reports underscored import aliases outside test files, except test_ and mock_.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	if analysis.IsTestFile(filename) {
 		return nil
@@ -41,8 +39,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// isBadAlias reports whether an import alias contains an underscore and is
-// not a blank, dot, or "test_"/"mock_" prefixed alias.
 func isBadAlias(name string) bool {
 	if name == "_" || name == "." || !strings.Contains(name, "_") {
 		return false

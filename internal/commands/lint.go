@@ -9,8 +9,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// NewLintCommand returns a cobra command for the
-// top-level "miru lint" orchestrator.
+// NewLintCommand returns a cobra command for the top-level "miru lint" orchestrator.
 func NewLintCommand() *cobra.Command {
 	var opts lint.LintOpts
 
@@ -64,8 +63,6 @@ func bindLintFlags(cmd *cobra.Command, opts *lint.LintOpts) {
 	)
 }
 
-// bindLinterConfigFlags binds the shared linter configuration
-// flags used by both check and lint commands.
 func bindLinterConfigFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
 	fl.IntVar(
 		&flags.MaxLineWidth, "max-line-width", 88,
@@ -91,9 +88,21 @@ func bindLinterConfigFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
 		&flags.MaxParamCount, "max-param-count", 6,
 		"maximum param count excluding context.Context",
 	)
+	bindDocFlags(fl, flags)
 	fl.StringVar(
 		&flags.Exclude, "exclude", "",
 		"comma-separated rules to exclude (empty=run all)",
 	)
 	fl.StringVar(&flags.Rule, "rule", "", "only run a specific rule")
+}
+
+func bindDocFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
+	fl.IntVar(
+		&flags.MaxDocLines, "max-doc-lines", 1,
+		"maximum lines in a doc comment, excluding directives",
+	)
+	fl.IntVar(
+		&flags.MaxDocFileLines, "max-doc-file-lines", 20,
+		"maximum lines in the package doc comment of a doc.go file",
+	)
 }

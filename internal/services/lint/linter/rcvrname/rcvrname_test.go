@@ -1,6 +1,7 @@
 package rcvrname
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"testing"
@@ -139,5 +140,12 @@ func (Repo) String() string { return "" }
 				t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
 			}
 		})
+	}
+}
+
+func TestReceiverTypeName_Unnamed(t *testing.T) {
+	arr := &ast.ArrayType{Lbrack: 0, Len: nil, Elt: nil}
+	if got := receiverTypeName(arr); got != "" {
+		t.Errorf("receiverTypeName([]T) = %q, want empty", got)
 	}
 }

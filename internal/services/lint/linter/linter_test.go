@@ -11,18 +11,18 @@ import (
 )
 
 var defaultCfg = Config{
-	MaxLineWidth:  88,
-	TabWidth:      4,
-	MaxFuncLen:    0,
-	MaxFileLen:    0,
-	MaxNestDepth:  0,
-	MaxParamCount: 0,
-	Exclude:       nil,
-	Out:           io.Discard,
-	Err:           io.Discard,
+	MaxLineWidth:    88,
+	TabWidth:        4,
+	MaxFuncLen:      0,
+	MaxFileLen:      0,
+	MaxNestDepth:    0,
+	MaxParamCount:   0,
+	MaxDocLines:     0,
+	MaxDocFileLines: 0,
+	Exclude:         nil,
+	Out:             io.Discard,
+	Err:             io.Discard,
 }
-
-// --- Diagnostic tests ---
 
 func TestDiagnostic_String(t *testing.T) {
 	d := analysis.Diagnostic{File: "foo.go", Line: 42, Message: "bad imports"}
@@ -32,8 +32,6 @@ func TestDiagnostic_String(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
-
-// --- run / processFile tests ---
 
 func TestRun_Check_Clean(t *testing.T) {
 	dir := t.TempDir()
@@ -140,8 +138,6 @@ func TestProcessFile_InvalidPath(t *testing.T) {
 	}
 }
 
-// --- findGoFiles tests ---
-
 func TestFindGoFiles(t *testing.T) {
 	dir := t.TempDir()
 
@@ -191,8 +187,6 @@ func TestFindGoFiles_NonExistentDir(t *testing.T) {
 		t.Error("expected error for nonexistent path")
 	}
 }
-
-// --- checkOnly (pkgname) integration ---
 
 func TestRun_Check_PkgnameViolation(t *testing.T) {
 	dir := t.TempDir()
@@ -295,8 +289,6 @@ func f() { _ = strings.TrimSpace(os.Getenv("` +
 	}
 }
 
-// --- integration: imports + collapse ---
-
 func TestIntegration_ImportsAndCollapse(t *testing.T) {
 	dir := t.TempDir()
 	src := `package foo
@@ -315,15 +307,17 @@ func f() {
 	writeFile(t, dir+"/test.go", src)
 
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxFileLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		Exclude:       nil,
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxFileLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -335,7 +329,6 @@ func f() {
 
 	// #nosec G304 -- test reads a file created under t.TempDir.
 	content, _ := os.ReadFile(filepath.Join(dir, "test.go"))
-	// After collapse, f() has a single statement, so func-inline also fires.
 	want := `package foo
 
 import (
@@ -352,8 +345,6 @@ func f() { fmt.Println(strings.ToUpper("hello")) }
 		)
 	}
 }
-
-// --- integration: all three rules ---
 
 func TestIntegration_AllThreeRules(t *testing.T) {
 	dir := t.TempDir()
@@ -377,15 +368,17 @@ func Code() int {
 	writeFile(t, dir+"/test.go", src)
 
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxFileLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		Exclude:       nil,
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxFileLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -416,8 +409,6 @@ func Code() int { return 42 }
 	}
 }
 
-// --- integration: check mode with multiple rule types ---
-
 func TestRun_Check_PkgnameAndImportViolations(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir+"/bad.go", `package my_pkg
@@ -440,8 +431,6 @@ func f() { _ = strings.ToUpper(os.Getenv("X")) }
 		t.Errorf("expected 0 fixed, got %d", fixed)
 	}
 }
-
-// --- integration: fix mode with all rules + pkgname ---
 
 func TestRun_Fix_AllFixersWithPkgname(t *testing.T) {
 	dir := t.TempDir()
@@ -491,8 +480,6 @@ func Code() int { return 42 }
 	}
 }
 
-// --- integration: allowed pkgname patterns ---
-
 func TestRun_Check_AllowedPkgnamePrefixes(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -519,8 +506,6 @@ func TestRun_Check_AllowedPkgnamePrefixes(t *testing.T) {
 		})
 	}
 }
-
-// --- integration: fix mode with pkgname + funcinline only ---
 
 func TestRun_Fix_PkgnameWithFuncinline(t *testing.T) {
 	dir := t.TempDir()
@@ -558,8 +543,6 @@ func Hello() string { return "hi" }
 	}
 }
 
-// --- integration: multiple files with mixed violations ---
-
 func TestRun_Check_MultipleFiles(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir+"/clean.go", `package foo
@@ -587,8 +570,6 @@ func g() { _ = strings.ToUpper(os.Getenv("hi")) }
 	}
 }
 
-// --- integration: fix is idempotent ---
-
 func TestRun_Fix_Idempotent(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir+"/bad.go", `package foo
@@ -612,7 +593,6 @@ func f() {
 		t.Fatalf("expected 1 fixed on first pass, got %d", fixed)
 	}
 
-	// Run fix again — nothing should change.
 	_, fixed, err = Run(dir, true, defaultCfg)
 	if err != nil {
 		t.Fatal(err)
@@ -621,8 +601,6 @@ func f() {
 		t.Errorf("expected 0 fixed on second pass (idempotent), got %d", fixed)
 	}
 }
-
-// --- error handling: Run skips unparseable files ---
 
 func TestRun_SkipsUnparseableFile(t *testing.T) {
 	dir := t.TempDir()
@@ -636,7 +614,6 @@ func f() {}
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The good file has no violations; the bad file is skipped with a warning.
 	if diags != 0 {
 		t.Errorf("expected 0 diagnostics, got %d", diags)
 	}
@@ -673,8 +650,6 @@ func TestProcessFile_UnparseableSyntax(t *testing.T) {
 	}
 }
 
-// --- integration: funcsig ---
-
 func TestIntegration_FuncsigThenFuncinline(t *testing.T) {
 	dir := t.TempDir()
 	src := `package foo
@@ -688,15 +663,17 @@ func NewScope(
 	writeFile(t, dir+"/test.go", src)
 
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxFileLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		Exclude:       nil,
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxFileLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -708,7 +685,6 @@ func NewScope(
 
 	// #nosec G304 -- test reads a file created under t.TempDir.
 	content, _ := os.ReadFile(filepath.Join(dir, "test.go"))
-	// funcsig collapses the signature, then funcinline collapses the body.
 	want := `package foo
 
 func NewScope(dbScope Scope) Scope { return NewScope(dbScope) }
@@ -736,15 +712,17 @@ func Process(
 	writeFile(t, dir+"/test.go", src)
 
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxFileLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		Exclude:       nil,
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxFileLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -756,7 +734,6 @@ func Process(
 
 	// #nosec G304 -- test reads a file created under t.TempDir.
 	content, _ := os.ReadFile(filepath.Join(dir, "test.go"))
-	// funcsig collapses the signature, but body has 2 statements so funcinline skips.
 	want := `package foo
 
 func Process(dbScope Scope, name string) error {
@@ -785,15 +762,17 @@ func Get(
 	writeFile(t, dir+"/test.go", src)
 
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxFileLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		Exclude:       nil,
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxFileLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	diags, fixed, err := Run(dir, false, cfg)
 	if err != nil {
@@ -802,13 +781,10 @@ func Get(
 	if fixed != 0 {
 		t.Errorf("expected 0 fixed in check mode, got %d", fixed)
 	}
-	// Should report at least 1 diagnostic for funcsig.
 	if diags < 1 {
 		t.Errorf("expected at least 1 diagnostic, got %d", diags)
 	}
 }
-
-// --- ValidateExclusions tests ---
 
 func TestValidateExclusions_Empty(t *testing.T) {
 	err := ValidateExclusions(nil)
@@ -834,12 +810,8 @@ func TestValidateExclusions_InvalidRule(t *testing.T) {
 	}
 }
 
-// --- exclude filtering tests ---
-
 func TestRun_ExcludeFilter_SkipPkgNameAndImports(t *testing.T) {
 	dir := t.TempDir()
-	// This file has both a pkgname violation (my_pkg) and
-	// a misordered import (would trigger imports rule).
 	writeFile(t, dir+"/bad.go", `package my_pkg
 
 import (
@@ -850,21 +822,22 @@ import (
 func f() { _ = strings.ToUpper(os.Getenv("X")) }
 `)
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxFileLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		Exclude:       map[Rule]bool{RulePkgName: true, RuleImports: true},
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxFileLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         map[Rule]bool{RulePkgName: true, RuleImports: true},
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	diags, _, err := Run(dir, false, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Both pkgname and imports are excluded, no other violations.
 	if diags != 0 {
 		t.Errorf("expected 0 diagnostics with pkgname+imports excluded, got %d", diags)
 	}
@@ -882,21 +855,22 @@ import (
 func f() { _ = strings.ToUpper(os.Getenv("X")) }
 `)
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxFileLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		Exclude:       map[Rule]bool{RuleImports: true},
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxFileLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         map[Rule]bool{RuleImports: true},
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	diags, _, err := Run(dir, false, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Imports excluded, but pkgname should still fire.
 	if diags != 1 {
 		t.Errorf("expected 1 diagnostic (pkgname only), got %d", diags)
 	}
@@ -914,21 +888,22 @@ import (
 func f() { _ = strings.ToUpper(os.Getenv("X")) }
 `)
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxFileLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		Exclude:       map[Rule]bool{RulePkgName: true},
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxFileLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         map[Rule]bool{RulePkgName: true},
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	diags, fixed, err := Run(dir, true, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Imports should be fixed, pkgname excluded so 0 diags.
 	if diags != 0 {
 		t.Errorf("expected 0 diagnostics (pkgname excluded), got %d", diags)
 	}
@@ -938,13 +913,10 @@ func f() { _ = strings.ToUpper(os.Getenv("X")) }
 
 	//nolint:gosec // test helper reading test fixtures
 	content, _ := os.ReadFile(dir + "/bad.go")
-	// Package name should remain unchanged (pkgname excluded).
 	if !strings.Contains(string(content), "package my_pkg") {
 		t.Error("package name should not have changed")
 	}
 }
-
-// --- self-lint regression ---
 
 func TestRun_SelfLint(t *testing.T) {
 	diags, fixed, err := Run("..", false, defaultCfg)
@@ -959,8 +931,6 @@ func TestRun_SelfLint(t *testing.T) {
 	}
 }
 
-// --- helpers ---
-
 func writeFile(t *testing.T, path, content string) {
 	dir := path[:len(path)-len(path[strings.LastIndex(path, "/")+1:])]
 	if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -968,6 +938,81 @@ func writeFile(t *testing.T, path, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRun_Check_DocLimits(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir+"/doc.go", `// Package foo does things.
+// At some length.
+package foo
+`)
+	writeFile(t, dir+"/foo.go", `package foo
+
+// F does a thing.
+// At some length.
+func F() {}
+`)
+	cfg := defaultCfg
+	cfg.MaxDocLines = 1
+	cfg.MaxDocFileLines = 20
+	cfg.Out = &strings.Builder{}
+	diags, _, err := Run(dir, false, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := cfg.Out.(*strings.Builder).String()
+	if diags != 1 || !strings.Contains(out, "foo.go:3: doc comment is 2 lines") {
+		t.Errorf("got %d diagnostics, want only foo.go:3:\n%s", diags, out)
+	}
+}
+
+func TestRun_Check_PrivDoc(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir+"/foo.go", `package foo
+
+// f does a thing.
+func f() {}
+`)
+	for _, exclude := range []bool{false, true} {
+		cfg := defaultCfg
+		cfg.Exclude = map[Rule]bool{RulePrivDoc: exclude}
+		cfg.Out = &strings.Builder{}
+		diags, _, err := Run(dir, false, cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := cfg.Out.(*strings.Builder).String()
+		want := 1
+		if exclude {
+			want = 0
+		}
+		found := strings.Contains(out, "foo.go:3: comment on identifier")
+		if diags != want || found != !exclude {
+			t.Errorf("exclude=%v: got %d diagnostics:\n%s", exclude, diags, out)
+		}
+	}
+}
+
+func TestRun_Check_DocFileLimit(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir+"/doc.go", `// Package foo does things.
+// At some length.
+// And more.
+package foo
+`)
+	cfg := defaultCfg
+	cfg.MaxDocLines = 1
+	cfg.MaxDocFileLines = 2
+	cfg.Out = &strings.Builder{}
+	diags, _, err := Run(dir, false, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := cfg.Out.(*strings.Builder).String()
+	want := "doc.go:1: doc comment is 3 lines (limit 2)"
+	if diags != 1 || !strings.Contains(out, want) {
+		t.Errorf("got %d diagnostics, want doc.go:1:\n%s", diags, out)
 	}
 }
 

@@ -18,7 +18,6 @@ func IsDirective(text string) bool {
 		strings.HasPrefix(body, "+build")
 }
 
-// isGoStyleDirective reports whether s has the form name:value, as in go:build.
 func isGoStyleDirective(s string) bool {
 	name, rest, ok := strings.Cut(s, ":")
 	if !ok || name == "" || rest == "" {

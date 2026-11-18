@@ -9,8 +9,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// NewCovgateCommand returns a cobra command that checks
-// per-package coverage against thresholds.
+// NewCovgateCommand returns a command that checks per-package coverage.
 func NewCovgateCommand() *cobra.Command {
 	var opts covgate.Opts
 
@@ -34,8 +33,6 @@ func NewCovgateCommand() *cobra.Command {
 	return cmd
 }
 
-// bindCovgatePackageFlags binds the flags that pick which packages and
-// tests covgate measures and how many it runs at once.
 func bindCovgatePackageFlags(fl *pflag.FlagSet, opts *covgate.Opts) {
 	fl.StringVar(&opts.Packages, "packages", "./...", "Go package pattern for go list")
 	fl.StringVar(
@@ -56,7 +53,6 @@ func bindCovgatePackageFlags(fl *pflag.FlagSet, opts *covgate.Opts) {
 	)
 }
 
-// bindCovgateThresholdFlags binds the default threshold and tightness flags.
 func bindCovgateThresholdFlags(fl *pflag.FlagSet, opts *covgate.Opts) {
 	fl.Float64Var(
 		&opts.DefaultThreshold, "default-threshold", 80.0,

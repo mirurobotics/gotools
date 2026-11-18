@@ -9,9 +9,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports a diagnostic if the file's package name contains an underscore,
-// unless it has a "test_" or "mock_" prefix or a "_test" suffix (Go's external
-// test package convention).
+// Check reports package names with underscores, except test_, mock_, and _test.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	name := f.Name.Name
 	if !strings.Contains(name, "_") {

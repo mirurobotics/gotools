@@ -65,15 +65,12 @@ func f(x int) {}
 }
 
 func TestIsContextType_NestedSelector(t *testing.T) {
-	// sel.X is *ast.SelectorExpr, not *ast.Ident.
 	src := `package foo
 import "go/ast"
 func f(x ast.Expr) {}
 `
 	f := parseTestFile(t, src)
 	fn := f.Decls[1].(*ast.FuncDecl)
-	// ast.Expr is a SelectorExpr where X is ast.Ident,
-	// so construct a case where X is a SelectorExpr.
 	inner := &ast.SelectorExpr{
 		X:   &ast.SelectorExpr{X: ast.NewIdent("a"), Sel: ast.NewIdent("b")},
 		Sel: ast.NewIdent("Context"),
@@ -81,7 +78,6 @@ func f(x ast.Expr) {}
 	if IsContextType(inner, "context") {
 		t.Error("expected false for nested selector")
 	}
-	// Also test the real param (standard case).
 	if IsContextType(fn.Type.Params.List[0].Type, "context") {
 		t.Error("expected false for ast.Expr, not context.Context")
 	}

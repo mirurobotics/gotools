@@ -64,7 +64,6 @@ func ExtractBlocks(f *ast.File) []ImportBlock {
 	return blocks
 }
 
-// newImport converts an import spec to an Import.
 func newImport(is *ast.ImportSpec) Import {
 	path, _ := strconv.Unquote(is.Path.Value)
 	imp := Import{

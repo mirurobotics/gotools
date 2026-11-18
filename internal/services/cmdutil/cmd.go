@@ -5,8 +5,7 @@ import (
 	"os/exec"
 )
 
-// GoCommand creates an exec.Cmd for a Go toolchain
-// command with GOWORK=off set in the environment.
+// GoCommand returns an exec.Cmd for the go toolchain with GOWORK=off.
 //
 //nolint:gosec,noctx // G204: trusted subprocess
 func GoCommand(args ...string) *exec.Cmd {

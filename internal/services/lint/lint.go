@@ -28,16 +28,13 @@ type LintOpts struct {
 	NoGofumpt       bool
 	NoGolangci      bool
 	NewFromRev      string
-	// GOOS lists extra target platforms, comma-separated;
-	// golangci-lint runs once more per target.
+	// GOOS lists extra target platforms, comma-separated.
 	GOOS string
 	Out  io.Writer
 	Err  io.Writer
 }
 
-// RunLint runs the full lint suite: custom linter,
-// gofumpt, golangci-lint, and deadcode, plus
-// golangci-lint for each extra GOOS target.
+// RunLint runs the custom linter, gofumpt, golangci-lint, and deadcode.
 func RunLint(opts LintOpts) error {
 	if opts.Out == nil {
 		opts.Out = os.Stdout
@@ -109,9 +106,6 @@ func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming)
 	return collectResults(results)
 }
 
-// goosTargets splits the comma-separated raw into target
-// platforms in first-seen order, dropping blanks,
-// duplicates, and the host GOOS.
 func goosTargets(raw string) []string {
 	var targets []string
 	seen := map[string]bool{runtime.GOOS: true}
@@ -126,9 +120,6 @@ func goosTargets(raw string) []string {
 	return targets
 }
 
-// runAnalyzers runs golangci-lint and deadcode. When both
-// are enabled they run concurrently; deadcode output is
-// buffered to avoid interleaving with golangci-lint.
 func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
 	runGolangci := !opts.NoGolangci
 	runDeadcode := opts.Deadcode
@@ -150,13 +141,11 @@ func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
 	return collectResults(results)
 }
 
-// stepResult is the outcome of one timed pass/fail lint step.
 type stepResult struct {
 	timing stepTiming
 	failed bool
 }
 
-// timedRun runs fn and records its duration under name.
 func timedRun(name string, fn func() error) stepResult {
 	start := time.Now()
 	err := fn()
@@ -192,8 +181,6 @@ func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTimin
 	return collectResults([]stepResult{gcR, dcR})
 }
 
-// collectResults returns the timings of all steps, in order, and the names
-// of the steps that failed.
 func collectResults(results []stepResult) (failures []string, timings []stepTiming) {
 	for _, r := range results {
 		timings = append(timings, r.timing)

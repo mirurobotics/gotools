@@ -8,8 +8,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// --- basic inlining tests ---
-
 func TestFuncInline_SingleReturn(t *testing.T) {
 	src := `package foo
 
@@ -110,8 +108,6 @@ func (s *S) Set(v int) { s.val = v }
 	assertFixResult(t, src, want)
 }
 
-// --- exclusion tests ---
-
 func TestFuncInline_SkipMultipleStatements(t *testing.T) {
 	src := `package foo
 
@@ -176,10 +172,7 @@ func f() int { return 42 }
 	assertFixResult(t, src, src)
 }
 
-// --- width boundary tests ---
-
 func TestFuncInline_ExactlyAtLimit(t *testing.T) {
-	// "func f() int { return 42 }" = 26 chars
 	src := `package foo
 
 func f() int {
@@ -214,8 +207,6 @@ func f() int {
 		t.Fatalf("expected 0 candidates past limit, got %d", len(candidates))
 	}
 }
-
-// --- multiple functions ---
 
 func TestFuncInline_MultipleFunctions(t *testing.T) {
 	src := `package foo
@@ -273,8 +264,6 @@ func alsoSimple() string { return "hello" }
 	assertFixResult(t, src, want)
 }
 
-// --- idempotency ---
-
 func TestFuncInline_Idempotent(t *testing.T) {
 	src := `package foo
 
@@ -295,8 +284,6 @@ func f() int { return 42 }
 		t.Errorf("second fix not idempotent: got:\n%s\nwant:\n%s", result2, want)
 	}
 }
-
-// --- checker/fixer agreement ---
 
 func TestFuncInline_CheckerFixerAgreement(t *testing.T) {
 	cases := []struct {
@@ -375,8 +362,6 @@ func f() int {
 	}
 }
 
-// --- nil body (external/assembly declaration) ---
-
 func TestFuncInline_SkipNilBody(t *testing.T) {
 	src := `package foo
 
@@ -384,8 +369,6 @@ func Asm()
 `
 	assertFixResult(t, src, src)
 }
-
-// --- statement type variety ---
 
 func TestFuncInline_DeferStatement(t *testing.T) {
 	src := `package foo
@@ -428,8 +411,6 @@ func send(ch chan int) { ch <- 42 }
 `
 	assertFixResult(t, src, want)
 }
-
-// --- function literal inlining ---
 
 func TestFuncInline_FuncLitInArgument(t *testing.T) {
 	src := `package foo
@@ -541,11 +522,7 @@ func wrapper() {
 	assertFixResult(t, src, want)
 }
 
-// --- func lit width with trailing content ---
-
 func TestFuncInline_FuncLitTrailingContentExceedsLimit(t *testing.T) {
-	// The func lit alone (indent + collapsed) fits within the limit,
-	// but the trailing ", other)" after } pushes the line over.
 	src := `package foo
 
 func f() {
@@ -554,11 +531,6 @@ func f() {
 	}, other)
 }
 `
-	// collapsed = "func(x int) int { return x }" = 28 chars
-	// indent to func = "\t" + "call(" = 4 + 5 = 9
-	// trailing = ", other)" = 8
-	// total = 9 + 28 + 8 = 45
-	// Set limit to 44 so trailing pushes it over.
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -583,7 +555,6 @@ func f() {
 	}, other)
 }
 `
-	// total = 9 + 28 + 8 = 45; set limit to 45 so it fits exactly.
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -595,8 +566,6 @@ func f() {
 		t.Fatalf("expected 1 candidate at exact limit, got %d", len(candidates))
 	}
 }
-
-// --- helpers ---
 
 func assertFixResult(t *testing.T, src, want string) {
 	got := fixSource(t, src)

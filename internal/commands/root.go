@@ -2,8 +2,7 @@ package commands
 
 import "github.com/spf13/cobra"
 
-// NewRootCommand returns the root cobra command with all
-// subcommands attached.
+// NewRootCommand returns the root cobra command with all subcommands attached.
 func NewRootCommand() *cobra.Command {
 	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{

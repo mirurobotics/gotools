@@ -1,6 +1,7 @@
 package funclen
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"strings"
@@ -187,5 +188,25 @@ func TestCheck(t *testing.T) {
 				t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
 			}
 		})
+	}
+}
+
+func TestFuncBody_NilLitBody(t *testing.T) {
+	if _, _, ok := funcBody(&ast.FuncLit{Type: nil, Body: nil}); ok {
+		t.Error("funcBody accepted a func literal without a body")
+	}
+}
+
+func TestCountLines_ShortSource(t *testing.T) {
+	src := "package p\n\nfunc F() {\n\tx := 1\n\t_ = x\n}\n"
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "p.go", src, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := f.Decls[0].(*ast.FuncDecl).Body
+	lines := [][]byte{[]byte("package p"), nil, []byte("func F() {"), []byte("x := 1")}
+	if got := countLines(fset, body, lines); got != 1 {
+		t.Errorf("countLines = %d, want 1", got)
 	}
 }

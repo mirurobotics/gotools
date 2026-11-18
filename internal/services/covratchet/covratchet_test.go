@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/mirurobotics/gotools/internal/services/gocover"
 	"github.com/mirurobotics/gotools/internal/testutil"
 )
 
@@ -64,7 +64,7 @@ func TestWriteCovgate(t *testing.T) {
 
 func TestPrintHeader(t *testing.T) {
 	var buf bytes.Buffer
-	printHeader(&buf)
+	gocover.Progress{Enabled: false, Table: table()}.WriteHeader(&buf, 0, 0)
 	out := buf.String()
 
 	cols := []string{"STATUS", "PREVIOUS", "CURRENT", "PACKAGE"}
@@ -332,7 +332,6 @@ func TestRun_WithFailures(t *testing.T) {
 }
 
 func TestRun_Parallelism(t *testing.T) {
-	// Use a single temp dir so all three packages share the same cwd.
 	tmp := t.TempDir()
 	t.Chdir(tmp)
 	for _, rel := range []string{"pkg/a", "pkg/b", "pkg/c"} {
@@ -371,7 +370,6 @@ func TestRun_Parallelism(t *testing.T) {
 	if !strings.Contains(out, "pkg/c") {
 		t.Errorf("output missing pkg/c: %s", out)
 	}
-	// Verify output order is preserved: a before b before c.
 	idxA := strings.Index(out, "pkg/a")
 	idxB := strings.Index(out, "pkg/b")
 	idxC := strings.Index(out, "pkg/c")
@@ -381,7 +379,6 @@ func TestRun_Parallelism(t *testing.T) {
 			idxA, idxB, idxC, out,
 		)
 	}
-	// Verify aggregate counts are accumulated correctly.
 	if !strings.Contains(out, "Updated: 3") {
 		t.Errorf("expected Updated: 3 in output: %s", out)
 	}
@@ -407,18 +404,6 @@ func TestRun_Parallelism_DefaultsToNumCPU(t *testing.T) {
 	}
 }
 
-func TestEffectiveParallelism(t *testing.T) {
-	//nolint:exhaustruct // test uses partial initialization
-	if got := effectiveParallelism(Opts{Parallelism: 4}); got != 4 {
-		t.Errorf("effectiveParallelism(4) = %d, want 4", got)
-	}
-	want := runtime.NumCPU()
-	//nolint:exhaustruct // test uses partial initialization
-	if got := effectiveParallelism(Opts{Parallelism: 0}); got != want {
-		t.Errorf("effectiveParallelism(0) = %d, want %d", got, want)
-	}
-}
-
 func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 	tmp := t.TempDir()
 	t.Chdir(tmp)
@@ -436,8 +421,8 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 		goListPackages: func(string) ([]string, error) {
 			return []string{modName + "/pkg/a", modName + "/pkg/b"}, nil
 		},
-		measure:      fakeMeasure(90.0),
-		emitProgress: true,
+		measure:  fakeMeasure(90.0),
+		progress: gocover.Progress{Enabled: true, Table: table()},
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
@@ -446,8 +431,6 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	out := buf.String()
-	// Each progress line should carry the per-package package
-	// path (the row's last column), not just the count marker.
 	if !hasProgressLineWith(out, "[1/2]", "pkg/") {
 		t.Errorf(
 			"expected [1/2] progress line to include the package "+
@@ -463,8 +446,6 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 	if !strings.Contains(out, "COUNT") {
 		t.Errorf("expected progress header to include COUNT column:\n%s", out)
 	}
-	// STATUS header should appear exactly once — the progress
-	// stream is the single canonical table.
 	if got := strings.Count(out, "STATUS"); got != 1 {
 		t.Errorf(
 			"expected exactly one STATUS header (progress IS "+
@@ -490,12 +471,13 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 			idxProgress1, idxProgress2, idxFinal, out,
 		)
 	}
+	for _, pkg := range []string{"pkg/a", "pkg/b"} {
+		if got := strings.Count(out, pkg+"\n"); got != 1 {
+			t.Errorf("expected %s row once, got %d:\n%s", pkg, got, out)
+		}
+	}
 }
 
-// hasProgressLineWith reports whether out contains a single line
-// that matches both the count marker and an additional substring
-// (used to verify progress lines carry full row data, not just the
-// counter).
 func hasProgressLineWith(out, marker, contains string) bool {
 	for _, line := range strings.Split(out, "\n") {
 		if strings.Contains(line, marker) && strings.Contains(line, contains) {
@@ -522,8 +504,8 @@ func TestRun_SuppressesProgress_WhenExplicitParallelism(t *testing.T) {
 		goListPackages: func(string) ([]string, error) {
 			return []string{modName + "/pkg/a", modName + "/pkg/b"}, nil
 		},
-		measure:      fakeMeasure(90.0),
-		emitProgress: false,
+		measure:  fakeMeasure(90.0),
+		progress: gocover.Progress{Enabled: false, Table: table()},
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
