@@ -83,7 +83,7 @@ func (p Progress) Rest(output string) string {
 	return output[strings.IndexByte(output, '\n')+1:]
 }
 
-// Indent returns the padding that aligns an extra row under the COUNT column.
+// Indent pads an extra row past the COUNT column to line up with progress rows.
 func (p Progress) Indent(total int) string {
 	if !p.Enabled {
 		return ""
