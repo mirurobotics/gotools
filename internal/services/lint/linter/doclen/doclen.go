@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/token"
 	"path/filepath"
-	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
@@ -69,7 +68,7 @@ func check(
 	if cg == nil || limit <= 0 {
 		return nil
 	}
-	n := CountLines(cg)
+	n := analysis.ProseLines(cg)
 	if n <= limit {
 		return nil
 	}
@@ -78,27 +77,4 @@ func check(
 		Line:    fset.Position(cg.Pos()).Line,
 		Message: fmt.Sprintf("doc comment is %d lines (limit %d)", n, limit),
 	}
-}
-
-// CountLines counts the prose lines in cg, ignoring directives.
-func CountLines(cg *ast.CommentGroup) int {
-	var lines []string
-	for _, c := range cg.List {
-		if analysis.IsDirective(c.Text) {
-			continue
-		}
-		text := strings.TrimSuffix(strings.TrimPrefix(c.Text, "/*"), "*/")
-		lines = append(lines, strings.Split(text, "\n")...)
-	}
-	for len(lines) > 0 && isBlank(lines[len(lines)-1]) {
-		lines = lines[:len(lines)-1]
-	}
-	for len(lines) > 0 && isBlank(lines[0]) {
-		lines = lines[1:]
-	}
-	return len(lines)
-}
-
-func isBlank(line string) bool {
-	return strings.TrimSpace(strings.TrimPrefix(line, "//")) == ""
 }
