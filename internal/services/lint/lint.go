@@ -101,7 +101,7 @@ func runLintSteps(
 
 func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming) {
 	targets := goosTargets(opts.GOOS)
-	results := make([]analyzerResult, 0, len(targets))
+	results := make([]stepResult, 0, len(targets))
 	for _, goos := range targets {
 		step := fmt.Sprintf("golangci-lint (%s)", goos)
 		results = append(results, timedRun(step, func() error {
@@ -138,7 +138,7 @@ func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
 	if runGolangci && runDeadcode {
 		return runAnalyzersParallel(opts)
 	}
-	var results []analyzerResult
+	var results []stepResult
 	if runGolangci {
 		results = append(results, timedRun("golangci-lint", func() error {
 			return RunGolangci(opts.Out, opts.Err, opts.NewFromRev)
@@ -152,17 +152,17 @@ func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
 	return collectResults(results)
 }
 
-// analyzerResult is the outcome of one timed pass/fail lint step.
-type analyzerResult struct {
+// stepResult is the outcome of one timed pass/fail lint step.
+type stepResult struct {
 	timing stepTiming
 	failed bool
 }
 
 // timedRun runs fn and records its duration under name.
-func timedRun(name string, fn func() error) analyzerResult {
+func timedRun(name string, fn func() error) stepResult {
 	start := time.Now()
 	err := fn()
-	return analyzerResult{
+	return stepResult{
 		timing: stepTiming{name, time.Since(start)},
 		failed: err != nil,
 	}
@@ -171,8 +171,8 @@ func timedRun(name string, fn func() error) analyzerResult {
 func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTiming) {
 	var (
 		wg    sync.WaitGroup
-		gcR   analyzerResult
-		dcR   analyzerResult
+		gcR   stepResult
+		dcR   stepResult
 		dcBuf bytes.Buffer
 	)
 
@@ -194,13 +194,13 @@ func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTimin
 	if dcBuf.Len() > 0 {
 		_, _ = fmt.Fprint(opts.Out, dcBuf.String())
 	}
-	return collectResults([]analyzerResult{gcR, dcR})
+	return collectResults([]stepResult{gcR, dcR})
 }
 
 // collectResults returns the timings of all steps, in order, and the names
 // of the steps that failed.
 func collectResults(
-	results []analyzerResult,
+	results []stepResult,
 ) (failures []string, timings []stepTiming) {
 	for _, r := range results {
 		timings = append(timings, r.timing)
