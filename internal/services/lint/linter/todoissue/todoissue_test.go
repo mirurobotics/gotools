@@ -1,0 +1,211 @@
+package todoissue
+
+import (
+	"go/parser"
+	"go/token"
+	"testing"
+)
+
+func TestCheck(t *testing.T) {
+	tests := []struct {
+		name      string
+		src       string
+		wantLines []int
+	}{
+		{
+			name: "todo without link flagged",
+			src: `package foo
+
+// TODO: handle retries
+func f() {}
+
+func g() {
+	// TODO(ben): clean up
+}
+`,
+			wantLines: []int{3, 7},
+		},
+		{
+			name: "todo with link on same or continuation line allowed",
+			src: `package foo
+
+// TODO: handle retries https://github.com/org/repo/issues/1
+func f() {}
+
+// F does things.
+// TODO(ben): clean up once the API settles.
+// See (https://linear.app/org/issue/ENG-1).
+func F() {}
+
+/* TODO: block https://example.com/issues/2 */
+var v = 0
+
+// TODO(https://github.com/org/repo/issues/12): fix
+// TODO:HTTPS://github.com/org/repo/issues/13
+// TODO: see http:old|https://example.com/issues/14.
+var x = 1
+
+/*
+ * TODO: multiline block
+ * http://example.com/issues/3
+ */
+var y = 2
+`,
+			wantLines: nil,
+		},
+		{
+			name: "link belongs to a later todo only",
+			src: `package foo
+
+// TODO: first
+// TODO: second https://github.com/org/repo/issues/4
+// TODO: third
+func f() {}
+`,
+			wantLines: []int{3, 5},
+		},
+		{
+			name: "non-todo comments, words, and directives skipped",
+			src: `package foo
+
+// TODOS are tracked elsewhere.
+// Returns context.TODO when unset.
+// TODO_LIST is a name.
+//nolint:all // see the TODO list
+func f() {}
+
+/* TODO */
+var z = 3
+
+// TODO: support https:// URLs
+// and http://localhost too.
+var w = 4
+`,
+			wantLines: []int{9, 12},
+		},
+		{
+			name: "star-prefixed and inner block lines flagged at their own line",
+			src: `package foo
+
+/*
+ * TODO: fix
+ */
+var a = 1
+
+/*
+notes
+TODO: fix
+*/
+var b = 2
+`,
+			wantLines: []int{4, 10},
+		},
+		{
+			name: "links in directives or other groups do not count",
+			src: `package foo
+
+// TODO: fix
+//go:generate curl https://example.com/issues/5
+func f() {}
+
+// TODO: unrelated
+
+// See https://example.com/issues/6.
+func g() {}
+`,
+			wantLines: []int{3, 7},
+		},
+		{
+			name: "nolint explanations are checked",
+			src: `package foo
+
+//nolint:gosec // TODO: remove once fixed
+var c = 1
+
+//nolint:gosec // TODO: remove https://example.com/issues/7
+var d = 2
+`,
+			wantLines: []int{3},
+		},
+		{
+			name: "nosec notes checked and blank lines end a todo",
+			src: `package foo
+
+// #nosec G304 -- TODO: validate path
+var e = 1
+
+// TODO: handle retries.
+//
+// See https://pkg.go.dev/net/http.
+var g = 2
+`,
+			wantLines: []int{3, 6},
+		},
+		{
+			name: "directive notes are read per kind",
+			src: `package foo
+
+//lint:ignore SA1000 TODO: fix
+var h = 1
+
+// TODO: regenerate
+//go:generate go run ./gen -- https://example.com/spec
+var i = 2
+
+//lint:ignore SA1000
+var j = 3
+
+//lint:file-ignore SA1000 TODO: fix
+var k = 4
+
+// TODO: x
+//lint:ignore SA1000
+// https://example.com/issues/1
+var l = 5
+`,
+			wantLines: []int{3, 6, 13},
+		},
+		{
+			name: "list-marker todos checked and nolint suppresses a group",
+			src: `package foo
+
+// Plan:
+// - TODO: split this up
+var m = 1
+
+// TODO: known gap
+//nolint:todoissue // tracked offline
+var n = 2
+
+//nolint:gosec, todoissue // TODO: known gap
+var o = 3
+
+// TODO: drop nolint:todoissue below
+var p = 4
+`,
+			wantLines: []int{4, 14},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fset := token.NewFileSet()
+			f, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
+			if err != nil {
+				t.Fatal(err)
+			}
+			diags := Check(fset, "foo.go", f)
+			if len(diags) != len(tt.wantLines) {
+				t.Fatalf(
+					"got %d diagnostics, want %d: %v",
+					len(diags), len(tt.wantLines), diags,
+				)
+			}
+			for i, d := range diags {
+				wrong := d.File != "foo.go" || d.Line != tt.wantLines[i]
+				if wrong || d.Message != message {
+					t.Errorf("diag %d = %v, want line %d", i, d, tt.wantLines[i])
+				}
+			}
+		})
+	}
+}
