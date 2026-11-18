@@ -957,3 +957,24 @@ func F() {}
 		t.Errorf("got %d diagnostics, want only foo.go:3:\n%s", diags, out)
 	}
 }
+
+func TestRun_Check_DocFileLimit(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir+"/doc.go", `// Package foo does things.
+// At some length.
+// And more.
+package foo
+`)
+	cfg := defaultCfg
+	cfg.MaxDocLines = 1
+	cfg.MaxDocFileLines = 2
+	cfg.Out = &strings.Builder{}
+	diags, _, err := Run(dir, false, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := cfg.Out.(*strings.Builder).String()
+	if diags != 1 || !strings.Contains(out, "doc.go:1: doc comment is 3 lines (limit 2)") {
+		t.Errorf("got %d diagnostics, want doc.go:1:\n%s", diags, out)
+	}
+}
