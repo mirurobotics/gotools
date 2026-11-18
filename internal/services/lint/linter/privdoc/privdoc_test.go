@@ -199,7 +199,7 @@ var x = 1 //nolint:gochecknoglobals
 			wantLines: nil,
 		},
 		{
-			name: "grouped imports, params, and type params left to straycomment",
+			name: "grouped imports allowed, params left to straycomment",
 			src: `package foo
 
 import (
@@ -230,6 +230,22 @@ type g[
 ] struct{}
 `,
 			wantLines: nil,
+		},
+		{
+			name: "inline constraints follow their type",
+			src: `package foo
+
+type Set[T interface {
+	// Key returns the key.
+	Key() string
+}] struct{}
+
+type set[T interface {
+	// Key returns the key.
+	Key() string
+}] struct{}
+`,
+			wantLines: []int{9},
 		},
 		{
 			name: "imports ignored",

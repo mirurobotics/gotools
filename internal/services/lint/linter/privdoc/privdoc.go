@@ -72,6 +72,9 @@ func (ok allowed) genDecl(d *ast.GenDecl) {
 			public := s.Name.IsExported()
 			anyPublic = anyPublic || public
 			ok.add(public, s.Doc, s.Comment)
+			if s.TypeParams != nil {
+				ok.walk(s.TypeParams, public)
+			}
 			ok.walk(s.Type, public)
 		case *ast.ValueSpec:
 			public := anyExported(s.Names)
