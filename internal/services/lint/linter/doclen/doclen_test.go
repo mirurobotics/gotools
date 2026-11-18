@@ -203,6 +203,22 @@ var _ = fmt.Sprint
 			wantMsg:   "",
 		},
 		{
+			name:     "block doc above a single C spec with its own preamble checked",
+			filename: "foo.go",
+			src: `package foo
+
+// Imports for foo,
+// over two lines.
+import (
+	// #include <stdlib.h>
+	"C"
+)
+`,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
+			wantLines: []int{3},
+			wantMsg:   "",
+		},
+		{
 			name:     "disabled when limit is zero",
 			filename: "foo.go",
 			src: `package foo

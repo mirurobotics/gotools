@@ -3,6 +3,7 @@ package analysis
 import (
 	"go/ast"
 	"go/token"
+	"strings"
 )
 
 // DocGroups returns the doc comment groups of declarations, specs, and fields.
@@ -72,4 +73,27 @@ func InAnyBody(pos token.Pos, bodies []*ast.BlockStmt) bool {
 		}
 	}
 	return false
+}
+
+// ProseLines counts cg lines, ignoring directives and leading/trailing blanks.
+func ProseLines(cg *ast.CommentGroup) int {
+	var lines []string
+	for _, c := range cg.List {
+		if IsDirective(c.Text) {
+			continue
+		}
+		text := strings.TrimSuffix(strings.TrimPrefix(c.Text, "/*"), "*/")
+		lines = append(lines, strings.Split(text, "\n")...)
+	}
+	for len(lines) > 0 && isBlank(lines[len(lines)-1]) {
+		lines = lines[:len(lines)-1]
+	}
+	for len(lines) > 0 && isBlank(lines[0]) {
+		lines = lines[1:]
+	}
+	return len(lines)
+}
+
+func isBlank(line string) bool {
+	return strings.TrimSpace(strings.TrimPrefix(line, "//")) == ""
 }
