@@ -32,8 +32,7 @@ func Run(opts Opts) error {
 	return cmd.Run()
 }
 
-// buildArgs constructs the go test argument list, stripping
-// a leading "--" separator if present.
+// buildArgs builds the go test arguments, dropping a leading "--".
 func buildArgs(extra []string) []string {
 	if len(extra) > 0 && extra[0] == "--" {
 		extra = extra[1:]

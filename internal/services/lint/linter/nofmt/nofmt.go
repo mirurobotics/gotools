@@ -28,8 +28,7 @@ func builtinBanned() map[string]bool {
 	return map[string]bool{"print": true, "println": true}
 }
 
-// Check reports diagnostics for bare print/log calls outside main, test files,
-// cmd/ directories, and the linter's own source.
+// Check reports print and log calls outside main, tests, and cmd/.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	if f.Name.Name == "main" {
 		return nil
@@ -86,8 +85,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// hasNolint returns true if there is a //nolint:nofmt comment
-// on the same line as pos.
+// hasNolint returns true if there is a //nolint:nofmt comment on the same line as pos.
 func hasNolint(fset *token.FileSet, f *ast.File, pos token.Pos) bool {
 	line := fset.Position(pos).Line
 	for _, cg := range f.Comments {

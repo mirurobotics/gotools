@@ -16,10 +16,7 @@ type checker struct {
 	diags    []analysis.Diagnostic
 }
 
-// Check reports a diagnostic when nesting depth inside a function
-// exceeds maxDepth. Nesting constructs: if, for, range, switch,
-// type switch, select. Case/default clause bodies do not add a
-// nesting level.
+// Check reports a diagnostic when nesting depth inside a function exceeds maxDepth.
 func Check(
 	fset *token.FileSet,
 	filename string,
@@ -39,7 +36,6 @@ func Check(
 		c.checkBlock(fn.Body.List, 0)
 	}
 
-	// Also check function literals.
 	ast.Inspect(f, func(n ast.Node) bool {
 		fl, ok := n.(*ast.FuncLit)
 		if !ok || fl.Body == nil {
@@ -58,8 +54,7 @@ func (c *checker) checkBlock(stmts []ast.Stmt, depth int) {
 	}
 }
 
-// deeper checks whether entering a nesting construct would exceed the
-// limit. Returns true if it is safe to recurse at depth+1.
+// deeper checks whether entering a nesting construct would exceed the limit.
 func (c *checker) deeper(pos token.Pos, depth int) (int, bool) {
 	d := depth + 1
 	if d > c.maxDepth {

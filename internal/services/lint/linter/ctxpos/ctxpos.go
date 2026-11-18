@@ -7,8 +7,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports a diagnostic when context.Context is present in a function's
-// parameter list but is not the first parameter.
+// Check reports functions whose context.Context parameter is not first.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	ctxPkg := analysis.ContextPkgName(f)
 	if ctxPkg == "" {
@@ -67,10 +66,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// firstParamIsTesting returns true if the first parameter's type is
-// *testing.T, *testing.B, *testing.F, or *testing.M. These types must
-// be the first parameter by Go convention, so context.Context is
-// allowed in the second position.
+// firstParamIsTesting reports whether the first parameter is a testing type.
 func firstParamIsTesting(params *ast.FieldList) bool {
 	typ := params.List[0].Type
 	star, ok := typ.(*ast.StarExpr)

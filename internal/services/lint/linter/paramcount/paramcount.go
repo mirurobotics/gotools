@@ -9,9 +9,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports a diagnostic for function declarations whose parameter count
-// (excluding context.Context) exceeds maxParams. Function literals, main,
-// init, Test*, and Benchmark* functions are exempt. Generated files are skipped.
+// Check reports functions with more than maxParams non-context parameters.
 func Check(
 	fset *token.FileSet,
 	filename string,
@@ -64,7 +62,6 @@ func Check(
 }
 
 // countParams returns the number of parameters, excluding context.Context.
-// Grouped params (a, b int) are expanded.
 func countParams(params *ast.FieldList, ctxPkg string) int {
 	count := 0
 	for _, field := range params.List {

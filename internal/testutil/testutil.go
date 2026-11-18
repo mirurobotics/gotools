@@ -6,9 +6,7 @@ import (
 	"testing"
 )
 
-// MakePkgDir creates a temporary directory, changes into
-// it, and creates a subdirectory at the given relative
-// path. Returns the absolute path of the subdirectory.
+// MakePkgDir chdirs into a temp dir and creates relPath, returning its path.
 func MakePkgDir(t *testing.T, rel string) string {
 	t.Helper()
 	tmp := t.TempDir()
@@ -21,8 +19,7 @@ func MakePkgDir(t *testing.T, rel string) string {
 	return dir
 }
 
-// WriteCovgateFile writes a .covgate threshold file in
-// the given directory.
+// WriteCovgateFile writes a .covgate threshold file in the given directory.
 func WriteCovgateFile(t *testing.T, dir, val string) {
 	t.Helper()
 	path := filepath.Join(dir, ".covgate")

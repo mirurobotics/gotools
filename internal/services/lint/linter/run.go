@@ -14,7 +14,10 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/bgctx"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/collapse"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/ctxpos"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/docfile"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/doclen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/errfmt"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/funccomment"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcinline"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funclen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcsig"
@@ -27,6 +30,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/paramcount"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/pkgname"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/rcvrname"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/straycomment"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/tempdir"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/typeassert"
 )
@@ -53,6 +57,10 @@ const (
 	RuleImportAlias   Rule = "importalias"
 	RuleBgCtx         Rule = "bgctx"
 	RuleTempDir       Rule = "tempdir"
+	RuleFuncComment   Rule = "funccomment"
+	RuleDocLen        Rule = "doclen"
+	RuleDocFile       Rule = "docfile"
+	RuleStrayComment  Rule = "straycomment"
 )
 
 // AllRules returns every valid rule name.
@@ -62,6 +70,7 @@ func AllRules() []Rule {
 		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
 		RuleTypeAssert, RuleParamCount,
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
+		RuleFuncComment, RuleDocLen, RuleDocFile, RuleStrayComment,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
 	}
 }
@@ -73,6 +82,8 @@ type Config struct {
 	MaxFuncLen    int
 	MaxNestDepth  int
 	MaxParamCount int
+	MaxDocLines   int
+	MaxDocFile    int
 	Exclude       map[Rule]bool
 	Out           io.Writer
 	Err           io.Writer
@@ -108,8 +119,7 @@ type ruleEntry struct {
 	check   func(checkInput) []analysis.Diagnostic
 }
 
-// ruleCheckers returns the dispatch table for all rules except
-// imports (which requires import blocks, handled separately).
+// ruleCheckers returns the dispatch table for every rule except imports.
 //
 //nolint:funclen // dispatch table grows with each new rule
 func ruleCheckers(cfg Config) []ruleEntry {
@@ -157,6 +167,18 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		{RuleTempDir, false, func(in checkInput) []analysis.Diagnostic {
 			return tempdir.Check(in.fset, in.path, in.f)
 		}},
+		{RuleFuncComment, false, func(in checkInput) []analysis.Diagnostic {
+			return funccomment.Check(in.fset, in.path, in.f)
+		}},
+		{RuleDocLen, false, func(in checkInput) []analysis.Diagnostic {
+			return doclen.Check(in.fset, in.path, in.f, cfg.MaxDocLines)
+		}},
+		{RuleDocFile, false, func(in checkInput) []analysis.Diagnostic {
+			return docfile.Check(in.path, in.src, cfg.MaxDocFile)
+		}},
+		{RuleStrayComment, false, func(in checkInput) []analysis.Diagnostic {
+			return straycomment.Check(in.fset, in.path, in.f)
+		}},
 		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
 			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)
 		}},
@@ -169,8 +191,7 @@ func ruleCheckers(cfg Config) []ruleEntry {
 	}
 }
 
-// runChecks dispatches all rules in the table. When
-// includeFixable is false, fixable rules are skipped.
+// runChecks dispatches all rules in the table.
 func runChecks(in checkInput, cfg Config, includeFixable bool) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 	for _, rc := range ruleCheckers(cfg) {
@@ -218,7 +239,6 @@ func Run(path string, doFix bool, cfg Config) (int, int, error) {
 }
 
 // ProcessFile lints or fixes a single file.
-// Returns (diagnosticCount, wasFixed, error).
 func ProcessFile(path string, doFix bool, cfg Config) (int, bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -341,16 +361,14 @@ func processCheckMode(
 	return len(diags), false, nil
 }
 
-// reparse creates a fresh FileSet and re-parses src. Used after each fixer
-// to keep the AST in sync with the modified source bytes.
+// reparse creates a fresh FileSet and re-parses src.
 func reparse(path string, src []byte) (*token.FileSet, *ast.File, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, path, src, parser.ParseComments)
 	return fset, f, err
 }
 
-// FindGoFiles walks a directory tree and returns all .go files,
-// skipping hidden directories, vendor, and testdata.
+// FindGoFiles returns .go files under root, skipping hidden, vendor, and testdata.
 func FindGoFiles(root string) ([]string, error) {
 	var files []string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {

@@ -215,9 +215,6 @@ func TestRun_Exclude(t *testing.T) {
 			extra:          nil,
 		},
 		{
-			// Includes empty entries before, between, and after
-			// non-empty ones so the trim/skip-empty path is
-			// exercised end-to-end.
 			name:    "MultiplePatternsWithWhitespace",
 			exclude: ", ./pkg/a, , ./pkg/c,",
 			lookup: map[string][]string{
@@ -386,7 +383,6 @@ func TestRun_Exclude_GoListError(t *testing.T) {
 }
 
 func TestRun_Parallelism(t *testing.T) {
-	// Use a single temp dir so all three packages share the same cwd.
 	tmp := t.TempDir()
 	t.Chdir(tmp)
 	for _, rel := range []string{"pkg/a", "pkg/b", "pkg/c"} {
@@ -425,7 +421,6 @@ func TestRun_Parallelism(t *testing.T) {
 	if !strings.Contains(out, "pkg/c") {
 		t.Errorf("output missing pkg/c: %s", out)
 	}
-	// Verify output order is preserved: a before b before c.
 	idxA := strings.Index(out, "pkg/a")
 	idxB := strings.Index(out, "pkg/b")
 	idxC := strings.Index(out, "pkg/c")
@@ -470,7 +465,6 @@ func TestEffectiveParallelism(t *testing.T) {
 }
 
 func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
-	// Use a single temp dir so both packages share the same cwd.
 	tmp := t.TempDir()
 	t.Chdir(tmp)
 	for _, rel := range []string{"pkg/a", "pkg/b"} {
@@ -512,15 +506,12 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 	if !strings.Contains(out, "COUNT") {
 		t.Errorf("expected progress header to include COUNT column:\n%s", out)
 	}
-	// STATUS header should appear exactly once — the progress
-	// stream is the single canonical table.
 	if got := strings.Count(out, "STATUS"); got != 1 {
 		t.Errorf(
 			"expected exactly one STATUS header (progress IS "+
 				"the table); got %d:\n%s", got, out,
 		)
 	}
-	// Leading announcement should appear before the COUNT header.
 	idxAnnounce := strings.Index(out, "Running 2 packages with parallelism=")
 	idxHeader := strings.Index(out, "COUNT")
 	if idxAnnounce < 0 || idxHeader < 0 || idxAnnounce >= idxHeader {
@@ -530,8 +521,6 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 			idxAnnounce, idxHeader, out,
 		)
 	}
-	// Both progress lines should appear before the final
-	// "All packages meet" line that closes the table.
 	idxProgress1 := strings.Index(out, "[1/2]")
 	idxProgress2 := strings.Index(out, "[2/2]")
 	idxFinal := strings.Index(out, "All packages meet")
@@ -544,10 +533,7 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 	}
 }
 
-// hasProgressLineWith reports whether out contains a single line
-// that matches both the count marker and an additional substring
-// (used to verify progress lines carry full row data, not just the
-// counter).
+// hasProgressLineWith reports whether one line of out contains marker and contains.
 func hasProgressLineWith(out, marker, contains string) bool {
 	for _, line := range strings.Split(out, "\n") {
 		if strings.Contains(line, marker) && strings.Contains(line, contains) {
@@ -694,8 +680,6 @@ func TestRun_PublicWrapper(t *testing.T) {
 	tmp := t.TempDir()
 	t.Chdir(tmp)
 
-	// No go.mod → Run will fail at goModule, covering the
-	// public wrapper.
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
 	err := Run(Opts{Out: &buf})
@@ -835,8 +819,6 @@ func TestRun_OutputContainsTiming(t *testing.T) {
 }
 
 func TestPrintResults_UsesWallTime(t *testing.T) {
-	// Each result claims 5s duration, but the wall-clock parameter is only 3s.
-	// The printed total must show 3.0s (wall time), not 15.0s (sum of durations).
 	results := []checkResult{
 		{output: "line1\n", passed: true, duration: 5 * time.Second},
 		{output: "line2\n", passed: true, duration: 5 * time.Second},
@@ -1093,19 +1075,13 @@ func TestCheckPackage_OutputContainsTime(t *testing.T) {
 	}
 }
 
-// ============================ ORPHAN TEST PACKAGES =============================== //
-
-// orphanRunner builds a runner whose source list claims tests/foo
-// (via internal/foo) and whose test dir also holds tests/bar,
-// which no source package claims.
+// orphanRunner builds a runner where tests/foo is claimed and tests/bar is not.
 func orphanRunner(runTests func([]string) ([]byte, error)) (*runner, *[]string) {
 	var listedPatterns []string
 	//nolint:exhaustruct // test uses partial initialization
 	r := &runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
-			// cmd/tool sits outside the src prefix, so it claims no
-			// test directory and must not disturb orphan detection
 			return []string{modName + "/internal/foo", modName + "/cmd/tool"}, nil
 		},
 		goListTestPackages: func(pattern string) ([]string, error) {

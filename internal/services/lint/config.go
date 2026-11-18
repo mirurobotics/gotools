@@ -9,14 +9,15 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter"
 )
 
-// LinterFlags holds the shared configuration flags used
-// by both check and lint commands.
+// LinterFlags holds the linter flags shared by check and lint.
 type LinterFlags struct {
 	MaxLineWidth  int
 	TabWidth      int
 	MaxFuncLen    int
 	MaxNestDepth  int
 	MaxParamCount int
+	MaxDocLines   int
+	MaxDocFile    int
 	Exclude       string
 	Rule          string
 }
@@ -31,7 +32,6 @@ type CheckOpts struct {
 }
 
 // RunCheck runs the custom linter in standalone mode.
-// Returns the number of diagnostics and fixed files.
 func RunCheck(opts CheckOpts) (diags, fixed int, err error) {
 	if opts.Out == nil {
 		opts.Out = os.Stdout
@@ -55,8 +55,7 @@ func RunCheck(opts CheckOpts) (diags, fixed int, err error) {
 	return diags, fixed, nil
 }
 
-// BuildLinterConfig creates a linter.Config from the
-// common flag values shared by check and lint commands.
+// BuildLinterConfig builds a linter.Config from the shared flag values.
 func BuildLinterConfig(flags LinterFlags) (linter.Config, error) {
 	excl := ParseExclusions(flags.Exclude)
 	if err := linter.ValidateExclusions(excl); err != nil {
@@ -79,13 +78,13 @@ func BuildLinterConfig(flags LinterFlags) (linter.Config, error) {
 		MaxFuncLen:    flags.MaxFuncLen,
 		MaxNestDepth:  flags.MaxNestDepth,
 		MaxParamCount: flags.MaxParamCount,
+		MaxDocLines:   flags.MaxDocLines,
+		MaxDocFile:    flags.MaxDocFile,
 		Exclude:       excl,
 	}, nil
 }
 
-// BuildSingleRuleExclusions returns exclusions for every
-// rule except the given one. Returns nil if the rule is
-// unknown.
+// BuildSingleRuleExclusions returns exclusions for every rule except the given one.
 func BuildSingleRuleExclusions(name string) map[linter.Rule]bool {
 	r := linter.Rule(name)
 	check := map[linter.Rule]bool{r: true}
@@ -101,8 +100,7 @@ func BuildSingleRuleExclusions(name string) map[linter.Rule]bool {
 	return excl
 }
 
-// ParseExclusions parses a comma-separated list of rule
-// names into a map.
+// ParseExclusions parses a comma-separated list of rule names into a map.
 func ParseExclusions(csv string) map[linter.Rule]bool {
 	excl := make(map[linter.Rule]bool)
 	if csv == "" {
@@ -114,8 +112,7 @@ func ParseExclusions(csv string) map[linter.Rule]bool {
 	return excl
 }
 
-// SummarizeOutcome prints a summary and returns the exit
-// code.
+// SummarizeOutcome prints a summary and returns the exit code.
 func SummarizeOutcome(w io.Writer, doFix bool, diags, fixed int) int {
 	if doFix && fixed > 0 {
 		_, _ = fmt.Fprintf(w, "\n%d file(s) fixed.\n", fixed)

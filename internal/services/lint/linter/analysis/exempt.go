@@ -8,9 +8,7 @@ import (
 // IsTestFile returns true if the filename ends with _test.go.
 func IsTestFile(filename string) bool { return strings.HasSuffix(filename, "_test.go") }
 
-// IsGeneratedFile returns true if any line up to and including the package
-// declaration contains "// Code generated". This handles generated files where
-// the marker appears after a block comment (e.g. license header).
+// IsGeneratedFile reports whether a Code generated marker precedes the package line.
 func IsGeneratedFile(src []byte) bool {
 	for _, line := range bytes.Split(src, []byte("\n")) {
 		trimmed := bytes.TrimSpace(line)
@@ -24,8 +22,7 @@ func IsGeneratedFile(src []byte) bool {
 	return false
 }
 
-// IsLintSource returns true if the file lives under the
-// linter's own source tree.
+// IsLintSource returns true if the file lives under the linter's own source tree.
 func IsLintSource(filename string) bool {
 	return strings.Contains(filename, "services/lint/")
 }

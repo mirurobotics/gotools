@@ -8,8 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCovratchetCommand returns a cobra command that
-// ratchets up .covgate thresholds.
+// NewCovratchetCommand returns a cobra command that ratchets up .covgate thresholds.
 func NewCovratchetCommand() *cobra.Command {
 	var opts covratchet.Opts
 

@@ -7,7 +7,6 @@ import (
 )
 
 func TestCheck(t *testing.T) {
-	// Helper: 88 'a' characters.
 	a88 := make([]byte, 88)
 	for i := range a88 {
 		a88[i] = 'a'

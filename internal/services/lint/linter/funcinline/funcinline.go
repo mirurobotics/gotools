@@ -7,9 +7,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// FindCandidates walks the AST and returns all function
-// declarations and function literals whose body can be
-// inlined to a single line.
+// FindCandidates returns functions whose body fits on one line.
 func FindCandidates(
 	fset *token.FileSet,
 	f *ast.File,
@@ -59,29 +57,24 @@ func tryInline(
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
-	// Already single-line.
 	if fset.Position(body.Lbrace).Line == fset.Position(body.Rbrace).Line {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
 	stmt := body.List[0]
 
-	// Statement spans multiple lines.
 	if fset.Position(stmt.Pos()).Line != fset.Position(stmt.End()).Line {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
-	// Comments inside the body.
 	if analysis.HasCommentsBetween(fset, f, body.Lbrace, body.Rbrace) {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
-	// Statement contains a function literal.
 	if analysis.ContainsFuncLit(stmt) {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
-	// Build collapsed form: signature + "{ " + statement + " }"
 	sigEnd := fset.Position(body.Lbrace).Offset
 	signature := string(src[fset.Position(funcPos).Offset:sigEnd])
 
@@ -106,8 +99,7 @@ func tryInline(
 	}, true
 }
 
-// Check reports diagnostics for function declarations whose body
-// can be inlined.
+// Check reports diagnostics for function declarations whose body can be inlined.
 func Check(
 	fset *token.FileSet,
 	filename string,

@@ -9,11 +9,6 @@ import (
 )
 
 // Check reports diagnostics for calls to context.Background().
-// Use mctx package functions to create contexts instead.
-//
-// Exemptions:
-//   - Test files are exempt.
-//   - A call with a //nolint:bgctx comment on the same line is exempt.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	if analysis.IsTestFile(filename) {
 		return nil

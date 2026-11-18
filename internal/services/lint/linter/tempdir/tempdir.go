@@ -8,13 +8,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports diagnostics for references to a testing handle's TempDir
-// method, whether called directly or taken as a method value.
-// Use test_dirs.CreateTemp from core/tests/dirs instead, so temporary test
-// directories are dirs.Dir values rather than bare string paths.
-//
-// Exemptions:
-//   - A reference with a //nolint:tempdir comment on the same line is exempt.
+// Check reports t.TempDir references; use test_dirs.CreateTemp instead.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	pkg := testingPkgName(f)
 	if pkg == "" {
@@ -52,8 +46,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// testingPkgName returns the local name used for the "testing" package,
-// or "" if testing is not imported.
+// testingPkgName returns the local name of the testing import, or "".
 func testingPkgName(f *ast.File) string {
 	for _, imp := range f.Imports {
 		if imp.Path.Value != `"testing"` {
@@ -67,9 +60,7 @@ func testingPkgName(f *ast.File) string {
 	return ""
 }
 
-// handleNames returns the identifier names declared with a testing handle
-// type. Fields cover function parameters, method receivers, and struct
-// fields alike, so a handle stored on a test fixture is found too.
+// handleNames returns the identifier names declared with a testing handle type.
 func handleNames(f *ast.File, pkg string) map[string]bool {
 	names := make(map[string]bool)
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -85,8 +76,7 @@ func handleNames(f *ast.File, pkg string) map[string]bool {
 	return names
 }
 
-// isHandleType reports whether expr names *testing.T, *testing.B,
-// *testing.F, or testing.TB.
+// isHandleType reports whether expr is a testing handle type.
 func isHandleType(expr ast.Expr, pkg string) bool {
 	if star, ok := expr.(*ast.StarExpr); ok {
 		expr = star.X
@@ -109,8 +99,7 @@ func isHandleType(expr ast.Expr, pkg string) bool {
 	return false
 }
 
-// baseName returns the identifier a selector's receiver resolves to: "t"
-// for both t.TempDir() and s.t.TempDir(). Returns "" for anything else.
+// baseName returns the identifier a selector's receiver resolves to, or "".
 func baseName(expr ast.Expr) string {
 	switch x := expr.(type) {
 	case *ast.Ident:

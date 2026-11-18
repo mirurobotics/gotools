@@ -9,10 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ---------------------------------------------------------------------------
-// Root command
-// ---------------------------------------------------------------------------
-
 func TestNewRootCommand_Metadata(t *testing.T) {
 	cmd := NewRootCommand()
 
@@ -76,10 +72,6 @@ func TestNewRootCommand_Help(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Check command
-// ---------------------------------------------------------------------------
-
 func TestNewCheckCommand_Metadata(t *testing.T) {
 	cmd := NewCheckCommand()
 
@@ -104,7 +96,6 @@ func TestNewCheckCommand_Flags(t *testing.T) {
 	}{
 		{"path", "string"},
 		{"fix", "bool"},
-		// Shared linter config flags
 		{"max-line-width", "int"},
 		{"tab-width", "int"},
 		{"max-func-len", "int"},
@@ -188,10 +179,6 @@ func TestNewCheckCommand_Help(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Lint command
-// ---------------------------------------------------------------------------
-
 func TestNewLintCommand_Metadata(t *testing.T) {
 	cmd := NewLintCommand()
 
@@ -222,7 +209,6 @@ func TestNewLintCommand_Flags(t *testing.T) {
 		{"no-golangci", "bool"},
 		{"new-from-rev", "string"},
 		{"goos", "string"},
-		// Shared linter config flags
 		{"max-line-width", "int"},
 		{"tab-width", "int"},
 		{"max-func-len", "int"},
@@ -285,7 +271,7 @@ func TestNewLintCommand_FlagDefaults(t *testing.T) {
 	}
 
 	boolDefaults := map[string]bool{
-		"fix":         true, // lint defaults to fix=true
+		"fix":         true,
 		"deadcode":    true,
 		"no-gofumpt":  false,
 		"no-golangci": false,
@@ -334,10 +320,6 @@ func TestNewLintCommand_Help(t *testing.T) {
 		t.Error("help output is empty")
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Covgate command
-// ---------------------------------------------------------------------------
 
 func TestNewCovgateCommand_Metadata(t *testing.T) {
 	cmd := NewCovgateCommand()
@@ -432,10 +414,6 @@ func TestNewCovgateCommand_Help(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Covratchet command
-// ---------------------------------------------------------------------------
-
 func TestNewCovratchetCommand_Metadata(t *testing.T) {
 	cmd := NewCovratchetCommand()
 
@@ -505,7 +483,6 @@ func TestNewCovratchetCommand_FlagDefaults(t *testing.T) {
 }
 
 func TestNewCovratchetCommand_NoDefaultThreshold(t *testing.T) {
-	// covratchet does NOT have a default-threshold flag (unlike covgate)
 	cmd := NewCovratchetCommand()
 	f := cmd.Flags().Lookup("default-threshold")
 	if f != nil {
@@ -527,10 +504,6 @@ func TestNewCovratchetCommand_Help(t *testing.T) {
 		t.Error("help output is empty")
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Coverage command
-// ---------------------------------------------------------------------------
 
 func TestNewCoverageCommand_Metadata(t *testing.T) {
 	cmd := NewCoverageCommand()
@@ -617,10 +590,6 @@ func TestNewCoverageCommand_Help(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Test command
-// ---------------------------------------------------------------------------
-
 func TestNewTestCommand_Metadata(t *testing.T) {
 	cmd := NewTestCommand()
 
@@ -648,7 +617,6 @@ func TestNewTestCommand_Help(t *testing.T) {
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 
-	// Because flag parsing is disabled, we call Help() directly
 	err := cmd.Help()
 	if err != nil {
 		t.Fatalf("Help() returned error: %v", err)
@@ -657,10 +625,6 @@ func TestNewTestCommand_Help(t *testing.T) {
 		t.Error("help output is empty")
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Tag command
-// ---------------------------------------------------------------------------
 
 func TestNewTagCommand_Metadata(t *testing.T) {
 	cmd := NewTagCommand()
@@ -741,10 +705,6 @@ func TestNewTagCommand_Help(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Deps command
-// ---------------------------------------------------------------------------
-
 func TestNewDepsCommand_Metadata(t *testing.T) {
 	cmd := NewDepsCommand()
 
@@ -806,10 +766,6 @@ func TestNewDepsCommand_Help(t *testing.T) {
 		t.Error("help output is empty")
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Shared linter config flags (check + lint both bind them)
-// ---------------------------------------------------------------------------
 
 func TestSharedLinterFlags_ConsistentBetweenCheckAndLint(t *testing.T) {
 	check := NewCheckCommand()

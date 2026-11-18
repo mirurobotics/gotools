@@ -8,8 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCovgateCommand returns a cobra command that checks
-// per-package coverage against thresholds.
+// NewCovgateCommand returns a command that checks per-package coverage.
 func NewCovgateCommand() *cobra.Command {
 	var opts covgate.Opts
 

@@ -332,7 +332,6 @@ func TestRun_WithFailures(t *testing.T) {
 }
 
 func TestRun_Parallelism(t *testing.T) {
-	// Use a single temp dir so all three packages share the same cwd.
 	tmp := t.TempDir()
 	t.Chdir(tmp)
 	for _, rel := range []string{"pkg/a", "pkg/b", "pkg/c"} {
@@ -371,7 +370,6 @@ func TestRun_Parallelism(t *testing.T) {
 	if !strings.Contains(out, "pkg/c") {
 		t.Errorf("output missing pkg/c: %s", out)
 	}
-	// Verify output order is preserved: a before b before c.
 	idxA := strings.Index(out, "pkg/a")
 	idxB := strings.Index(out, "pkg/b")
 	idxC := strings.Index(out, "pkg/c")
@@ -381,7 +379,6 @@ func TestRun_Parallelism(t *testing.T) {
 			idxA, idxB, idxC, out,
 		)
 	}
-	// Verify aggregate counts are accumulated correctly.
 	if !strings.Contains(out, "Updated: 3") {
 		t.Errorf("expected Updated: 3 in output: %s", out)
 	}
@@ -446,8 +443,6 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	out := buf.String()
-	// Each progress line should carry the per-package package
-	// path (the row's last column), not just the count marker.
 	if !hasProgressLineWith(out, "[1/2]", "pkg/") {
 		t.Errorf(
 			"expected [1/2] progress line to include the package "+
@@ -463,8 +458,6 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 	if !strings.Contains(out, "COUNT") {
 		t.Errorf("expected progress header to include COUNT column:\n%s", out)
 	}
-	// STATUS header should appear exactly once — the progress
-	// stream is the single canonical table.
 	if got := strings.Count(out, "STATUS"); got != 1 {
 		t.Errorf(
 			"expected exactly one STATUS header (progress IS "+
@@ -492,10 +485,7 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 	}
 }
 
-// hasProgressLineWith reports whether out contains a single line
-// that matches both the count marker and an additional substring
-// (used to verify progress lines carry full row data, not just the
-// counter).
+// hasProgressLineWith reports whether one line of out contains marker and contains.
 func hasProgressLineWith(out, marker, contains string) bool {
 	for _, line := range strings.Split(out, "\n") {
 		if strings.Contains(line, marker) && strings.Contains(line, contains) {

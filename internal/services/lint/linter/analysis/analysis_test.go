@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// --- Diagnostic ---
-
 func TestDiagnostic_String(t *testing.T) {
 	tests := []struct {
 		name string
@@ -33,14 +31,8 @@ func TestDiagnostic_String(t *testing.T) {
 	}
 }
 
-// --- LineStartOffset ---
-
 func TestLineStartOffset(t *testing.T) {
 	src := []byte("first\nsecond\nthird\n")
-	//                    0123456789...
-	// "first\n"  = bytes 0-5,  line start 0
-	// "second\n" = bytes 6-12, line start 6
-	// "third\n"  = bytes 13-18, line start 13
 
 	tests := []struct {
 		name string
@@ -77,15 +69,14 @@ func TestLineStartOffset_SingleLine(t *testing.T) {
 
 func TestLineStartOffset_EmptyLines(t *testing.T) {
 	src := []byte("\n\nthird")
-	// byte 0 = '\n', byte 1 = '\n', bytes 2-6 = "third"
 	tests := []struct {
 		off  int
 		want int
 	}{
-		{0, 0}, // first empty line
-		{1, 1}, // second empty line
-		{2, 2}, // start of "third"
-		{5, 2}, // mid "third"
+		{0, 0},
+		{1, 1},
+		{2, 2},
+		{5, 2},
 	}
 	for _, tc := range tests {
 		got := LineStartOffset(src, tc.off)
@@ -97,8 +88,6 @@ func TestLineStartOffset_EmptyLines(t *testing.T) {
 		}
 	}
 }
-
-// --- LineEndOffset ---
 
 func TestLineEndOffset(t *testing.T) {
 	src := []byte("first\nsecond\nthird\n")
@@ -141,15 +130,7 @@ func TestLineEndOffset_AtNewline(t *testing.T) {
 	}
 }
 
-// --- CollapsedLineWidth ---
-
 func TestCollapsedLineWidth(t *testing.T) {
-	// Source: "\tfoo([\n\t\t1,\n\t\t2,\n\t])\n"
-	// startOff=5 at '[', ']' is at 18, endOff=19 (one past ']')
-	// indent: "\tfoo(" → 4+4 = 8
-	// collapsed: "[1, 2]" = 6
-	// trailing: ")" = 1
-	// total = 8 + 6 + 1 = 15
 	src := []byte("\tfoo([\n\t\t1,\n\t\t2,\n\t])\n")
 	got := CollapsedLineWidth(src, 5, 19, 4, "[1, 2]")
 	if got != 15 {
@@ -158,20 +139,12 @@ func TestCollapsedLineWidth(t *testing.T) {
 }
 
 func TestCollapsedLineWidth_NoTrailing(t *testing.T) {
-	// Source: "  foo(\n    arg,\n  )\n"
-	// startOff=2 at 'f', ')' is at 18, endOff=19 (one past ')')
-	// indent: "  " = 2
-	// collapsed: "foo(arg)" = 8
-	// trailing after ')' to '\n' = "" = 0
-	// total = 2 + 8 + 0 = 10
 	src := []byte("  foo(\n    arg,\n  )\n")
 	got := CollapsedLineWidth(src, 2, 19, 4, "foo(arg)")
 	if got != 10 {
 		t.Errorf("CollapsedLineWidth = %d, want 10", got)
 	}
 }
-
-// --- VisualWidth ---
 
 func TestVisualWidth(t *testing.T) {
 	tests := []struct {
@@ -207,8 +180,6 @@ func TestVisualWidth(t *testing.T) {
 	}
 }
 
-// --- HasCommentsBetween ---
-
 func TestHasCommentsBetween_WithComment(t *testing.T) {
 	src := `package foo
 
@@ -226,7 +197,6 @@ func f() {
 		t.Fatal(err)
 	}
 
-	// Find the call expression's Lparen and Rparen.
 	call := findFirstCallExpr(f)
 	if call == nil {
 		t.Fatal("no call expression found")
@@ -318,8 +288,6 @@ func f() {
 	}
 }
 
-// --- ContainsFuncLit ---
-
 func TestContainsFuncLit_DirectFuncLit(t *testing.T) {
 	src := `package foo
 
@@ -330,7 +298,6 @@ func f() {
 `
 	f := parseFile(t, src)
 
-	// Find the assignment's RHS (the FuncLit).
 	assign := findFirstAssign(f)
 	if assign == nil {
 		t.Fatal("no assignment found")
@@ -404,8 +371,6 @@ func f() {
 		)
 	}
 }
-
-// --- helpers ---
 
 func parseFile(t *testing.T, src string) *ast.File {
 	fset := token.NewFileSet()

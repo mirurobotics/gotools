@@ -8,8 +8,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// collapseInput captures the AST fields needed to evaluate
-// and build a collapse candidate.
+// collapseInput holds the AST fields needed to build a collapse candidate.
 type collapseInput struct {
 	exprStart token.Pos  // Fun.Pos() or Type.Pos() or Lbrace
 	openPos   token.Pos  // ( or {
@@ -20,9 +19,7 @@ type collapseInput struct {
 	ellipsis  bool       // variadic call?
 }
 
-// FindCandidates walks the AST and returns all multi-line
-// call expressions and composite literals that can safely be
-// collapsed to a single line.
+// FindCandidates returns multi-line calls and literals that fit on one line.
 func FindCandidates(
 	fset *token.FileSet,
 	f *ast.File,
@@ -125,9 +122,7 @@ func shouldExclude(fset *token.FileSet, f *ast.File, input collapseInput) bool {
 	return hasRawStringWithNewlines(input.items)
 }
 
-// kvAlignDelta computes the extra indent that gofmt alignment
-// will add when the expression being collapsed is a value in a
-// key-value pair inside a struct or map literal.
+// kvAlignDelta returns the extra indent gofmt adds to an aligned key-value pair.
 func kvAlignDelta(
 	fset *token.FileSet,
 	stack []ast.Node,
@@ -220,8 +215,7 @@ func buildCollapsed(
 	}, true
 }
 
-// hasRawStringWithNewlines returns true if any expression in the list contains
-// a raw string literal (backtick-delimited) with embedded newlines.
+// hasRawStringWithNewlines reports whether any expr has a multi-line raw string.
 func hasRawStringWithNewlines(exprs []ast.Expr) bool {
 	for _, expr := range exprs {
 		found := false

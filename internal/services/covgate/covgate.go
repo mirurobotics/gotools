@@ -17,9 +17,7 @@ import (
 // Opts holds the options for the covgate service.
 type Opts struct {
 	Packages string
-	// Exclude is a comma-separated list of Go list patterns whose
-	// matched import paths are removed from the measurement set
-	// before tests run. Empty means no exclusion.
+	// Exclude lists comma-separated go list patterns to drop before tests run.
 	Exclude            string
 	SrcPrefix          string
 	TestDir            string
@@ -40,17 +38,13 @@ type runner struct {
 	emitProgress       bool
 }
 
-// workItem is a single scheduled measurement. testOnly marks a
-// package under --test-dir that no source package claims via the
-// src-prefix mapping: it is run without coverage instrumentation,
-// since there is no source package to attribute coverage to.
+// workItem is a single scheduled measurement.
 type workItem struct {
 	pkg      string
 	testOnly bool
 }
 
-// effectiveParallelism is intentionally duplicated in covratchet;
-// keep them in sync.
+// effectiveParallelism is duplicated in covratchet; keep them in sync.
 func effectiveParallelism(opts Opts) int {
 	if opts.Parallelism > 0 {
 		return opts.Parallelism
@@ -126,14 +120,7 @@ func (r *runner) run(opts Opts) error {
 	return r.printResults(w, results, excluded, module, wallTime)
 }
 
-// findOrphanTests returns test-bearing packages under --test-dir
-// that no source package claims through the src-prefix mapping.
-// Without this, a test directory whose source counterpart is not
-// a Go package (e.g. a parent directory holding only subpackages)
-// is silently never run. The claimed set is computed from the
-// full pre-exclude source list so that an excluded source
-// package's external tests stay excluded rather than resurfacing
-// as orphans.
+// findOrphanTests returns test packages under --test-dir with no source package.
 func (r *runner) findOrphanTests(
 	pkgs []string, module string, opts Opts,
 ) ([]string, error) {
@@ -166,10 +153,7 @@ func (r *runner) findOrphanTests(
 	return orphans, nil
 }
 
-// buildWorkItems merges source packages and orphan test packages
-// into one work list, applying --exclude across both so that
-// exclude patterns (e.g. preflight skip lists) can drop orphan
-// suites the same way they drop source packages.
+// buildWorkItems merges source and orphan test packages, applying --exclude.
 func (r *runner) buildWorkItems(
 	pkgs, orphans []string, exclude string, w io.Writer,
 ) ([]workItem, []string, error) {
@@ -192,12 +176,7 @@ func (r *runner) buildWorkItems(
 	return items, excluded, nil
 }
 
-// applyExclude removes packages matched by the comma-separated
-// exclude patterns from pkgs. It preserves the original order of
-// pkgs in both returned slices and prints a one-line notice to w
-// when any package is actually removed. An empty (or
-// whitespace-only) exclude string returns pkgs unchanged, a nil
-// excluded slice, and no output.
+// applyExclude splits pkgs into kept and excluded, preserving order.
 func (r *runner) applyExclude(
 	pkgs []string, exclude string, w io.Writer,
 ) (kept []string, excluded []string, err error) {
@@ -276,9 +255,7 @@ func (r *runner) runPackages(
 	return results
 }
 
-// writeRunHeader writes the announce line and the progress table
-// header when progress is enabled; otherwise it writes the
-// standard table header.
+// writeRunHeader writes the announce line and the matching table header.
 func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
 	if !r.emitProgress {
 		printHeader(w)
@@ -291,20 +268,13 @@ func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
 	printProgressHeader(w, total)
 }
 
-// progressColWidth returns the width of the COUNT column for total
-// packages. The value 3 + 2*ndigits is always >= 5 ("COUNT") for
-// total >= 0, so no clamp is needed.
+// progressColWidth returns the width of the COUNT column for total packages.
 func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
 
-// firstLine returns the first line of s, including the trailing
-// newline. s must contain at least one '\n' — every checkResult's
-// output is built from a "%...\n" format string, so this holds.
+// firstLine returns the first line of s, including the trailing newline.
 func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
 
-// restOfOutput returns everything after the first '\n' in s. Used
-// in progress mode to preserve trailing FAIL detail (multi-line
-// raw test output) without reprinting the row that was already
-// streamed. Same '\n' precondition as firstLine.
+// restOfOutput returns everything after the first '\n' in s.
 func restOfOutput(s string) string { return s[strings.IndexByte(s, '\n')+1:] }
 
 func (r *runner) printResults(
@@ -360,10 +330,7 @@ func printHeader(w io.Writer) {
 	)
 }
 
-// printProgressHeader prints the table header used during the live
-// progress stream. It adds a leading COUNT column ahead of the
-// standard columns so each progress line carries an [N/total] tag
-// aligned under "COUNT".
+// printProgressHeader prints the table header used during the live progress stream.
 func printProgressHeader(w io.Writer, total int) {
 	cw := progressColWidth(total)
 	dashes := strings.Repeat("-", cw)
@@ -454,11 +421,7 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 	return checkResult{b.String(), true, elapsed}
 }
 
-// checkTestOnly runs a test-only package without coverage
-// instrumentation. The coverage columns render as "---": the
-// package exercises source spread across many packages, so there
-// is no single threshold to hold it to; the gate is that its
-// tests pass.
+// checkTestOnly runs a test-only package without coverage instrumentation.
 func (r *runner) checkTestOnly(pkg string, ctx checkPackageCtx) checkResult {
 	relPkg := gocover.RelPkg(pkg, ctx.module)
 
@@ -486,10 +449,7 @@ func (r *runner) checkTestOnly(pkg string, ctx checkPackageCtx) checkResult {
 	return checkResult{b.String(), true, elapsed}
 }
 
-// skippedRow formats a single SKIPPED row using the same column
-// widths as PASS/FAIL/LOOSE. relPkg is the module-relative import
-// path. Used for packages removed by --exclude so the user can see
-// which ones were skipped.
+// skippedRow formats a SKIPPED row for a package removed by --exclude.
 func skippedRow(relPkg string) string {
 	return fmt.Sprintf(
 		"%-7s  %8s  %8s  %8s  %s\n",

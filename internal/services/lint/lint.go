@@ -30,16 +30,13 @@ type LintOpts struct {
 	NoGofumpt       bool
 	NoGolangci      bool
 	NewFromRev      string
-	// GOOS lists extra target platforms, comma-separated;
-	// golangci-lint runs once more per target.
+	// GOOS lists extra target platforms, comma-separated.
 	GOOS string
 	Out  io.Writer
 	Err  io.Writer
 }
 
-// RunLint runs the full lint suite: custom linter,
-// gofumpt, golangci-lint, and deadcode, plus
-// golangci-lint for each extra GOOS target.
+// RunLint runs the custom linter, gofumpt, golangci-lint, and deadcode.
 func RunLint(opts LintOpts) error {
 	if opts.Out == nil {
 		opts.Out = os.Stdout
@@ -112,9 +109,7 @@ func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming)
 	return failures, timings
 }
 
-// goosTargets splits the comma-separated raw into target
-// platforms in first-seen order, dropping blanks,
-// duplicates, and the host GOOS.
+// goosTargets splits raw into unique targets, dropping blanks and the host GOOS.
 func goosTargets(raw string) []string {
 	var targets []string
 	seen := map[string]bool{runtime.GOOS: true}
@@ -129,9 +124,7 @@ func goosTargets(raw string) []string {
 	return targets
 }
 
-// runAnalyzers runs golangci-lint and deadcode. When both
-// are enabled they run concurrently; deadcode output is
-// buffered to avoid interleaving with golangci-lint.
+// runAnalyzers runs golangci-lint and deadcode.
 func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
 	runGolangci := !opts.NoGolangci
 	runDeadcode := opts.Deadcode
@@ -260,9 +253,7 @@ func runCustomLinter(opts LintOpts) (bool, error) {
 	return totalDiags > 0, nil
 }
 
-// RunGolangci runs golangci-lint. If newFromRev is
-// non-empty, only new issues since that revision are
-// reported.
+// RunGolangci runs golangci-lint.
 func RunGolangci(out io.Writer, errW io.Writer, newFromRev string) error {
 	_, _ = fmt.Fprintln(out, "Running golangci-lint...")
 	args := append([]string{"tool", "golangci-lint"}, golangciArgs(newFromRev)...)
@@ -273,13 +264,9 @@ func RunGolangci(out io.Writer, errW io.Writer, newFromRev string) error {
 	return nil
 }
 
-// RunGolangciGOOS runs golangci-lint with GOOS set to goos,
-// linting the files that build for that target. GOARCH is
-// left to the environment.
+// RunGolangciGOOS runs golangci-lint with GOOS set to goos.
 func RunGolangciGOOS(out io.Writer, errW io.Writer, newFromRev, goos string) error {
 	_, _ = fmt.Fprintf(out, "Running golangci-lint for %s...\n", goos)
-	// GOOS in the environment of `go tool` cross-compiles the tool
-	// itself, so resolve the host binary and set GOOS on that.
 	bin, err := hostToolPath("golangci-lint")
 	if err != nil {
 		_, _ = fmt.Fprintf(errW, "golangci-lint for %s failed: %v\n", goos, err)
@@ -309,12 +296,7 @@ func golangciArgs(newFromRev string) []string {
 	return args
 }
 
-// hostToolPath builds the named `go tool` dependency for
-// the host, ignoring any inherited GOOS and GOARCH, and
-// returns the path of its binary. GOCACHEPROG is cleared
-// because go caches tool binaries only in the on-disk
-// cache; under a cache program `go tool -n` prints a
-// temporary path that is deleted before it can run.
+// hostToolPath builds the named go tool for the host and returns its binary path.
 func hostToolPath(name string) (string, error) {
 	cmd := cmdutil.GoCommand("tool", "-n", name)
 	cmd.Env = append(cmd.Env,
@@ -352,8 +334,7 @@ func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 	return nil
 }
 
-// RunDeadcode runs the deadcode checker, optionally
-// filtering output.
+// RunDeadcode runs the deadcode checker, optionally filtering output.
 func RunDeadcode(out io.Writer, errW io.Writer, excludePattern string) error {
 	_, _ = fmt.Fprintln(out, "Running deadcode...")
 	cmd := cmdutil.GoCommand("tool", "deadcode", "-test", "./...")
@@ -376,8 +357,7 @@ func RunDeadcode(out io.Writer, errW io.Writer, excludePattern string) error {
 	return nil
 }
 
-// FilterDeadcodeOutput filters deadcode output, removing
-// module paths and optional exclude patterns.
+// FilterDeadcodeOutput strips module paths and lines matching excludePattern.
 func FilterDeadcodeOutput(raw, excludePattern string) []string {
 	var filtered []string
 	for _, line := range strings.Split(raw, "\n") {
@@ -402,9 +382,7 @@ func FilterDeadcodeOutput(raw, excludePattern string) []string {
 	return filtered
 }
 
-// RunExternal runs an external Go toolchain command,
-// inheriting stdout/stderr from the provided writers.
-// The first arg is expected to be the go subcommand.
+// RunExternal runs a command, writing its stdout and stderr to out and errW.
 func RunExternal(out io.Writer, errW io.Writer, name string, args ...string) error {
 	var cmd *exec.Cmd
 	if name == "go" {

@@ -29,8 +29,7 @@ type runner struct {
 	emitProgress   bool
 }
 
-// effectiveParallelism is intentionally duplicated in covgate;
-// keep them in sync.
+// effectiveParallelism is duplicated in covgate; keep them in sync.
 func effectiveParallelism(opts Opts) int {
 	if opts.Parallelism > 0 {
 		return opts.Parallelism
@@ -103,9 +102,7 @@ func (r *runner) run(opts Opts) error {
 	return nil
 }
 
-// writeRunHeader writes the announce line and the progress table
-// header when progress is enabled; otherwise it writes the
-// standard table header.
+// writeRunHeader writes the announce line and the matching table header.
 func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
 	if !r.emitProgress {
 		printHeader(w)
@@ -129,10 +126,7 @@ func printHeader(w io.Writer) {
 	)
 }
 
-// printProgressHeader prints the table header used during the live
-// progress stream. It adds a leading COUNT column ahead of the
-// standard columns so each progress line carries an [N/total] tag
-// aligned under "COUNT".
+// printProgressHeader prints the table header used during the live progress stream.
 func printProgressHeader(w io.Writer, total int) {
 	cw := progressColWidth(total)
 	dashes := strings.Repeat("-", cw)
@@ -146,14 +140,10 @@ func printProgressHeader(w io.Writer, total int) {
 	)
 }
 
-// progressColWidth returns the width of the COUNT column for total
-// packages. The value 3 + 2*ndigits is always >= 5 ("COUNT") for
-// total >= 0, so no clamp is needed.
+// progressColWidth returns the width of the COUNT column for total packages.
 func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
 
-// firstLine returns the first line of s, including the trailing
-// newline. s must contain at least one '\n' — every ratchetResult's
-// output is built from a "%...\n" format string, so this holds.
+// firstLine returns the first line of s, including the trailing newline.
 func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
 
 // ratchetCtx holds the per-run constants threaded into ratchetPackage.

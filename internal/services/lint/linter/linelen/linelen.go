@@ -12,9 +12,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports a diagnostic for each line in src that exceeds maxLineWidth
-// visual columns (tabs expanded to tabWidth). Lines containing URLs, import
-// paths, or string literals are exempt.
+// Check reports lines wider than maxLineWidth, except URLs, imports, and strings.
 func Check(
 	fset *token.FileSet,
 	filename string,
@@ -69,12 +67,10 @@ func importLineRanges(fset *token.FileSet, f *ast.File) []lineRange {
 
 // isExempt returns true if the line should be skipped from length checking.
 func isExempt(line string, lineNum int, importRanges []lineRange) bool {
-	// URL exemption.
 	if strings.Contains(line, "http://") || strings.Contains(line, "https://") {
 		return true
 	}
 
-	// Import path exemption.
 	for _, r := range importRanges {
 		if lineNum >= r.start && lineNum <= r.end {
 			return true
@@ -83,24 +79,18 @@ func isExempt(line string, lineNum int, importRanges []lineRange) bool {
 
 	trimmed := strings.TrimSpace(line)
 
-	// Struct tag exemption: Go does not allow struct tags to span
-	// multiple lines, so lines containing a struct tag are exempt.
 	if isStructTagLine(trimmed) {
 		return true
 	}
 
-	// Parameterless function signature exemption: func names and return
-	// types are not splittable, so exempt signatures with no parameters.
 	if isParamlessFuncSig(trimmed) {
 		return true
 	}
 
-	// String literal exemption: the trimmed line is predominantly a string.
 	return isStringLiteralLine(trimmed)
 }
 
-// isStructTagLine returns true if the trimmed line contains a Go struct
-// field tag (a backtick-delimited string with key:"value" pairs).
+// isStructTagLine reports whether the line contains a struct field tag.
 func isStructTagLine(trimmed string) bool {
 	idx := strings.Index(trimmed, "`")
 	if idx < 0 {
@@ -119,44 +109,31 @@ func isStructTagLine(trimmed string) bool {
 		strings.Contains(tag, `validate:"`)
 }
 
-// paramlessFuncSigRe returns a compiled regexp that matches a function
-// signature whose own parameter list is empty. It skips the optional
-// receiver and matches the func name followed by "()" — avoiding false
-// positives from func() callback types that appear in parameter lists.
+// paramlessFuncSigRe matches a func name followed by an empty parameter list.
 func paramlessFuncSigRe() *regexp.Regexp {
 	return sync.OnceValue(func() *regexp.Regexp {
 		return regexp.MustCompile(`^func\s+(?:\([^)]*\)\s+)?\w+\(\)`)
 	})()
 }
 
-// isParamlessFuncSig returns true if the trimmed line is a function
-// signature with no parameters (e.g. "func (r *Repo) LongName() error {").
-// Lines containing a complete function body (both { and }) are not exempt.
+// isParamlessFuncSig reports whether the line opens a function with no parameters.
 func isParamlessFuncSig(trimmed string) bool {
 	if !paramlessFuncSigRe().MatchString(trimmed) {
 		return false
 	}
-	// If braces are balanced the line contains a complete single-line
-	// function body — the body can be moved to a new line.
-	// We count rather than using first/last index so that type braces
-	// (e.g. struct{}, interface{}) don't cause false positives.
 	return strings.Count(trimmed, "{") != strings.Count(trimmed, "}")
 }
 
-// isStringLiteralLine returns true if the trimmed line looks like it's
-// predominantly a string literal (starts/ends with quote or backtick,
-// or is an assignment to a string).
+// isStringLiteralLine reports whether the line is mostly a string literal.
 func isStringLiteralLine(trimmed string) bool {
 	if len(trimmed) == 0 {
 		return false
 	}
-	// Entire line is a quoted string or backtick string (possibly with trailing comma).
 	bare := strings.TrimRight(trimmed, ",")
 	if (strings.HasPrefix(bare, `"`) && strings.HasSuffix(bare, `"`)) ||
 		(strings.HasPrefix(bare, "`") && strings.HasSuffix(bare, "`")) {
 		return true
 	}
-	// Assignment: something = "..." or something = `...`
 	if _, rhs, ok := strings.Cut(trimmed, "= "); ok {
 		rhs = strings.TrimSpace(rhs)
 		rhs = strings.TrimRight(rhs, ",")

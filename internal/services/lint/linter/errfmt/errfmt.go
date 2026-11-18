@@ -12,8 +12,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports diagnostics for error strings passed to errors.New and
-// fmt.Errorf that are capitalized or end with punctuation.
+// Check reports error strings that are capitalized or end with punctuation.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 
@@ -43,7 +42,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 
 		pos := fset.Position(lit.Pos())
 
-		// Check capitalization.
 		firstRune, _ := utf8.DecodeRuneInString(val)
 		isUpper := unicode.IsUpper(firstRune)
 		if isUpper && !isAcronymStart(val) {
@@ -54,7 +52,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			})
 		}
 
-		// Check trailing punctuation.
 		trimmed := strings.TrimRight(val, " ")
 		if len(trimmed) > 0 {
 			last := trimmed[len(trimmed)-1]
@@ -90,8 +87,7 @@ func isErrorCall(call *ast.CallExpr) bool {
 		(ident.Name == "fmt" && sel.Sel.Name == "Errorf")
 }
 
-// isAcronymStart returns true if the string starts with an all-caps word
-// (e.g., "HTTP request failed", "JSON parse error").
+// isAcronymStart reports whether s starts with an all-caps word.
 func isAcronymStart(s string) bool {
 	word := firstWord(s)
 	if len(word) < 2 {

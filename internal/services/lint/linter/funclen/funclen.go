@@ -12,8 +12,7 @@ import (
 
 const nolintDirective = "nolint:funclen"
 
-// Check reports a diagnostic for each function whose body exceeds maxLen
-// non-blank, non-comment lines. Both FuncDecl and FuncLit are checked.
+// Check reports functions whose body exceeds maxLen non-blank, non-comment lines.
 //
 //nolint:funclen // two symmetric branches (FuncDecl/FuncLit) each need nolint check
 func Check(
@@ -77,8 +76,7 @@ func Check(
 	return diags
 }
 
-// hasNolint returns true if there is a //nolint:funclen comment on the
-// given line or the line immediately before it.
+// hasNolint reports a //nolint:funclen comment on line or the line before.
 func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
 	for _, cg := range f.Comments {
 		for _, c := range cg.List {
@@ -92,15 +90,14 @@ func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
 	return false
 }
 
-// countLines counts non-blank, non-comment-only lines inside a block
-// statement (between opening and closing braces, exclusive).
+// countLines counts the non-blank, non-comment lines inside body.
 func countLines(fset *token.FileSet, body *ast.BlockStmt, allLines [][]byte) int {
-	startLine := fset.Position(body.Lbrace).Line // 1-based
-	endLine := fset.Position(body.Rbrace).Line   // 1-based
+	startLine := fset.Position(body.Lbrace).Line
+	endLine := fset.Position(body.Rbrace).Line
 
 	count := 0
 	for lineNum := startLine + 1; lineNum < endLine; lineNum++ {
-		idx := lineNum - 1 // 0-based index
+		idx := lineNum - 1
 		if idx >= len(allLines) {
 			break
 		}

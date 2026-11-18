@@ -8,13 +8,11 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports diagnostics for receiver names that are longer than 2
-// characters or inconsistent across methods of the same type within a file.
+// Check reports receiver names that are over 2 chars or inconsistent per type.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 
-	// Track first receiver name seen per type for consistency checks.
-	firstRecv := map[string]string{} // typeName → first receiver name
+	firstRecv := map[string]string{}
 
 	for _, decl := range f.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
@@ -30,7 +28,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		recvName := recv.Names[0].Name
 		typeName := receiverTypeName(recv.Type)
 
-		// Check length.
 		if len(recvName) > 2 {
 			pos := fset.Position(recv.Names[0].Pos())
 			diags = append(diags, analysis.Diagnostic{
@@ -43,7 +40,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			})
 		}
 
-		// Check consistency.
 		if prev, exists := firstRecv[typeName]; exists {
 			if prev != recvName {
 				pos := fset.Position(recv.Names[0].Pos())
@@ -64,8 +60,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// receiverTypeName extracts the type name from a receiver's type expression,
-// handling both value receivers (T) and pointer receivers (*T).
+// receiverTypeName returns the type name of a value or pointer receiver.
 func receiverTypeName(expr ast.Expr) string {
 	switch t := expr.(type) {
 	case *ast.StarExpr:
