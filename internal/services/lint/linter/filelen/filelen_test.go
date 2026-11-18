@@ -160,6 +160,16 @@ func TestCheck(t *testing.T) {
 			wantMsg:  "file is 101 lines (limit 5)",
 		},
 		{
+			name:     "nolint higher in package doc comment exempts file",
+			filename: "foo.go",
+			src: "//nolint:filelen // big table\n" +
+				"//go:generate stringer -type=Kind\npackage foo\n" + body(100),
+			maxLen:   5,
+			wantN:    0,
+			wantLine: 0,
+			wantMsg:  "",
+		},
+		{
 			name:     "nolint two lines above package clause does not exempt",
 			filename: "foo.go",
 			src:      "//nolint:filelen\n\npackage foo\n" + body(100),

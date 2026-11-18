@@ -13,7 +13,13 @@ import (
 const ruleName = "filelen"
 
 // Check reports a diagnostic when a file has more than maxLen non-blank,
-// non-comment lines. Test files and test helpers are exempt.
+// non-comment lines.
+//
+// Exemptions:
+//   - Test files and test helpers are exempt.
+//   - A file with a //nolint:filelen (or //miru:nolint:filelen) directive on
+//     the package clause line or anywhere in the package doc comment above it
+//     is exempt.
 func Check(
 	fset *token.FileSet,
 	filename string,
@@ -32,7 +38,7 @@ func Check(
 		return nil
 	}
 	line := fset.Position(f.Package).Line
-	if analysis.HasNolintNear(fset, f, line, ruleName) {
+	if analysis.HasNolintNear(fset, f, line, ruleName) || docNolints(f) {
 		return nil
 	}
 	return []analysis.Diagnostic{{
@@ -40,6 +46,21 @@ func Check(
 		Line:    line,
 		Message: fmt.Sprintf("file is %d lines (limit %d)", count, maxLen),
 	}}
+}
+
+// docNolints reports whether the package doc comment holds a nolint directive
+// naming filelen, so the directive can sit above other directives such as
+// //go:generate.
+func docNolints(f *ast.File) bool {
+	if f.Doc == nil {
+		return false
+	}
+	for _, c := range f.Doc.List {
+		if analysis.NolintsRule(c.Text, ruleName) {
+			return true
+		}
+	}
+	return false
 }
 
 // countLines counts lines in src that hold something other than whitespace
