@@ -20,10 +20,12 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		attached[cg] = true
 	}
 	bodies := analysis.FuncBodies(f)
+	pkgLine := fset.Position(f.Package).Line
 
 	var diags []analysis.Diagnostic
 	for _, cg := range f.Comments {
 		skip := attached[cg] || cg.Pos() < f.Package ||
+			fset.Position(cg.Pos()).Line == pkgLine ||
 			analysis.InAnyBody(cg.Pos(), bodies)
 		if skip {
 			continue

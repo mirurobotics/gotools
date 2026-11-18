@@ -967,29 +967,50 @@ func F() {}
 	}
 }
 
-func TestRun_Check_PrivDoc(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/foo.go", `package foo
-
-// f does a thing.
-func f() {}
-`)
-	for _, exclude := range []bool{false, true} {
-		cfg := defaultCfg
-		cfg.Exclude = map[Rule]bool{RulePrivDoc: exclude}
-		cfg.Out = &strings.Builder{}
-		diags, _, err := Run(dir, false, cfg)
-		if err != nil {
-			t.Fatal(err)
-		}
-		out := cfg.Out.(*strings.Builder).String()
-		want := 1
-		if exclude {
-			want = 0
-		}
-		found := strings.Contains(out, "foo.go:3: comment on identifier")
-		if diags != want || found != !exclude {
-			t.Errorf("exclude=%v: got %d diagnostics:\n%s", exclude, diags, out)
+func TestRun_Check_CommentRules(t *testing.T) {
+	tests := []struct {
+		rule Rule
+		src  string
+		want string
+	}{
+		{
+			rule: RuleFuncComment,
+			src:  "package foo\n\nfunc F() {\n\t// note\n}\n",
+			want: "foo.go:4: comments",
+		},
+		{
+			rule: RuleStrayComment,
+			src:  "package foo\n\nfunc F() {}\n\n// note\n",
+			want: "foo.go:5: comment is not",
+		},
+		{
+			rule: RulePrivDoc,
+			src:  "package foo\n\n// f does a thing.\nfunc f() {}\n",
+			want: "foo.go:3: comment on",
+		},
+	}
+	for _, tt := range tests {
+		dir := t.TempDir()
+		writeFile(t, dir+"/foo.go", tt.src)
+		for _, exclude := range []bool{false, true} {
+			cfg := defaultCfg
+			cfg.Exclude = map[Rule]bool{tt.rule: exclude}
+			cfg.Out = &strings.Builder{}
+			diags, _, err := Run(dir, false, cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out := cfg.Out.(*strings.Builder).String()
+			want := 1
+			if exclude {
+				want = 0
+			}
+			if diags != want || strings.Contains(out, tt.want) != !exclude {
+				t.Errorf(
+					"%s exclude=%v: got %d diagnostics:\n%s",
+					tt.rule, exclude, diags, out,
+				)
+			}
 		}
 	}
 }

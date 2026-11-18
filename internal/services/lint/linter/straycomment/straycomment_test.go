@@ -114,6 +114,14 @@ func f() {}
 			wantLines: []int{5},
 		},
 		{
+			name: "import comment on package clause allowed",
+			src: `package foo // import "example.com/foo"
+
+func f() {}
+`,
+			wantLines: nil,
+		},
+		{
 			name: "comment in function signature flagged",
 			src: `package foo
 

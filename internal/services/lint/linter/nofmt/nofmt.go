@@ -25,7 +25,7 @@ func builtinBanned() map[string]bool {
 	return map[string]bool{"print": true, "println": true}
 }
 
-// Check reports print and log calls outside main, tests, and cmd/.
+// Check reports print and log calls outside main, tests, cmd/, and linter source.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	if isExempt(filename, f) {
 		return nil
