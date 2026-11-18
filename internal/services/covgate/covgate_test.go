@@ -15,7 +15,7 @@ import (
 
 func TestPrintHeader(t *testing.T) {
 	var buf bytes.Buffer
-	printHeader(&buf)
+	gocover.Progress{Enabled: false, Table: table()}.WriteHeader(&buf, 0, 0)
 	out := buf.String()
 
 	cols := []string{"STATUS", "COVERAGE", "REQUIRED", "TIME", "PACKAGE"}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mirurobotics/gotools/internal/services/gocover"
 	"github.com/mirurobotics/gotools/internal/testutil"
 )
 
@@ -63,7 +64,7 @@ func TestWriteCovgate(t *testing.T) {
 
 func TestPrintHeader(t *testing.T) {
 	var buf bytes.Buffer
-	printHeader(&buf)
+	gocover.Progress{Enabled: false, Table: table()}.WriteHeader(&buf, 0, 0)
 	out := buf.String()
 
 	cols := []string{"STATUS", "PREVIOUS", "CURRENT", "PACKAGE"}

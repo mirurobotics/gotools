@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/mirurobotics/gotools/internal/services/gocover"
 )
@@ -64,7 +63,7 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
-	r.writeRunHeader(w, len(pkgs), parallelism)
+	r.progress().WriteHeader(w, len(pkgs), parallelism)
 	ctx := ratchetCtx{
 		module:    module,
 		srcPrefix: opts.SrcPrefix,
@@ -93,46 +92,6 @@ func (r *runner) run(opts Opts) error {
 	return nil
 }
 
-func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
-	if !r.emitProgress {
-		printHeader(w)
-		return
-	}
-	_, _ = fmt.Fprintf(
-		w, "Running %d packages with parallelism=%d; progress:\n",
-		total, parallelism,
-	)
-	printProgressHeader(w, total)
-}
-
-func printHeader(w io.Writer) {
-	_, _ = fmt.Fprintf(
-		w, "%-6s  %8s  %8s  %s\n",
-		"STATUS", "PREVIOUS", "CURRENT", "PACKAGE",
-	)
-	_, _ = fmt.Fprintf(
-		w, "%-6s  %8s  %8s  %s\n",
-		"------", "--------", "-------", "-------",
-	)
-}
-
-func printProgressHeader(w io.Writer, total int) {
-	cw := progressColWidth(total)
-	dashes := strings.Repeat("-", cw)
-	_, _ = fmt.Fprintf(
-		w, "%-*s  %-6s  %8s  %8s  %s\n",
-		cw, "COUNT", "STATUS", "PREVIOUS", "CURRENT", "PACKAGE",
-	)
-	_, _ = fmt.Fprintf(
-		w, "%-*s  %-6s  %8s  %8s  %s\n",
-		cw, dashes, "------", "--------", "-------", "-------",
-	)
-}
-
-func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
-
-func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
-
 type ratchetCtx struct {
 	module    string
 	srcPrefix string
@@ -142,34 +101,23 @@ type ratchetCtx struct {
 func (r *runner) runPackages(
 	pkgs []string, ctx ratchetCtx, parallelism int, w io.Writer,
 ) []ratchetResult {
-	total := len(pkgs)
-	results := make([]ratchetResult, total)
-	sem := make(chan struct{}, parallelism)
-	var wg sync.WaitGroup
-	var progressMu sync.Mutex
-	countWidth := len(strconv.Itoa(total))
-	colWidth := progressColWidth(total)
-
-	for i, pkg := range pkgs {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(idx int, p string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			results[idx] = r.ratchetPackage(p, ctx.module, ctx.srcPrefix, ctx.testDir)
-			if r.emitProgress {
-				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, total)
-				progressMu.Lock()
-				_, _ = fmt.Fprintf(
-					w, "%-*s  %s",
-					colWidth, label, firstLine(results[idx].output),
-				)
-				progressMu.Unlock()
-			}
-		}(i, pkg)
+	run := func(i int) (ratchetResult, string) {
+		res := r.ratchetPackage(pkgs[i], ctx.module, ctx.srcPrefix, ctx.testDir)
+		return res, res.output
 	}
-	wg.Wait()
-	return results
+	return gocover.Run(r.progress(), w, len(pkgs), parallelism, run)
+}
+
+func (r *runner) progress() gocover.Progress {
+	return gocover.Progress{Enabled: r.emitProgress, Table: table()}
+}
+
+func table() gocover.Table {
+	return gocover.Table{
+		Format: "%-6s  %8s  %8s  %s\n",
+		Names:  []string{"STATUS", "PREVIOUS", "CURRENT", "PACKAGE"},
+		Dashes: []string{"------", "--------", "-------", "-------"},
+	}
 }
 
 type ratchetResult struct {

@@ -5,9 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mirurobotics/gotools/internal/services/gocover"
@@ -93,7 +91,7 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
-	r.writeRunHeader(w, len(items), parallelism)
+	r.progress().WriteHeader(w, len(items), parallelism)
 
 	ctx := checkPackageCtx{
 		module:             module,
@@ -208,55 +206,29 @@ func (r *runner) applyExclude(
 func (r *runner) runPackages(
 	items []workItem, ctx checkPackageCtx, parallelism int, w io.Writer,
 ) []checkResult {
-	total := len(items)
-	results := make([]checkResult, total)
-	sem := make(chan struct{}, parallelism)
-	var wg sync.WaitGroup
-	var progressMu sync.Mutex
-	countWidth := len(strconv.Itoa(total))
-	colWidth := progressColWidth(total)
-
-	for i, item := range items {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(idx int, it workItem) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			if it.testOnly {
-				results[idx] = r.checkTestOnly(it.pkg, ctx)
-			} else {
-				results[idx] = r.checkPackage(it.pkg, ctx)
-			}
-			if r.emitProgress {
-				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, total)
-				progressMu.Lock()
-				_, _ = fmt.Fprintf(
-					w, "%-*s  %s",
-					colWidth, label, firstLine(results[idx].output),
-				)
-				progressMu.Unlock()
-			}
-		}(i, item)
+	run := func(i int) (checkResult, string) {
+		var res checkResult
+		if items[i].testOnly {
+			res = r.checkTestOnly(items[i].pkg, ctx)
+		} else {
+			res = r.checkPackage(items[i].pkg, ctx)
+		}
+		return res, res.output
 	}
-	wg.Wait()
-	return results
+	return gocover.Run(r.progress(), w, len(items), parallelism, run)
 }
 
-func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
-	if !r.emitProgress {
-		printHeader(w)
-		return
-	}
-	_, _ = fmt.Fprintf(
-		w, "Running %d packages with parallelism=%d; progress:\n",
-		total, parallelism,
-	)
-	printProgressHeader(w, total)
+func (r *runner) progress() gocover.Progress {
+	return gocover.Progress{Enabled: r.emitProgress, Table: table()}
 }
 
-func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
-
-func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
+func table() gocover.Table {
+	return gocover.Table{
+		Format: "%-7s  %8s  %8s  %8s  %s\n",
+		Names:  []string{"STATUS", "COVERAGE", "REQUIRED", "TIME", "PACKAGE"},
+		Dashes: []string{"-------", "--------", "--------", "--------", "-------"},
+	}
+}
 
 func restOfOutput(s string) string { return s[strings.IndexByte(s, '\n')+1:] }
 
@@ -281,7 +253,7 @@ func (r *runner) printResults(
 
 	indent := ""
 	if r.emitProgress {
-		indent = strings.Repeat(" ", progressColWidth(len(results))) + "  "
+		indent = strings.Repeat(" ", gocover.ProgressColWidth(len(results))) + "  "
 	}
 	for _, pkg := range excluded {
 		row := skippedRow(gocover.RelPkg(pkg, module))
@@ -300,32 +272,6 @@ func (r *runner) printResults(
 
 	_, _ = fmt.Fprintln(w, "All packages meet minimum coverage requirement")
 	return nil
-}
-
-func printHeader(w io.Writer) {
-	_, _ = fmt.Fprintf(
-		w, "%-7s  %8s  %8s  %8s  %s\n",
-		"STATUS", "COVERAGE", "REQUIRED", "TIME", "PACKAGE",
-	)
-	_, _ = fmt.Fprintf(
-		w, "%-7s  %8s  %8s  %8s  %s\n",
-		"-------", "--------", "--------", "--------", "-------",
-	)
-}
-
-func printProgressHeader(w io.Writer, total int) {
-	cw := progressColWidth(total)
-	dashes := strings.Repeat("-", cw)
-	_, _ = fmt.Fprintf(
-		w, "%-*s  %-7s  %8s  %8s  %8s  %s\n",
-		cw, "COUNT",
-		"STATUS", "COVERAGE", "REQUIRED", "TIME", "PACKAGE",
-	)
-	_, _ = fmt.Fprintf(
-		w, "%-*s  %-7s  %8s  %8s  %8s  %s\n",
-		cw, dashes,
-		"-------", "--------", "--------", "--------", "-------",
-	)
 }
 
 type checkResult struct {
