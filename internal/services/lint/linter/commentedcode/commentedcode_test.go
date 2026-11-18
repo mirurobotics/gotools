@@ -131,11 +131,12 @@ func ExampleF() {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, "foo_test.go", tt.src, parser.ParseComments)
+			const name = "foo_test.go"
+			f, err := parser.ParseFile(fset, name, tt.src, parser.ParseComments)
 			if err != nil {
 				t.Fatal(err)
 			}
-			diags := Check(fset, "foo_test.go", f, []byte(tt.src))
+			diags := Check(fset, name, f, []byte(tt.src))
 			if len(diags) != len(tt.wantLines) {
 				t.Fatalf(
 					"got %d diagnostics, want %d: %v",
