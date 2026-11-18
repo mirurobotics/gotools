@@ -13,10 +13,10 @@ const message = "comments are not allowed inside function bodies"
 // Check reports each non-directive comment inside a function body.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	bodies := analysis.FuncBodies(f)
-	exempt := exampleOutputs(filename, f)
+	examples := exampleBodies(filename, f)
 	var diags []analysis.Diagnostic
 	for _, cg := range f.Comments {
-		if exempt[cg] {
+		if isOutput(cg) && analysis.InAnyBody(cg.Pos(), examples) {
 			continue
 		}
 		for _, c := range cg.List {
@@ -33,27 +33,24 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// exampleOutputs returns the Output comment groups of Example functions in tests.
-func exampleOutputs(filename string, f *ast.File) map[*ast.CommentGroup]bool {
-	exempt := map[*ast.CommentGroup]bool{}
+// exampleBodies returns the bodies of Example functions in a test file.
+func exampleBodies(filename string, f *ast.File) []*ast.BlockStmt {
 	if !analysis.IsTestFile(filename) {
-		return exempt
+		return nil
 	}
+	var bodies []*ast.BlockStmt
 	for _, decl := range f.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Body == nil || !strings.HasPrefix(fn.Name.Name, "Example") {
-			continue
-		}
-		for _, cg := range f.Comments {
-			if !analysis.InAnyBody(cg.Pos(), []*ast.BlockStmt{fn.Body}) {
-				continue
-			}
-			text := strings.TrimSpace(cg.Text())
-			if strings.HasPrefix(text, "Output:") ||
-				strings.HasPrefix(text, "Unordered output:") {
-				exempt[cg] = true
-			}
+		if ok && fn.Body != nil && strings.HasPrefix(fn.Name.Name, "Example") {
+			bodies = append(bodies, fn.Body)
 		}
 	}
-	return exempt
+	return bodies
+}
+
+// isOutput reports whether cg is an example output block, matched as go/doc does.
+func isOutput(cg *ast.CommentGroup) bool {
+	text := strings.ToLower(strings.TrimSpace(cg.Text()))
+	return strings.HasPrefix(text, "output:") ||
+		strings.HasPrefix(text, "unordered output:")
 }

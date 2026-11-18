@@ -80,11 +80,35 @@ func ExampleExternal()
 
 func ExampleUnordered() {
 	println(1)
-	// Unordered output:
+	// Unordered Output:
 	// 1
+}
+
+func ExampleLower() {
+	println(1)
+	// output: 1
 }
 `,
 			wantLines: nil,
+		},
+		{
+			name:     "prose in example and output in non-example flagged",
+			filename: "foo_test.go",
+			src: `package foo
+
+func Example() {
+	// prose
+	println(1)
+	// Output:
+	// 1
+}
+
+func helper() {
+	// Output:
+	// 1
+}
+`,
+			wantLines: []int{4, 11, 12},
 		},
 		{
 			filename: "foo.go",
