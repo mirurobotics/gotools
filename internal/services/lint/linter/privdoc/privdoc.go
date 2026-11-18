@@ -55,7 +55,6 @@ func allowedGroups(f *ast.File) allowed {
 		case *ast.FuncDecl:
 			public := funcPublic(d)
 			ok.add(public, d.Doc)
-			ok.fields(d.Recv, public, false)
 			ok.walk(d.Type, public)
 		case *ast.GenDecl:
 			ok.genDecl(d)
@@ -74,7 +73,6 @@ func (ok allowed) genDecl(d *ast.GenDecl) {
 			public := s.Name.IsExported()
 			anyPublic = anyPublic || public
 			ok.add(public, s.Doc, s.Comment)
-			ok.fields(s.TypeParams, public, false)
 			ok.walk(s.Type, public)
 		case *ast.ValueSpec:
 			public := anyExported(s.Names)
@@ -95,27 +93,19 @@ func (ok allowed) walk(n ast.Node, public bool) {
 	ast.Inspect(n, func(x ast.Node) bool {
 		switch t := x.(type) {
 		case *ast.StructType:
-			ok.fields(t.Fields, public, true)
+			ok.fields(t.Fields, public)
 			return false
 		case *ast.InterfaceType:
-			ok.fields(t.Methods, public, true)
-			return false
-		case *ast.FuncType:
-			ok.fields(t.TypeParams, public, false)
-			ok.fields(t.Params, public, false)
-			ok.fields(t.Results, public, false)
+			ok.fields(t.Methods, public)
 			return false
 		}
 		return true
 	})
 }
 
-func (ok allowed) fields(list *ast.FieldList, public, named bool) {
-	if list == nil {
-		return
-	}
+func (ok allowed) fields(list *ast.FieldList, public bool) {
 	for _, field := range list.List {
-		p := public && (!named || fieldPublic(field))
+		p := public && fieldPublic(field)
 		ok.add(p, field.Doc, field.Comment)
 		ok.walk(field.Type, p)
 	}

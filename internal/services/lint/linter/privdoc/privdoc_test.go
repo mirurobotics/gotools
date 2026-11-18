@@ -199,6 +199,39 @@ var x = 1 //nolint:gochecknoglobals
 			wantLines: nil,
 		},
 		{
+			name: "grouped imports, params, and type params left to straycomment",
+			src: `package foo
+
+import (
+	// fmt is imported.
+	"fmt" // for printing
+)
+
+func F(
+	// a is documented.
+	a int,
+) {
+}
+
+func f(
+	// a is documented.
+	a int,
+) {
+}
+
+type G[
+	// K is documented.
+	K any,
+] struct{}
+
+type g[
+	// K is documented.
+	K any,
+] struct{}
+`,
+			wantLines: nil,
+		},
+		{
 			name: "imports ignored",
 			src: `package foo
 
