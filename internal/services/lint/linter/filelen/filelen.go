@@ -38,7 +38,7 @@ func Check(
 		return nil
 	}
 	line := fset.Position(f.Package).Line
-	if analysis.HasNolintNear(fset, f, line, ruleName) || docNolints(f) {
+	if hasNolint(fset, f, line) {
 		return nil
 	}
 	return []analysis.Diagnostic{{
@@ -48,14 +48,19 @@ func Check(
 	}}
 }
 
-// docNolints reports whether the package doc comment holds a nolint directive
-// naming filelen, so the directive can sit above other directives such as
-// //go:generate.
-func docNolints(f *ast.File) bool {
-	if f.Doc == nil {
-		return false
+// hasNolint reports whether a nolint directive naming filelen sits in the
+// package doc comment or trails the package clause on its line.
+func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
+	var comments []*ast.Comment
+	if f.Doc != nil {
+		comments = append(comments, f.Doc.List...)
 	}
-	for _, c := range f.Doc.List {
+	for _, cg := range f.Comments {
+		if fset.Position(cg.Pos()).Line == line {
+			comments = append(comments, cg.List...)
+		}
+	}
+	for _, c := range comments {
 		if analysis.NolintsRule(c.Text, ruleName) {
 			return true
 		}
