@@ -11,6 +11,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/collapse"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/ctxpos"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/errfmt"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/filelen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcinline"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funclen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcsig"
@@ -34,6 +35,7 @@ const (
 	RulePkgName       Rule = "pkgname"
 	RuleLineLen       Rule = "linelen"
 	RuleFuncLen       Rule = "funclen"
+	RuleFileLen       Rule = "filelen"
 	RuleNestDepth     Rule = "nestdepth"
 	RuleErrFmt        Rule = "errfmt"
 	RuleCtxPos        Rule = "ctxpos"
@@ -55,7 +57,7 @@ const (
 // AllRules returns every valid rule name.
 func AllRules() []Rule {
 	return []Rule{
-		RulePkgName, RuleLineLen, RuleFuncLen, RuleNestDepth,
+		RulePkgName, RuleLineLen, RuleFuncLen, RuleFileLen, RuleNestDepth,
 		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
 		RuleTypeAssert, RuleParamCount,
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
@@ -69,6 +71,7 @@ type Config struct {
 	MaxLineWidth  int
 	TabWidth      int
 	MaxFuncLen    int
+	MaxFileLen    int
 	MaxNestDepth  int
 	MaxParamCount int
 	Exclude       map[Rule]bool
@@ -121,6 +124,9 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		}},
 		{RuleFuncLen, false, func(in checkInput) []analysis.Diagnostic {
 			return funclen.Check(in.fset, in.path, in.f, in.src, cfg.MaxFuncLen)
+		}},
+		{RuleFileLen, false, func(in checkInput) []analysis.Diagnostic {
+			return filelen.Check(in.fset, in.path, in.f, in.src, cfg.MaxFileLen)
 		}},
 		{RuleNestDepth, false, func(in checkInput) []analysis.Diagnostic {
 			return nestdepth.Check(in.fset, in.path, in.f, cfg.MaxNestDepth)

@@ -14,6 +14,7 @@ var defaultCfg = Config{
 	MaxLineWidth:  88,
 	TabWidth:      4,
 	MaxFuncLen:    0,
+	MaxFileLen:    0,
 	MaxNestDepth:  0,
 	MaxParamCount: 0,
 	Exclude:       nil,
@@ -317,6 +318,7 @@ func f() {
 		MaxLineWidth:  88,
 		TabWidth:      4,
 		MaxFuncLen:    0,
+		MaxFileLen:    0,
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       nil,
@@ -378,6 +380,7 @@ func Code() int {
 		MaxLineWidth:  88,
 		TabWidth:      4,
 		MaxFuncLen:    0,
+		MaxFileLen:    0,
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       nil,
@@ -688,6 +691,7 @@ func NewScope(
 		MaxLineWidth:  88,
 		TabWidth:      4,
 		MaxFuncLen:    0,
+		MaxFileLen:    0,
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       nil,
@@ -735,6 +739,7 @@ func Process(
 		MaxLineWidth:  88,
 		TabWidth:      4,
 		MaxFuncLen:    0,
+		MaxFileLen:    0,
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       nil,
@@ -783,6 +788,7 @@ func Get(
 		MaxLineWidth:  88,
 		TabWidth:      4,
 		MaxFuncLen:    0,
+		MaxFileLen:    0,
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       nil,
@@ -847,6 +853,7 @@ func f() { _ = strings.ToUpper(os.Getenv("X")) }
 		MaxLineWidth:  88,
 		TabWidth:      4,
 		MaxFuncLen:    0,
+		MaxFileLen:    0,
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       map[Rule]bool{RulePkgName: true, RuleImports: true},
@@ -878,6 +885,7 @@ func f() { _ = strings.ToUpper(os.Getenv("X")) }
 		MaxLineWidth:  88,
 		TabWidth:      4,
 		MaxFuncLen:    0,
+		MaxFileLen:    0,
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       map[Rule]bool{RuleImports: true},
@@ -909,6 +917,7 @@ func f() { _ = strings.ToUpper(os.Getenv("X")) }
 		MaxLineWidth:  88,
 		TabWidth:      4,
 		MaxFuncLen:    0,
+		MaxFileLen:    0,
 		MaxNestDepth:  0,
 		MaxParamCount: 0,
 		Exclude:       map[Rule]bool{RulePkgName: true},
@@ -959,5 +968,46 @@ func writeFile(t *testing.T, path, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestProcessFile_FileLen(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "big.go")
+	writeFile(t, path, "package foo\n\nconst a = 1\nconst b = 2\nconst c = 3\n")
+
+	var out strings.Builder
+	cfg := defaultCfg
+	cfg.MaxFileLen = 3
+	cfg.Out = &out
+	diags, _, err := ProcessFile(path, false, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diags != 1 {
+		t.Fatalf("expected 1 diagnostic, got %d: %s", diags, out.String())
+	}
+	if !strings.Contains(out.String(), "file is 4 lines (limit 3)") {
+		t.Errorf("unexpected output: %s", out.String())
+	}
+}
+
+func TestRun_ExcludeFilter_SkipFileLen(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "big.go"),
+		"package foo\n\nconst a = 1\nconst b = 2\nconst c = 3\n")
+
+	cfg := defaultCfg
+	cfg.MaxFileLen = 3
+	cfg.Exclude = map[Rule]bool{RuleFileLen: true}
+	if err := ValidateExclusions(cfg.Exclude); err != nil {
+		t.Fatal(err)
+	}
+	diags, _, err := Run(dir, false, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diags != 0 {
+		t.Fatalf("expected 0 diagnostics with filelen excluded, got %d", diags)
 	}
 }
