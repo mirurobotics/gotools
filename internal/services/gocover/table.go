@@ -40,7 +40,7 @@ func (p Progress) WriteHeader(w io.Writer, total, parallelism int) {
 	_, _ = fmt.Fprintf(w, format, dashes...)
 }
 
-// RunEach runs run(0..n-1) in parallel; if p.Enabled, it streams row(result) to w.
+// RunEach runs run(0..n-1), parallelism at a time, streaming row(result) if p.Enabled.
 func RunEach[T any](
 	p Progress,
 	w io.Writer,
