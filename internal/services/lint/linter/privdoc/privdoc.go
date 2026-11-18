@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/token"
 	"slices"
+	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
@@ -157,7 +158,7 @@ func anyExported(names []*ast.Ident) bool {
 }
 
 func firstProse(cg *ast.CommentGroup) *ast.Comment {
-	if cg == nil {
+	if cg == nil || hasNolint(cg) {
 		return nil
 	}
 	for _, c := range cg.List {
@@ -166,4 +167,13 @@ func firstProse(cg *ast.CommentGroup) *ast.Comment {
 		}
 	}
 	return nil
+}
+
+func hasNolint(cg *ast.CommentGroup) bool {
+	for _, c := range cg.List {
+		if strings.Contains(c.Text, "nolint:privdoc") {
+			return true
+		}
+	}
+	return false
 }

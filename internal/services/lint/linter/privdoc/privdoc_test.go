@@ -178,6 +178,10 @@ func g() {}
 //export callback
 func callback() {}
 
+//nolint:privdoc // why h exists
+// h keeps a longer note.
+func h() {}
+
 //
 //go:generate echo hi
 type t int
