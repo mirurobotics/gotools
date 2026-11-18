@@ -37,7 +37,6 @@ func proseComments(f *ast.File) []*ast.Comment {
 		if cg == nil || ok[cg] || analysis.InAnyBody(cg.Pos(), bodies) {
 			continue
 		}
-		ok[cg] = true
 		if c := firstProse(cg); c != nil {
 			prose = append(prose, c)
 		}
