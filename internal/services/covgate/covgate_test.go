@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -449,18 +448,6 @@ func TestRun_Parallelism_DefaultsToNumCPU(t *testing.T) {
 	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 0})
 	if err != nil {
 		t.Fatalf("unexpected error with Parallelism=0 (NumCPU): %v", err)
-	}
-}
-
-func TestEffectiveParallelism(t *testing.T) {
-	//nolint:exhaustruct // test uses partial initialization
-	if got := effectiveParallelism(Opts{Parallelism: 4}); got != 4 {
-		t.Errorf("effectiveParallelism(4) = %d, want 4", got)
-	}
-	want := runtime.NumCPU()
-	//nolint:exhaustruct // test uses partial initialization
-	if got := effectiveParallelism(Opts{Parallelism: 0}); got != want {
-		t.Errorf("effectiveParallelism(0) = %d, want %d", got, want)
 	}
 }
 

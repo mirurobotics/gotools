@@ -8,11 +8,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/cmdutil"
 )
+
+// Parallelism returns n when positive, otherwise the number of CPUs.
+func Parallelism(n int) int {
+	if n > 0 {
+		return n
+	}
+	return runtime.NumCPU()
+}
 
 // RelPkg computes a module-relative package path.
 func RelPkg(pkg, module string) string {

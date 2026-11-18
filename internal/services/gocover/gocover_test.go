@@ -5,9 +5,19 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+func TestParallelism(t *testing.T) {
+	if got := Parallelism(3); got != 3 {
+		t.Errorf("Parallelism(3) = %d, want 3", got)
+	}
+	if got := Parallelism(0); got != runtime.NumCPU() {
+		t.Errorf("Parallelism(0) = %d, want %d", got, runtime.NumCPU())
+	}
+}
 
 func TestGetThreshold(t *testing.T) {
 	dir := t.TempDir()

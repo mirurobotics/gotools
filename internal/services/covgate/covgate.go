@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,14 +42,6 @@ type workItem struct {
 	testOnly bool
 }
 
-//nolint:privdoc // duplicated in covratchet; keep them in sync
-func effectiveParallelism(opts Opts) int {
-	if opts.Parallelism > 0 {
-		return opts.Parallelism
-	}
-	return runtime.NumCPU()
-}
-
 // Run checks per-package coverage against thresholds.
 func Run(opts Opts) error {
 	r := runner{
@@ -59,7 +50,7 @@ func Run(opts Opts) error {
 		goListTestPackages: gocover.GoListTestPackages,
 		measure:            gocover.Measure,
 		runTests:           gocover.RunTests,
-		parallelism:        effectiveParallelism(opts),
+		parallelism:        gocover.Parallelism(opts.Parallelism),
 		emitProgress:       opts.Parallelism == 0,
 	}
 	return r.run(opts)
@@ -73,7 +64,7 @@ func (r *runner) run(opts Opts) error {
 
 	parallelism := r.parallelism
 	if parallelism <= 0 {
-		parallelism = effectiveParallelism(opts)
+		parallelism = gocover.Parallelism(opts.Parallelism)
 	}
 
 	_, _ = fmt.Fprintf(

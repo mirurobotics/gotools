@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,21 +28,13 @@ type runner struct {
 	emitProgress   bool
 }
 
-//nolint:privdoc // duplicated in covgate; keep them in sync
-func effectiveParallelism(opts Opts) int {
-	if opts.Parallelism > 0 {
-		return opts.Parallelism
-	}
-	return runtime.NumCPU()
-}
-
 // Run ratchets up .covgate thresholds.
 func Run(opts Opts) error {
 	r := runner{
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
 		measure:        gocover.Measure,
-		parallelism:    effectiveParallelism(opts),
+		parallelism:    gocover.Parallelism(opts.Parallelism),
 		emitProgress:   opts.Parallelism == 0,
 	}
 	return r.run(opts)
@@ -57,7 +48,7 @@ func (r *runner) run(opts Opts) error {
 
 	parallelism := r.parallelism
 	if parallelism <= 0 {
-		parallelism = effectiveParallelism(opts)
+		parallelism = gocover.Parallelism(opts.Parallelism)
 	}
 
 	_, _ = fmt.Fprintln(w, "Updating .covgate files (ratchet up only)...")
