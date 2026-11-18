@@ -8,15 +8,14 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// collapseInput holds the AST fields needed to build a collapse candidate.
 type collapseInput struct {
-	exprStart token.Pos  // Fun.Pos() or Type.Pos() or Lbrace
-	openPos   token.Pos  // ( or {
-	closePos  token.Pos  // ) or }
-	items     []ast.Expr // Args or Elts
-	openStr   string     // "(" or "{"
-	closeStr  string     // ")" or "}"
-	ellipsis  bool       // variadic call?
+	exprStart token.Pos
+	openPos   token.Pos
+	closePos  token.Pos
+	items     []ast.Expr
+	openStr   string
+	closeStr  string
+	ellipsis  bool
 }
 
 // FindCandidates returns multi-line calls and literals that fit on one line.
@@ -122,7 +121,6 @@ func shouldExclude(fset *token.FileSet, f *ast.File, input collapseInput) bool {
 	return hasRawStringWithNewlines(input.items)
 }
 
-// kvAlignDelta returns the extra indent gofmt adds to an aligned key-value pair.
 func kvAlignDelta(
 	fset *token.FileSet,
 	stack []ast.Node,
@@ -215,7 +213,6 @@ func buildCollapsed(
 	}, true
 }
 
-// hasRawStringWithNewlines reports whether any expr has a multi-line raw string.
 func hasRawStringWithNewlines(exprs []ast.Expr) bool {
 	for _, expr := range exprs {
 		found := false

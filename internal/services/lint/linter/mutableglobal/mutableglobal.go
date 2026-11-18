@@ -58,10 +58,8 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// isInterfaceCheck returns true for var _ SomeInterface = ... patterns.
 func isInterfaceCheck(name *ast.Ident) bool { return name.Name == "_" }
 
-// isErrVarName reports whether name starts with Err or err and has 3+ chars.
 func isErrVarName(name string) bool {
 	if len(name) < 3 {
 		return false
@@ -69,7 +67,6 @@ func isErrVarName(name string) bool {
 	return strings.HasPrefix(name, "Err") || strings.HasPrefix(name, "err")
 }
 
-// isErrorSentinel reports an Err-named var built by an error constructor.
 func isErrorSentinel(varName *ast.Ident, expr ast.Expr) bool {
 	if !isErrVarName(varName.Name) {
 		return false
@@ -81,7 +78,6 @@ func isErrorSentinel(varName *ast.Ident, expr ast.Expr) bool {
 	return isErrorConstructor(call)
 }
 
-// isErrorConstructor reports calls like pkg.New, pkg.NewFoo, and pkg.Errorf.
 func isErrorConstructor(call *ast.CallExpr) bool {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
@@ -101,12 +97,10 @@ func isErrorConstructor(call *ast.CallExpr) bool {
 	return false
 }
 
-// hasNolint reports a nolint:mutableglobal comment on or above node.
 func hasNolint(fset *token.FileSet, f *ast.File, node ast.Node) bool {
 	return hasNolintAtPos(fset, f, fset.Position(node.Pos()))
 }
 
-// hasNolintAtPos reports a nolint:mutableglobal comment on or above pos.
 func hasNolintAtPos(fset *token.FileSet, f *ast.File, pos token.Position) bool {
 	for _, cg := range f.Comments {
 		for _, c := range cg.List {

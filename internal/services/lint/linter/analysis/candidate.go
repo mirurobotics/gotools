@@ -40,7 +40,6 @@ func Fix(fset *token.FileSet, src []byte, candidates []Candidate) []byte {
 	return src
 }
 
-// filterOverlapping drops candidates that overlap an already kept candidate.
 func filterOverlapping(fset *token.FileSet, candidates []Candidate) []Candidate {
 	if len(candidates) <= 1 {
 		return candidates

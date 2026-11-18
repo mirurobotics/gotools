@@ -32,7 +32,6 @@ func Fix(fset *token.FileSet, src []byte, blocks []ImportBlock) []byte {
 	return src
 }
 
-// rebuildBlock produces the canonical form of an import block.
 func rebuildBlock(block ImportBlock) string {
 	groups := make(map[ImportGroup][]Import)
 	for _, imp := range block.Imports {

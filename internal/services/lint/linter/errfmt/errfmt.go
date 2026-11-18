@@ -73,7 +73,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// isErrorCall checks if a call expression is errors.New or fmt.Errorf.
 func isErrorCall(call *ast.CallExpr) bool {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
@@ -87,7 +86,6 @@ func isErrorCall(call *ast.CallExpr) bool {
 		(ident.Name == "fmt" && sel.Sel.Name == "Errorf")
 }
 
-// isAcronymStart reports whether s starts with an all-caps word.
 func isAcronymStart(s string) bool {
 	word := firstWord(s)
 	if len(word) < 2 {

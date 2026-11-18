@@ -63,7 +63,6 @@ func bindLintFlags(cmd *cobra.Command, opts *lint.LintOpts) {
 	)
 }
 
-// bindLinterConfigFlags binds the linter flags shared by check and lint.
 func bindLinterConfigFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
 	fl.IntVar(
 		&flags.MaxLineWidth, "max-line-width", 88,

@@ -45,12 +45,10 @@ func Check(
 	return diags
 }
 
-// lineRange represents a contiguous range of line numbers [start, end].
 type lineRange struct {
 	start, end int
 }
 
-// importLineRanges returns the line ranges of all import declarations in f.
 func importLineRanges(fset *token.FileSet, f *ast.File) []lineRange {
 	var ranges []lineRange
 	for _, decl := range f.Decls {
@@ -65,7 +63,6 @@ func importLineRanges(fset *token.FileSet, f *ast.File) []lineRange {
 	return ranges
 }
 
-// isExempt returns true if the line should be skipped from length checking.
 func isExempt(line string, lineNum int, importRanges []lineRange) bool {
 	if strings.Contains(line, "http://") || strings.Contains(line, "https://") {
 		return true
@@ -90,7 +87,6 @@ func isExempt(line string, lineNum int, importRanges []lineRange) bool {
 	return isStringLiteralLine(trimmed)
 }
 
-// isStructTagLine reports whether the line contains a struct field tag.
 func isStructTagLine(trimmed string) bool {
 	idx := strings.Index(trimmed, "`")
 	if idx < 0 {
@@ -109,14 +105,12 @@ func isStructTagLine(trimmed string) bool {
 		strings.Contains(tag, `validate:"`)
 }
 
-// paramlessFuncSigRe matches a func name followed by an empty parameter list.
 func paramlessFuncSigRe() *regexp.Regexp {
 	return sync.OnceValue(func() *regexp.Regexp {
 		return regexp.MustCompile(`^func\s+(?:\([^)]*\)\s+)?\w+\(\)`)
 	})()
 }
 
-// isParamlessFuncSig reports whether the line opens a function with no parameters.
 func isParamlessFuncSig(trimmed string) bool {
 	if !paramlessFuncSigRe().MatchString(trimmed) {
 		return false
@@ -124,7 +118,6 @@ func isParamlessFuncSig(trimmed string) bool {
 	return strings.Count(trimmed, "{") != strings.Count(trimmed, "}")
 }
 
-// isStringLiteralLine reports whether the line is mostly a string literal.
 func isStringLiteralLine(trimmed string) bool {
 	if len(trimmed) == 0 {
 		return false

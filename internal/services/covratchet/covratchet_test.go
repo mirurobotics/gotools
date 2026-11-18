@@ -485,7 +485,6 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 	}
 }
 
-// hasProgressLineWith reports whether one line of out contains marker and contains.
 func hasProgressLineWith(out, marker, contains string) bool {
 	for _, line := range strings.Split(out, "\n") {
 		if strings.Contains(line, marker) && strings.Contains(line, contains) {

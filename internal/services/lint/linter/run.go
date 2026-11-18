@@ -28,6 +28,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/nofmt"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/paramcount"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/pkgname"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/privdoc"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/rcvrname"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/straycomment"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/tempdir"
@@ -59,6 +60,7 @@ const (
 	RuleFuncComment   Rule = "funccomment"
 	RuleDocLen        Rule = "doclen"
 	RuleStrayComment  Rule = "straycomment"
+	RulePrivDoc       Rule = "privdoc"
 )
 
 // AllRules returns every valid rule name.
@@ -68,7 +70,7 @@ func AllRules() []Rule {
 		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
 		RuleTypeAssert, RuleParamCount,
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
-		RuleFuncComment, RuleDocLen, RuleStrayComment,
+		RuleFuncComment, RuleDocLen, RuleStrayComment, RulePrivDoc,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
 	}
 }
@@ -117,8 +119,6 @@ type ruleEntry struct {
 	check   func(checkInput) []analysis.Diagnostic
 }
 
-// ruleCheckers returns the dispatch table for every rule except imports.
-//
 //nolint:funclen // dispatch table grows with each new rule
 func ruleCheckers(cfg Config) []ruleEntry {
 	w, tw := cfg.MaxLineWidth, cfg.TabWidth
@@ -175,6 +175,9 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		{RuleStrayComment, false, func(in checkInput) []analysis.Diagnostic {
 			return straycomment.Check(in.fset, in.path, in.f)
 		}},
+		{RulePrivDoc, false, func(in checkInput) []analysis.Diagnostic {
+			return privdoc.Check(in.fset, in.path, in.f)
+		}},
 		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
 			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)
 		}},
@@ -187,7 +190,6 @@ func ruleCheckers(cfg Config) []ruleEntry {
 	}
 }
 
-// runChecks dispatches all rules in the table.
 func runChecks(in checkInput, cfg Config, includeFixable bool) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 	for _, rc := range ruleCheckers(cfg) {
@@ -357,7 +359,6 @@ func processCheckMode(
 	return len(diags), false, nil
 }
 
-// reparse creates a fresh FileSet and re-parses src.
 func reparse(path string, src []byte) (*token.FileSet, *ast.File, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, path, src, parser.ParseComments)

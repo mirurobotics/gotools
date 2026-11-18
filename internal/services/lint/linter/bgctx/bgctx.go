@@ -59,7 +59,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// hasNolint returns true if there is a //nolint:bgctx comment on the given line.
 func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
 	for _, cg := range f.Comments {
 		for _, c := range cg.List {

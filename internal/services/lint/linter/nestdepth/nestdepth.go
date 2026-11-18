@@ -8,7 +8,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// checker holds shared state for a single nest-depth analysis pass.
 type checker struct {
 	fset     *token.FileSet
 	filename string
@@ -54,7 +53,6 @@ func (c *checker) checkBlock(stmts []ast.Stmt, depth int) {
 	}
 }
 
-// deeper checks whether entering a nesting construct would exceed the limit.
 func (c *checker) deeper(pos token.Pos, depth int) (int, bool) {
 	d := depth + 1
 	if d > c.maxDepth {

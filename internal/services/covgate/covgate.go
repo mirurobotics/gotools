@@ -38,13 +38,11 @@ type runner struct {
 	emitProgress       bool
 }
 
-// workItem is a single scheduled measurement.
 type workItem struct {
 	pkg      string
 	testOnly bool
 }
 
-// effectiveParallelism is duplicated in covratchet; keep them in sync.
 func effectiveParallelism(opts Opts) int {
 	if opts.Parallelism > 0 {
 		return opts.Parallelism
@@ -120,7 +118,6 @@ func (r *runner) run(opts Opts) error {
 	return r.printResults(w, results, excluded, module, wallTime)
 }
 
-// findOrphanTests returns test packages under --test-dir with no source package.
 func (r *runner) findOrphanTests(
 	pkgs []string, module string, opts Opts,
 ) ([]string, error) {
@@ -153,7 +150,6 @@ func (r *runner) findOrphanTests(
 	return orphans, nil
 }
 
-// buildWorkItems merges source and orphan test packages, applying --exclude.
 func (r *runner) buildWorkItems(
 	pkgs, orphans []string, exclude string, w io.Writer,
 ) ([]workItem, []string, error) {
@@ -176,7 +172,6 @@ func (r *runner) buildWorkItems(
 	return items, excluded, nil
 }
 
-// applyExclude splits pkgs into kept and excluded, preserving order.
 func (r *runner) applyExclude(
 	pkgs []string, exclude string, w io.Writer,
 ) (kept []string, excluded []string, err error) {
@@ -255,7 +250,6 @@ func (r *runner) runPackages(
 	return results
 }
 
-// writeRunHeader writes the announce line and the matching table header.
 func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
 	if !r.emitProgress {
 		printHeader(w)
@@ -268,13 +262,10 @@ func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
 	printProgressHeader(w, total)
 }
 
-// progressColWidth returns the width of the COUNT column for total packages.
 func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
 
-// firstLine returns the first line of s, including the trailing newline.
 func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
 
-// restOfOutput returns everything after the first '\n' in s.
 func restOfOutput(s string) string { return s[strings.IndexByte(s, '\n')+1:] }
 
 func (r *runner) printResults(
@@ -330,7 +321,6 @@ func printHeader(w io.Writer) {
 	)
 }
 
-// printProgressHeader prints the table header used during the live progress stream.
 func printProgressHeader(w io.Writer, total int) {
 	cw := progressColWidth(total)
 	dashes := strings.Repeat("-", cw)
@@ -346,14 +336,12 @@ func printProgressHeader(w io.Writer, total int) {
 	)
 }
 
-// checkResult holds the output and pass/fail status for a single package check.
 type checkResult struct {
-	output   string // formatted line(s) to print
+	output   string
 	passed   bool
 	duration time.Duration
 }
 
-// checkPackageCtx holds the per-run constants passed to checkPackage.
 type checkPackageCtx struct {
 	module             string
 	srcPrefix          string
@@ -421,7 +409,6 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 	return checkResult{b.String(), true, elapsed}
 }
 
-// checkTestOnly runs a test-only package without coverage instrumentation.
 func (r *runner) checkTestOnly(pkg string, ctx checkPackageCtx) checkResult {
 	relPkg := gocover.RelPkg(pkg, ctx.module)
 
@@ -449,7 +436,6 @@ func (r *runner) checkTestOnly(pkg string, ctx checkPackageCtx) checkResult {
 	return checkResult{b.String(), true, elapsed}
 }
 
-// skippedRow formats a SKIPPED row for a package removed by --exclude.
 func skippedRow(relPkg string) string {
 	return fmt.Sprintf(
 		"%-7s  %8s  %8s  %8s  %s\n",

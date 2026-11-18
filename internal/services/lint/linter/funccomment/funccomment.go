@@ -33,7 +33,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// exampleBodies returns the bodies of Example functions in a test file.
 func exampleBodies(filename string, f *ast.File) []*ast.BlockStmt {
 	if !analysis.IsTestFile(filename) {
 		return nil
@@ -48,7 +47,6 @@ func exampleBodies(filename string, f *ast.File) []*ast.BlockStmt {
 	return bodies
 }
 
-// isOutput reports whether cg is an example output block, matched as go/doc does.
 func isOutput(cg *ast.CommentGroup) bool {
 	text := strings.ToLower(strings.TrimSpace(cg.Text()))
 	return strings.HasPrefix(text, "output:") ||

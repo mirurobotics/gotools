@@ -29,7 +29,6 @@ type runner struct {
 	emitProgress   bool
 }
 
-// effectiveParallelism is duplicated in covgate; keep them in sync.
 func effectiveParallelism(opts Opts) int {
 	if opts.Parallelism > 0 {
 		return opts.Parallelism
@@ -102,7 +101,6 @@ func (r *runner) run(opts Opts) error {
 	return nil
 }
 
-// writeRunHeader writes the announce line and the matching table header.
 func (r *runner) writeRunHeader(w io.Writer, total, parallelism int) {
 	if !r.emitProgress {
 		printHeader(w)
@@ -126,7 +124,6 @@ func printHeader(w io.Writer) {
 	)
 }
 
-// printProgressHeader prints the table header used during the live progress stream.
 func printProgressHeader(w io.Writer, total int) {
 	cw := progressColWidth(total)
 	dashes := strings.Repeat("-", cw)
@@ -140,13 +137,10 @@ func printProgressHeader(w io.Writer, total int) {
 	)
 }
 
-// progressColWidth returns the width of the COUNT column for total packages.
 func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
 
-// firstLine returns the first line of s, including the trailing newline.
 func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
 
-// ratchetCtx holds the per-run constants threaded into ratchetPackage.
 type ratchetCtx struct {
 	module    string
 	srcPrefix string
@@ -186,7 +180,6 @@ func (r *runner) runPackages(
 	return results
 }
 
-// ratchetResult holds the output and counts for a single package ratchet.
 type ratchetResult struct {
 	output    string
 	updated   int

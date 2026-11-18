@@ -76,7 +76,6 @@ func Check(
 	return diags
 }
 
-// hasNolint reports a //nolint:funclen comment on line or the line before.
 func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
 	for _, cg := range f.Comments {
 		for _, c := range cg.List {
@@ -90,7 +89,6 @@ func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
 	return false
 }
 
-// countLines counts the non-blank, non-comment lines inside body.
 func countLines(fset *token.FileSet, body *ast.BlockStmt, allLines [][]byte) int {
 	startLine := fset.Position(body.Lbrace).Line
 	endLine := fset.Position(body.Rbrace).Line

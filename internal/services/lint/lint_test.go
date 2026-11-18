@@ -13,7 +13,6 @@ import (
 	"time"
 )
 
-// writeScript writes an executable shell script and returns its path.
 func writeScript(t *testing.T, name, body string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
@@ -24,14 +23,12 @@ func writeScript(t *testing.T, name, body string) string {
 	return path
 }
 
-// fakeGolangci writes a golangci-lint stand-in that exits with exitCode.
 func fakeGolangci(t *testing.T, exitCode int) string {
 	t.Helper()
 	body := "echo \"GOOS=$GOOS GOWORK=$GOWORK args=$*\"\n"
 	return writeScript(t, "golangci-lint", body+fmt.Sprintf("exit %d\n", exitCode))
 }
 
-// fakeGoTool puts a go stand-in on PATH that prints bin for `go tool -n`.
 func fakeGoTool(t *testing.T, bin string) {
 	t.Helper()
 	body := "if [ \"$*\" = \"tool -n golangci-lint\" ]; then\n" +

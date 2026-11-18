@@ -8,7 +8,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// banned returns the set of package.Function names that are disallowed.
 func banned() map[string]bool {
 	return map[string]bool{
 		"fmt.Print":   true,
@@ -23,7 +22,6 @@ func banned() map[string]bool {
 	}
 }
 
-// builtinBanned returns the set of bare builtin print functions.
 func builtinBanned() map[string]bool {
 	return map[string]bool{"print": true, "println": true}
 }
@@ -85,7 +83,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// hasNolint returns true if there is a //nolint:nofmt comment on the same line as pos.
 func hasNolint(fset *token.FileSet, f *ast.File, pos token.Pos) bool {
 	line := fset.Position(pos).Line
 	for _, cg := range f.Comments {

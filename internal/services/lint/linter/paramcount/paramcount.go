@@ -61,7 +61,6 @@ func Check(
 	return diags
 }
 
-// countParams returns the number of parameters, excluding context.Context.
 func countParams(params *ast.FieldList, ctxPkg string) int {
 	count := 0
 	for _, field := range params.List {

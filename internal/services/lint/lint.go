@@ -109,7 +109,6 @@ func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming)
 	return failures, timings
 }
 
-// goosTargets splits raw into unique targets, dropping blanks and the host GOOS.
 func goosTargets(raw string) []string {
 	var targets []string
 	seen := map[string]bool{runtime.GOOS: true}
@@ -124,7 +123,6 @@ func goosTargets(raw string) []string {
 	return targets
 }
 
-// runAnalyzers runs golangci-lint and deadcode.
 func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
 	runGolangci := !opts.NoGolangci
 	runDeadcode := opts.Deadcode
@@ -296,7 +294,6 @@ func golangciArgs(newFromRev string) []string {
 	return args
 }
 
-// hostToolPath builds a host go tool; GOCACHEPROG= avoids a temporary path.
 func hostToolPath(name string) (string, error) {
 	cmd := cmdutil.GoCommand("tool", "-n", name)
 	cmd.Env = append(cmd.Env,

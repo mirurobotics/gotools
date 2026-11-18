@@ -46,7 +46,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// testingPkgName returns the local name of the testing import, or "".
 func testingPkgName(f *ast.File) string {
 	for _, imp := range f.Imports {
 		if imp.Path.Value != `"testing"` {
@@ -60,7 +59,6 @@ func testingPkgName(f *ast.File) string {
 	return ""
 }
 
-// handleNames returns the identifier names declared with a testing handle type.
 func handleNames(f *ast.File, pkg string) map[string]bool {
 	names := make(map[string]bool)
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -76,7 +74,6 @@ func handleNames(f *ast.File, pkg string) map[string]bool {
 	return names
 }
 
-// isHandleType reports whether expr is a testing handle type.
 func isHandleType(expr ast.Expr, pkg string) bool {
 	if star, ok := expr.(*ast.StarExpr); ok {
 		expr = star.X
@@ -99,7 +96,6 @@ func isHandleType(expr ast.Expr, pkg string) bool {
 	return false
 }
 
-// baseName returns the identifier a selector's receiver resolves to, or "".
 func baseName(expr ast.Expr) string {
 	switch x := expr.(type) {
 	case *ast.Ident:
@@ -110,7 +106,6 @@ func baseName(expr ast.Expr) string {
 	return ""
 }
 
-// hasNolint returns true if there is a //nolint:tempdir comment on the given line.
 func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
 	for _, cg := range f.Comments {
 		for _, c := range cg.List {

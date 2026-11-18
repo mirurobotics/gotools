@@ -66,7 +66,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// firstParamIsTesting reports whether the first parameter is a testing type.
 func firstParamIsTesting(params *ast.FieldList) bool {
 	typ := params.List[0].Type
 	star, ok := typ.(*ast.StarExpr)
