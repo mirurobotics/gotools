@@ -113,6 +113,18 @@ func f() {}
 `,
 			wantLines: []int{5},
 		},
+		{
+			name: "comment in function signature flagged",
+			src: `package foo
+
+func f(
+	// a is documented.
+	a int,
+) {
+}
+`,
+			wantLines: []int{4},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
