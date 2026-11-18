@@ -16,9 +16,10 @@ func Check(
 	fset *token.FileSet, filename string, f *ast.File, src []byte,
 ) []analysis.Diagnostic {
 	outputs := analysis.ExampleOutputs(filename, f)
+	preambles := cgoPreambles(f)
 	var diags []analysis.Diagnostic
 	for _, cg := range f.Comments {
-		if outputs[cg] || isTrailing(fset, src, cg) {
+		if outputs[cg] || preambles[cg] || isTrailing(fset, src, cg) {
 			continue
 		}
 		if c := findCode(cg); c != nil {
@@ -38,65 +39,113 @@ func isTrailing(fset *token.FileSet, src []byte, cg *ast.CommentGroup) bool {
 	return strings.TrimSpace(string(src[start:off])) != ""
 }
 
+// line is one line of comment text with the comment it came from.
+type line struct {
+	c        *ast.Comment
+	text     string
+	indented bool
+}
+
+// findCode tries each run whole, then its unindented lines one at a time.
 func findCode(cg *ast.CommentGroup) *ast.Comment {
 	for _, run := range runs(cg) {
 		if isCode(joinText(run)) {
-			return run[0]
+			return run[0].c
 		}
 		if len(run) == 1 {
 			continue
 		}
-		for _, c := range run {
-			if isCode(text(c)) {
-				return c
+		for _, l := range run {
+			if !l.indented && isCode(l.text) {
+				return l.c
 			}
 		}
 	}
 	return nil
 }
 
-// runs splits a group into line-comment runs, breaking at directives and indents.
-func runs(cg *ast.CommentGroup) [][]*ast.Comment {
-	var out [][]*ast.Comment
-	var cur []*ast.Comment
-	flush := func() {
-		if len(cur) > 0 {
-			out = append(out, cur)
-			cur = nil
-		}
-	}
+// runs splits a group into runs of comment lines, breaking at directives.
+func runs(cg *ast.CommentGroup) [][]line {
+	var out [][]line
+	var cur []line
 	for _, c := range cg.List {
-		switch {
-		case analysis.IsDirective(c.Text) || isIndented(c.Text):
-			flush()
-		case strings.HasPrefix(c.Text, "/*"):
-			flush()
-			out = append(out, []*ast.Comment{c})
-		default:
-			cur = append(cur, c)
+		if analysis.IsDirective(c.Text) {
+			if len(cur) > 0 {
+				out = append(out, cur)
+			}
+			cur = nil
+			continue
 		}
+		cur = append(cur, lines(c)...)
 	}
-	flush()
+	if len(cur) > 0 {
+		out = append(out, cur)
+	}
 	return out
 }
 
-func isIndented(t string) bool {
-	return strings.HasPrefix(t, "//\t") || strings.HasPrefix(t, "//  ")
+func lines(c *ast.Comment) []line {
+	if body, ok := strings.CutPrefix(c.Text, "/*"); ok {
+		texts := strings.Split(strings.TrimSuffix(body, "*/"), "\n")
+		prefix := commonIndent(texts[1:])
+		out := make([]line, len(texts))
+		for i, t := range texts {
+			t = strings.TrimPrefix(t, prefix)
+			out[i] = line{c: c, text: t, indented: isIndented(t)}
+		}
+		return out
+	}
+	body := strings.TrimPrefix(c.Text, "//")
+	text := strings.TrimPrefix(body, " ")
+	return []line{{c: c, text: text, indented: isIndented(body)}}
 }
 
-func text(c *ast.Comment) string {
-	if strings.HasPrefix(c.Text, "/*") {
-		return strings.TrimSuffix(strings.TrimPrefix(c.Text, "/*"), "*/")
-	}
-	return strings.TrimPrefix(strings.TrimPrefix(c.Text, "//"), " ")
+func isIndented(s string) bool {
+	return strings.HasPrefix(s, "\t") || strings.HasPrefix(s, "  ")
 }
 
-func joinText(run []*ast.Comment) string {
-	lines := make([]string, len(run))
-	for i, c := range run {
-		lines[i] = text(c)
+// commonIndent returns the leading whitespace shared by every non-blank line.
+func commonIndent(texts []string) string {
+	prefix, first := "", true
+	for _, t := range texts {
+		if strings.TrimSpace(t) == "" {
+			continue
+		}
+		ws := t[:len(t)-len(strings.TrimLeft(t, " \t"))]
+		if first {
+			prefix, first = ws, false
+		}
+		for !strings.HasPrefix(ws, prefix) {
+			prefix = prefix[:len(prefix)-1]
+		}
 	}
-	return strings.Join(lines, "\n")
+	return prefix
+}
+
+// cgoPreambles returns the comment groups that hold cgo preambles.
+func cgoPreambles(f *ast.File) map[*ast.CommentGroup]bool {
+	m := map[*ast.CommentGroup]bool{}
+	for _, decl := range f.Decls {
+		gd, ok := decl.(*ast.GenDecl)
+		if !ok || gd.Tok != token.IMPORT {
+			continue
+		}
+		for _, spec := range gd.Specs {
+			is, ok := spec.(*ast.ImportSpec)
+			if ok && is.Path.Value == `"C"` {
+				m[gd.Doc], m[is.Doc] = true, true
+			}
+		}
+	}
+	return m
+}
+
+func joinText(run []line) string {
+	texts := make([]string, len(run))
+	for i, l := range run {
+		texts[i] = l.text
+	}
+	return strings.Join(texts, "\n")
 }
 
 func isCode(s string) bool {
@@ -117,16 +166,24 @@ func isStmts(s string) bool {
 	if err != nil {
 		return false
 	}
-	fn, ok := f.Decls[0].(*ast.FuncDecl)
-	if !ok {
-		return false
-	}
-	for _, st := range fn.Body.List {
+	body := firstBody(f)
+	for _, st := range body.List {
 		if !plausible(st) {
 			return false
 		}
 	}
-	return hasCodeNode(fn.Body)
+	return hasCodeNode(body)
+}
+
+func firstBody(f *ast.File) *ast.BlockStmt {
+	var body *ast.BlockStmt
+	ast.Inspect(f, func(n ast.Node) bool {
+		if fd, ok := n.(*ast.FuncDecl); ok && body == nil {
+			body = fd.Body
+		}
+		return body == nil
+	})
+	return body
 }
 
 // plausible rejects statements that parse but cannot compile, as prose often does.
@@ -138,12 +195,22 @@ func plausible(st ast.Stmt) bool {
 		return isCallOrRecv(x.X)
 	case *ast.AssignStmt:
 		for _, e := range x.Lhs {
-			if _, ok := e.(*ast.CallExpr); ok {
+			if !isAssignable(e) {
 				return false
 			}
 		}
 	}
 	return true
+}
+
+func isAssignable(e ast.Expr) bool {
+	switch x := e.(type) {
+	case *ast.Ident, *ast.SelectorExpr, *ast.IndexExpr, *ast.StarExpr:
+		return true
+	case *ast.ParenExpr:
+		return isAssignable(x.X)
+	}
+	return false
 }
 
 func isCallOrRecv(e ast.Expr) bool {

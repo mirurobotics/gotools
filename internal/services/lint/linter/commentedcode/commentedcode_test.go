@@ -49,23 +49,42 @@ func f() {
 			wantLines: []int{5},
 		},
 		{
-			name: "block comment and control flow flagged",
+			name: "block comments and control flow flagged",
 			src: `package foo
 
 /*
-if ok {
+		if ok {
 	go run()
 }
 */
 
 func f(ch chan int) {
 	/* ch <- 1 */
-	// (close(ch))
+
+	/* old way:
+	cleanup(true)
+
+	*/
+
 	// for i := range ch {}
-	// <-ch
+
+	// switch {}
 }
 `,
-			wantLines: []int{3, 10},
+			wantLines: []int{3, 10, 12, 17, 19},
+		},
+		{
+			name: "gofmt'd and column-zero toggled code flagged",
+			src: `package foo
+
+// func old() {
+//	println("hi")
+// }
+
+//	x := 1
+//	return x
+`,
+			wantLines: []int{3, 7},
 		},
 		{
 			name: "parenthesized call and receive flagged",
@@ -74,8 +93,13 @@ func f(ch chan int) {
 // (run())
 
 // <-done
+
+// (*p), q.x, a[0] = 1, 2, 3
+
+// prev :=
+//	cur
 `,
-			wantLines: []int{3, 5},
+			wantLines: []int{3, 5, 7, 9},
 		},
 		{
 			name: "prose and doc comments allowed",
@@ -92,6 +116,7 @@ package foo
 // fmt.Println
 // x.y
 // Get(k) = v
+// extension-method = token
 // deprecated
 //
 func F() {}
@@ -107,14 +132,40 @@ const n = 20 // len(fmt.Sprint(x))
 // Example:
 //	F()
 //  x := F()
+// nolint(all)
 //go:generate go run gen.go
-//nolint:all
 
 func ExampleF() {
 	println("a")
 	// Output:
 	// x = 1
 }
+`,
+			wantLines: nil,
+		},
+		{
+			name: "block docs with indented examples and cgo preambles skipped",
+			src: `/*
+Package foo does things.
+
+	x := foo.New()
+	x.Run()
+*/
+package foo
+
+/*
+#include <stdio.h>
+static int x = 1;
+void f() { x++; }
+*/
+import "C"
+
+import (
+	/*
+	int y = 2;
+	*/
+	"C"
+)
 `,
 			wantLines: nil,
 		},
