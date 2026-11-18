@@ -974,7 +974,8 @@ package foo
 		t.Fatal(err)
 	}
 	out := cfg.Out.(*strings.Builder).String()
-	if diags != 1 || !strings.Contains(out, "doc.go:1: doc comment is 3 lines (limit 2)") {
+	want := "doc.go:1: doc comment is 3 lines (limit 2)"
+	if diags != 1 || !strings.Contains(out, want) {
 		t.Errorf("got %d diagnostics, want doc.go:1:\n%s", diags, out)
 	}
 }
