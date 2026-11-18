@@ -14,7 +14,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/bgctx"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/collapse"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/ctxpos"
-	"github.com/mirurobotics/gotools/internal/services/lint/linter/docfile"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/doclen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/errfmt"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funccomment"
@@ -59,7 +58,6 @@ const (
 	RuleTempDir       Rule = "tempdir"
 	RuleFuncComment   Rule = "funccomment"
 	RuleDocLen        Rule = "doclen"
-	RuleDocFile       Rule = "docfile"
 	RuleStrayComment  Rule = "straycomment"
 )
 
@@ -70,23 +68,23 @@ func AllRules() []Rule {
 		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
 		RuleTypeAssert, RuleParamCount,
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
-		RuleFuncComment, RuleDocLen, RuleDocFile, RuleStrayComment,
+		RuleFuncComment, RuleDocLen, RuleStrayComment,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
 	}
 }
 
 // Config holds linter configuration.
 type Config struct {
-	MaxLineWidth  int
-	TabWidth      int
-	MaxFuncLen    int
-	MaxNestDepth  int
-	MaxParamCount int
-	MaxDocLines   int
-	MaxDocFile    int
-	Exclude       map[Rule]bool
-	Out           io.Writer
-	Err           io.Writer
+	MaxLineWidth    int
+	TabWidth        int
+	MaxFuncLen      int
+	MaxNestDepth    int
+	MaxParamCount   int
+	MaxDocLines     int
+	MaxDocFileLines int
+	Exclude         map[Rule]bool
+	Out             io.Writer
+	Err             io.Writer
 }
 
 func (c Config) runRule(r Rule) bool { return !c.Exclude[r] }
@@ -171,10 +169,8 @@ func ruleCheckers(cfg Config) []ruleEntry {
 			return funccomment.Check(in.fset, in.path, in.f)
 		}},
 		{RuleDocLen, false, func(in checkInput) []analysis.Diagnostic {
-			return doclen.Check(in.fset, in.path, in.f, cfg.MaxDocLines)
-		}},
-		{RuleDocFile, false, func(in checkInput) []analysis.Diagnostic {
-			return docfile.Check(in.path, in.src, cfg.MaxDocFile)
+			lim := doclen.Limits{Doc: cfg.MaxDocLines, DocGoPkg: cfg.MaxDocFileLines}
+			return doclen.Check(in.fset, in.path, in.f, lim)
 		}},
 		{RuleStrayComment, false, func(in checkInput) []analysis.Diagnostic {
 			return straycomment.Check(in.fset, in.path, in.f)

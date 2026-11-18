@@ -11,16 +11,16 @@ import (
 )
 
 var defaultCfg = Config{
-	MaxLineWidth:  88,
-	TabWidth:      4,
-	MaxFuncLen:    0,
-	MaxNestDepth:  0,
-	MaxParamCount: 0,
-	MaxDocLines:   0,
-	MaxDocFile:    0,
-	Exclude:       nil,
-	Out:           io.Discard,
-	Err:           io.Discard,
+	MaxLineWidth:    88,
+	TabWidth:        4,
+	MaxFuncLen:      0,
+	MaxNestDepth:    0,
+	MaxParamCount:   0,
+	MaxDocLines:     0,
+	MaxDocFileLines: 0,
+	Exclude:         nil,
+	Out:             io.Discard,
+	Err:             io.Discard,
 }
 
 func TestDiagnostic_String(t *testing.T) {
@@ -306,16 +306,16 @@ func f() {
 	writeFile(t, dir+"/test.go", src)
 
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		MaxDocLines:   0,
-		MaxDocFile:    0,
-		Exclude:       nil,
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -366,16 +366,16 @@ func Code() int {
 	writeFile(t, dir+"/test.go", src)
 
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		MaxDocLines:   0,
-		MaxDocFile:    0,
-		Exclude:       nil,
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -660,16 +660,16 @@ func NewScope(
 	writeFile(t, dir+"/test.go", src)
 
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		MaxDocLines:   0,
-		MaxDocFile:    0,
-		Exclude:       nil,
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -708,16 +708,16 @@ func Process(
 	writeFile(t, dir+"/test.go", src)
 
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		MaxDocLines:   0,
-		MaxDocFile:    0,
-		Exclude:       nil,
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	_, fixed, err := Run(dir, true, cfg)
 	if err != nil {
@@ -757,16 +757,16 @@ func Get(
 	writeFile(t, dir+"/test.go", src)
 
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		MaxDocLines:   0,
-		MaxDocFile:    0,
-		Exclude:       nil,
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	diags, fixed, err := Run(dir, false, cfg)
 	if err != nil {
@@ -816,16 +816,16 @@ import (
 func f() { _ = strings.ToUpper(os.Getenv("X")) }
 `)
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		MaxDocLines:   0,
-		MaxDocFile:    0,
-		Exclude:       map[Rule]bool{RulePkgName: true, RuleImports: true},
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         map[Rule]bool{RulePkgName: true, RuleImports: true},
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	diags, _, err := Run(dir, false, cfg)
 	if err != nil {
@@ -848,16 +848,16 @@ import (
 func f() { _ = strings.ToUpper(os.Getenv("X")) }
 `)
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		MaxDocLines:   0,
-		MaxDocFile:    0,
-		Exclude:       map[Rule]bool{RuleImports: true},
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         map[Rule]bool{RuleImports: true},
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	diags, _, err := Run(dir, false, cfg)
 	if err != nil {
@@ -880,16 +880,16 @@ import (
 func f() { _ = strings.ToUpper(os.Getenv("X")) }
 `)
 	cfg := Config{
-		MaxLineWidth:  88,
-		TabWidth:      4,
-		MaxFuncLen:    0,
-		MaxNestDepth:  0,
-		MaxParamCount: 0,
-		MaxDocLines:   0,
-		MaxDocFile:    0,
-		Exclude:       map[Rule]bool{RulePkgName: true},
-		Out:           io.Discard,
-		Err:           io.Discard,
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         map[Rule]bool{RulePkgName: true},
+		Out:             io.Discard,
+		Err:             io.Discard,
 	}
 	diags, fixed, err := Run(dir, true, cfg)
 	if err != nil {

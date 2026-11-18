@@ -90,8 +90,8 @@ func bindLinterConfigFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
 		"maximum lines in a doc comment, excluding directives",
 	)
 	fl.IntVar(
-		&flags.MaxDocFile, "max-doc-file", 20,
-		"maximum non-blank lines in a doc.go file",
+		&flags.MaxDocFileLines, "max-doc-file-lines", 20,
+		"maximum lines in the package doc comment of a doc.go file",
 	)
 	fl.StringVar(
 		&flags.Exclude, "exclude", "",

@@ -11,15 +11,15 @@ import (
 
 // LinterFlags holds the linter flags shared by check and lint.
 type LinterFlags struct {
-	MaxLineWidth  int
-	TabWidth      int
-	MaxFuncLen    int
-	MaxNestDepth  int
-	MaxParamCount int
-	MaxDocLines   int
-	MaxDocFile    int
-	Exclude       string
-	Rule          string
+	MaxLineWidth    int
+	TabWidth        int
+	MaxFuncLen      int
+	MaxNestDepth    int
+	MaxParamCount   int
+	MaxDocLines     int
+	MaxDocFileLines int
+	Exclude         string
+	Rule            string
 }
 
 // CheckOpts holds the options for the check command.
@@ -73,14 +73,14 @@ func BuildLinterConfig(flags LinterFlags) (linter.Config, error) {
 
 	//nolint:exhaustruct // Out/Err set after construction
 	return linter.Config{
-		MaxLineWidth:  flags.MaxLineWidth,
-		TabWidth:      flags.TabWidth,
-		MaxFuncLen:    flags.MaxFuncLen,
-		MaxNestDepth:  flags.MaxNestDepth,
-		MaxParamCount: flags.MaxParamCount,
-		MaxDocLines:   flags.MaxDocLines,
-		MaxDocFile:    flags.MaxDocFile,
-		Exclude:       excl,
+		MaxLineWidth:    flags.MaxLineWidth,
+		TabWidth:        flags.TabWidth,
+		MaxFuncLen:      flags.MaxFuncLen,
+		MaxNestDepth:    flags.MaxNestDepth,
+		MaxParamCount:   flags.MaxParamCount,
+		MaxDocLines:     flags.MaxDocLines,
+		MaxDocFileLines: flags.MaxDocFileLines,
+		Exclude:         excl,
 	}, nil
 }
 

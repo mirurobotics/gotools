@@ -101,6 +101,8 @@ func TestNewCheckCommand_Flags(t *testing.T) {
 		{"max-func-len", "int"},
 		{"max-nest-depth", "int"},
 		{"max-param-count", "int"},
+		{"max-doc-lines", "int"},
+		{"max-doc-file-lines", "int"},
 		{"exclude", "string"},
 		{"rule", "string"},
 	}
@@ -146,11 +148,13 @@ func TestNewCheckCommand_FlagDefaults(t *testing.T) {
 	}
 
 	intDefaults := map[string]int{
-		"max-line-width":  88,
-		"tab-width":       4,
-		"max-func-len":    50,
-		"max-nest-depth":  4,
-		"max-param-count": 6,
+		"max-line-width":     88,
+		"tab-width":          4,
+		"max-func-len":       50,
+		"max-nest-depth":     4,
+		"max-param-count":    6,
+		"max-doc-lines":      1,
+		"max-doc-file-lines": 20,
 	}
 	for name, want := range intDefaults {
 		got, err := fl.GetInt(name)
@@ -214,6 +218,8 @@ func TestNewLintCommand_Flags(t *testing.T) {
 		{"max-func-len", "int"},
 		{"max-nest-depth", "int"},
 		{"max-param-count", "int"},
+		{"max-doc-lines", "int"},
+		{"max-doc-file-lines", "int"},
 		{"exclude", "string"},
 		{"rule", "string"},
 	}
@@ -288,11 +294,13 @@ func TestNewLintCommand_FlagDefaults(t *testing.T) {
 	}
 
 	intDefaults := map[string]int{
-		"max-line-width":  88,
-		"tab-width":       4,
-		"max-func-len":    50,
-		"max-nest-depth":  4,
-		"max-param-count": 6,
+		"max-line-width":     88,
+		"tab-width":          4,
+		"max-func-len":       50,
+		"max-nest-depth":     4,
+		"max-param-count":    6,
+		"max-doc-lines":      1,
+		"max-doc-file-lines": 20,
 	}
 	for name, want := range intDefaults {
 		got, err := fl.GetInt(name)
@@ -777,6 +785,8 @@ func TestSharedLinterFlags_ConsistentBetweenCheckAndLint(t *testing.T) {
 		"max-func-len",
 		"max-nest-depth",
 		"max-param-count",
+		"max-doc-lines",
+		"max-doc-file-lines",
 		"exclude",
 		"rule",
 	}

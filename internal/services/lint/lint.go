@@ -264,7 +264,7 @@ func RunGolangci(out io.Writer, errW io.Writer, newFromRev string) error {
 	return nil
 }
 
-// RunGolangciGOOS runs golangci-lint with GOOS set to goos.
+// RunGolangciGOOS runs a host-built golangci-lint with GOOS set to goos.
 func RunGolangciGOOS(out io.Writer, errW io.Writer, newFromRev, goos string) error {
 	_, _ = fmt.Fprintf(out, "Running golangci-lint for %s...\n", goos)
 	bin, err := hostToolPath("golangci-lint")
@@ -296,7 +296,7 @@ func golangciArgs(newFromRev string) []string {
 	return args
 }
 
-// hostToolPath builds the named go tool for the host and returns its binary path.
+// hostToolPath builds a host go tool; GOCACHEPROG= avoids a temporary path.
 func hostToolPath(name string) (string, error) {
 	cmd := cmdutil.GoCommand("tool", "-n", name)
 	cmd.Env = append(cmd.Env,

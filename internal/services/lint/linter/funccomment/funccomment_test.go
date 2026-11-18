@@ -74,6 +74,10 @@ func Example() {
 	// 1
 }
 
+var x = 1
+
+func ExampleExternal()
+
 func ExampleUnordered() {
 	println(1)
 	// Unordered output:

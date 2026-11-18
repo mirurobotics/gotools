@@ -8,6 +8,11 @@ func IsDirective(text string) bool {
 		return true
 	}
 	body := strings.TrimSpace(strings.TrimPrefix(text, "//"))
+	for _, cgo := range []string{"//export ", "//extern ", "//line "} {
+		if strings.HasPrefix(text, cgo) {
+			return true
+		}
+	}
 	return strings.HasPrefix(body, "nolint") ||
 		strings.HasPrefix(body, "#nosec") ||
 		strings.HasPrefix(body, "+build")

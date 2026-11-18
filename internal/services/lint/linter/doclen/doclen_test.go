@@ -11,7 +11,7 @@ func TestCheck(t *testing.T) {
 		name      string
 		filename  string
 		src       string
-		maxLines  int
+		lim       Limits
 		wantLines []int
 		wantMsg   string
 	}{
@@ -24,7 +24,7 @@ func TestCheck(t *testing.T) {
 // And explains it at length.
 func F() {}
 `,
-			maxLines:  1,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
 			wantLines: []int{3},
 			wantMsg:   "doc comment is 2 lines (limit 1)",
 		},
@@ -46,7 +46,7 @@ type T struct {
 	A int // trailing
 }
 `,
-			maxLines:  1,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
 			wantLines: nil,
 			wantMsg:   "",
 		},
@@ -69,7 +69,7 @@ const (
 	C = 1
 )
 `,
-			maxLines:  1,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
 			wantLines: []int{3, 6, 12},
 			wantMsg:   "",
 		},
@@ -82,7 +82,7 @@ const (
 and more. */
 func F() {}
 `,
-			maxLines:  1,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
 			wantLines: []int{3},
 			wantMsg:   "",
 		},
@@ -93,7 +93,7 @@ func F() {}
 // At length.
 package foo
 `,
-			maxLines:  1,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
 			wantLines: []int{1},
 			wantMsg:   "",
 		},
@@ -104,7 +104,7 @@ package foo
 // At length.
 package foo
 `,
-			maxLines:  1,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
 			wantLines: nil,
 			wantMsg:   "",
 		},
@@ -117,7 +117,41 @@ package foo
 // And explains it.
 func F() {}
 `,
-			maxLines:  2,
+			lim:       Limits{Doc: 2, DocGoPkg: 20},
+			wantLines: nil,
+			wantMsg:   "",
+		},
+		{
+			name:     "doc.go package doc over its own limit flagged",
+			filename: "pkg/doc.go",
+			src: `// Copyright header.
+// Not counted.
+
+// Package foo does things.
+// At length.
+// And more.
+package foo
+`,
+			lim:       Limits{Doc: 1, DocGoPkg: 2},
+			wantLines: []int{4},
+			wantMsg:   "doc comment is 3 lines (limit 2)",
+		},
+		{
+			name:     "cgo preamble and export directive skipped",
+			filename: "foo.go",
+			src: `package foo
+
+// #include <stdio.h>
+// #cgo LDFLAGS: -lm
+// static int one() { return 1; }
+import "C"
+
+// F is exported to C.
+//
+//export F
+func F() {}
+`,
+			lim:       Limits{Doc: 1, DocGoPkg: 20},
 			wantLines: nil,
 			wantMsg:   "",
 		},
@@ -130,7 +164,7 @@ func F() {}
 // And explains it.
 func F() {}
 `,
-			maxLines:  0,
+			lim:       Limits{Doc: 0, DocGoPkg: 20},
 			wantLines: nil,
 			wantMsg:   "",
 		},
@@ -142,7 +176,7 @@ func F() {}
 			if err != nil {
 				t.Fatal(err)
 			}
-			diags := Check(fset, tt.filename, f, tt.maxLines)
+			diags := Check(fset, tt.filename, f, tt.lim)
 			if len(diags) != len(tt.wantLines) {
 				t.Fatalf(
 					"got %d diagnostics, want %d: %v",

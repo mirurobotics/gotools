@@ -12,31 +12,15 @@ const message = "comments are not allowed inside function bodies"
 
 // Check reports each non-directive comment inside a function body.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	var bodies []*ast.BlockStmt
-	exempt := map[*ast.CommentGroup]bool{}
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch fn := n.(type) {
-		case *ast.FuncDecl:
-			if fn.Body == nil {
-				return true
-			}
-			bodies = append(bodies, fn.Body)
-			if isExample(filename, fn) {
-				markOutput(f, fn.Body, exempt)
-			}
-		case *ast.FuncLit:
-			bodies = append(bodies, fn.Body)
-		}
-		return true
-	})
-
+	bodies := analysis.FuncBodies(f)
+	exempt := exampleOutputs(filename, f)
 	var diags []analysis.Diagnostic
 	for _, cg := range f.Comments {
 		if exempt[cg] {
 			continue
 		}
 		for _, c := range cg.List {
-			if analysis.IsDirective(c.Text) || !inAny(c.Pos(), bodies) {
+			if analysis.IsDirective(c.Text) || !analysis.InAnyBody(c.Pos(), bodies) {
 				continue
 			}
 			diags = append(diags, analysis.Diagnostic{
@@ -49,30 +33,27 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// isExample reports whether fn is an Example function in a test file.
-func isExample(filename string, fn *ast.FuncDecl) bool {
-	return analysis.IsTestFile(filename) && strings.HasPrefix(fn.Name.Name, "Example")
-}
-
-// markOutput exempts the example output comment groups in body.
-func markOutput(f *ast.File, body *ast.BlockStmt, exempt map[*ast.CommentGroup]bool) {
-	for _, cg := range f.Comments {
-		if cg.Pos() <= body.Lbrace || cg.Pos() >= body.Rbrace {
+// exampleOutputs returns the Output comment groups of Example functions in tests.
+func exampleOutputs(filename string, f *ast.File) map[*ast.CommentGroup]bool {
+	exempt := map[*ast.CommentGroup]bool{}
+	if !analysis.IsTestFile(filename) {
+		return exempt
+	}
+	for _, decl := range f.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Body == nil || !strings.HasPrefix(fn.Name.Name, "Example") {
 			continue
 		}
-		text := strings.TrimSpace(cg.Text())
-		if strings.HasPrefix(text, "Output:") ||
-			strings.HasPrefix(text, "Unordered output:") {
-			exempt[cg] = true
+		for _, cg := range f.Comments {
+			if !analysis.InAnyBody(cg.Pos(), []*ast.BlockStmt{fn.Body}) {
+				continue
+			}
+			text := strings.TrimSpace(cg.Text())
+			if strings.HasPrefix(text, "Output:") ||
+				strings.HasPrefix(text, "Unordered output:") {
+				exempt[cg] = true
+			}
 		}
 	}
-}
-
-func inAny(pos token.Pos, bodies []*ast.BlockStmt) bool {
-	for _, b := range bodies {
-		if pos > b.Lbrace && pos < b.Rbrace {
-			return true
-		}
-	}
-	return false
+	return exempt
 }

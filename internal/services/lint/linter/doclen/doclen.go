@@ -10,52 +10,53 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports doc comments longer than maxLines, except package docs in doc.go.
+// Limits holds the doc comment line limits.
+type Limits struct {
+	Doc      int
+	DocGoPkg int
+}
+
+// Check reports doc comments over Limits.Doc, or a doc.go package doc over DocGoPkg.
 func Check(
 	fset *token.FileSet,
 	filename string,
 	f *ast.File,
-	maxLines int,
+	lim Limits,
 ) []analysis.Diagnostic {
-	if maxLines <= 0 {
-		return nil
-	}
-	var docs []*ast.CommentGroup
-	if filepath.Base(filename) != "doc.go" {
-		docs = append(docs, f.Doc)
-	}
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch x := n.(type) {
-		case *ast.FuncDecl:
-			docs = append(docs, x.Doc)
-		case *ast.GenDecl:
-			docs = append(docs, x.Doc)
-		case *ast.TypeSpec:
-			docs = append(docs, x.Doc)
-		case *ast.ValueSpec:
-			docs = append(docs, x.Doc)
-		case *ast.Field:
-			docs = append(docs, x.Doc)
-		}
-		return true
-	})
-
 	var diags []analysis.Diagnostic
-	for _, cg := range docs {
-		if cg == nil {
-			continue
+	pkgLimit := lim.Doc
+	if filepath.Base(filename) == "doc.go" {
+		pkgLimit = lim.DocGoPkg
+	}
+	if d := check(fset, filename, f.Doc, pkgLimit); d != nil {
+		diags = append(diags, *d)
+	}
+	for _, cg := range analysis.DocGroups(f) {
+		if d := check(fset, filename, cg, lim.Doc); d != nil {
+			diags = append(diags, *d)
 		}
-		n := CountLines(cg)
-		if n <= maxLines {
-			continue
-		}
-		diags = append(diags, analysis.Diagnostic{
-			File:    filename,
-			Line:    fset.Position(cg.Pos()).Line,
-			Message: fmt.Sprintf("doc comment is %d lines (limit %d)", n, maxLines),
-		})
 	}
 	return diags
+}
+
+func check(
+	fset *token.FileSet,
+	filename string,
+	cg *ast.CommentGroup,
+	limit int,
+) *analysis.Diagnostic {
+	if cg == nil || limit <= 0 {
+		return nil
+	}
+	n := CountLines(cg)
+	if n <= limit {
+		return nil
+	}
+	return &analysis.Diagnostic{
+		File:    filename,
+		Line:    fset.Position(cg.Pos()).Line,
+		Message: fmt.Sprintf("doc comment is %d lines (limit %d)", n, limit),
+	}
 }
 
 // CountLines counts the prose lines in cg, ignoring directives.
