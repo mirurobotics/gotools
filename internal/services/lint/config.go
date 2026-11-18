@@ -15,6 +15,7 @@ type LinterFlags struct {
 	MaxLineWidth  int
 	TabWidth      int
 	MaxFuncLen    int
+	MaxFileLen    int
 	MaxNestDepth  int
 	MaxParamCount int
 	Exclude       string
@@ -77,6 +78,7 @@ func BuildLinterConfig(flags LinterFlags) (linter.Config, error) {
 		MaxLineWidth:  flags.MaxLineWidth,
 		TabWidth:      flags.TabWidth,
 		MaxFuncLen:    flags.MaxFuncLen,
+		MaxFileLen:    flags.MaxFileLen,
 		MaxNestDepth:  flags.MaxNestDepth,
 		MaxParamCount: flags.MaxParamCount,
 		Exclude:       excl,
