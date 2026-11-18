@@ -10,7 +10,8 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-const message = "TODO comment must include an issue link (an http or https URL)"
+const message = "TODO comment must include an issue link (an http or https URL) " +
+	"in the same comment"
 
 // linkPattern matches an http(s) URL whose host has at least one dot.
 const linkPattern = `(?i)https?://[\w-]+(\.[\w-]+)+`
@@ -137,5 +138,5 @@ func isTODO(text string) bool {
 		return ok
 	}
 	r := []rune(rest)[0]
-	return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
+	return r == ':' || r == '(' || unicode.IsSpace(r)
 }

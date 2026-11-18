@@ -194,6 +194,18 @@ var q = 1
 `,
 			wantLines: []int{3},
 		},
+		{
+			name: "prose starting with TODO punctuation is not a todo",
+			src: `package foo
+
+// Unlike
+// TODO, it signals intent.
+// TODO. Not a marker either.
+// TODO fix the retry loop
+var r = 1
+`,
+			wantLines: []int{6},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
