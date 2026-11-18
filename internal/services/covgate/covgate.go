@@ -226,8 +226,6 @@ func table() gocover.Table {
 	}
 }
 
-func restOfOutput(s string) string { return s[strings.IndexByte(s, '\n')+1:] }
-
 func (r *runner) printResults(
 	w io.Writer,
 	results []checkResult,
@@ -237,20 +235,13 @@ func (r *runner) printResults(
 ) error {
 	hasFailures := false
 	for _, res := range results {
-		if r.emitProgress {
-			_, _ = fmt.Fprint(w, restOfOutput(res.output))
-		} else {
-			_, _ = fmt.Fprint(w, res.output)
-		}
+		_, _ = fmt.Fprint(w, r.progress().Rest(res.output))
 		if !res.passed {
 			hasFailures = true
 		}
 	}
 
-	indent := ""
-	if r.emitProgress {
-		indent = strings.Repeat(" ", gocover.ProgressColWidth(len(results))) + "  "
-	}
+	indent := r.progress().Indent(len(results))
 	for _, pkg := range excluded {
 		row := skippedRow(gocover.RelPkg(pkg, module))
 		_, _ = fmt.Fprintf(w, "%s%s", indent, row)

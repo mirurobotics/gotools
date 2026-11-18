@@ -68,9 +68,7 @@ func (r *runner) run(opts Opts) error {
 
 	updated, unchanged, failed := 0, 0, 0
 	for _, res := range results {
-		if !r.emitProgress {
-			_, _ = fmt.Fprint(w, res.output)
-		}
+		_, _ = fmt.Fprint(w, r.progress().Rest(res.output))
 		updated += res.updated
 		unchanged += res.unchanged
 		failed += res.failed

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func testTable() Table {
@@ -49,23 +51,62 @@ func TestProgress_WriteHeader(t *testing.T) {
 func TestRunEach(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		var buf bytes.Buffer
-		run := func(i int) int { return i * 10 }
+		var inFlight, peak atomic.Int32
+		run := func(i int) int {
+			cur := inFlight.Add(1)
+			for {
+				old := peak.Load()
+				if cur <= old || peak.CompareAndSwap(old, cur) {
+					break
+				}
+			}
+			time.Sleep(time.Millisecond)
+			inFlight.Add(-1)
+			return i * 10
+		}
 		row := func(v int) string { return fmt.Sprintf("PASS  pkg%d\nmore\n", v/10) }
-		got := RunEach(&buf, enabled, 3, 2, run, row)
-		if fmt.Sprint(got) != "[0 10 20]" {
+		got := RunEach(&buf, enabled, 12, 2, run, row)
+		if got[0] != 0 || got[11] != 110 || len(got) != 12 {
 			t.Errorf("enabled=%v: results = %v", enabled, got)
 		}
-		lines := strings.Split(strings.TrimSuffix(buf.String(), "\n"), "\n")
+		if p := peak.Load(); p > 2 {
+			t.Errorf("enabled=%v: %d calls ran at once, limit 2", enabled, p)
+		}
 		if !enabled {
 			if buf.Len() != 0 {
 				t.Errorf("disabled run printed %q", buf.String())
 			}
 			continue
 		}
+		lines := strings.Split(strings.TrimSuffix(buf.String(), "\n"), "\n")
 		sort.Strings(lines)
-		want := []string{"[1/3]  PASS  pkg0", "[2/3]  PASS  pkg1", "[3/3]  PASS  pkg2"}
-		if strings.Join(lines, "|") != strings.Join(want, "|") {
-			t.Errorf("progress lines = %q, want %q", lines, want)
+		if len(lines) != 12 || lines[0] != "[ 1/12]  PASS  pkg0" ||
+			lines[11] != "[12/12]  PASS  pkg11" {
+			t.Errorf("progress lines = %q", lines)
 		}
+	}
+}
+
+func TestRunEach_DefaultsParallelism(t *testing.T) {
+	got := RunEach(&bytes.Buffer{}, false, 2, 0, func(i int) int { return i }, nil)
+	if len(got) != 2 || got[1] != 1 {
+		t.Errorf("results = %v", got)
+	}
+}
+
+func TestProgress_RestAndIndent(t *testing.T) {
+	plain := Progress{Enabled: false, Table: testTable()}
+	live := Progress{Enabled: true, Table: testTable()}
+	if got := plain.Rest("a\nb\n"); got != "a\nb\n" {
+		t.Errorf("plain Rest = %q", got)
+	}
+	if got := live.Rest("a\nb\n"); got != "b\n" {
+		t.Errorf("progress Rest = %q", got)
+	}
+	if got := plain.Indent(12); got != "" {
+		t.Errorf("plain Indent = %q", got)
+	}
+	if got := live.Indent(12); got != strings.Repeat(" ", 9) {
+		t.Errorf("progress Indent = %q", got)
 	}
 }

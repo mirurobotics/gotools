@@ -15,7 +15,7 @@ type Table struct {
 	Dashes []string
 }
 
-// Progress prints per-package rows as they finish when Enabled, else a plain table.
+// Progress is the output mode and header layout for a per-package run.
 type Progress struct {
 	Enabled bool
 	Table   Table
@@ -32,7 +32,7 @@ func (p Progress) WriteHeader(w io.Writer, total, parallelism int) {
 		w, "Running %d packages with parallelism=%d; progress:\n",
 		total, parallelism,
 	)
-	cw := ProgressColWidth(total)
+	cw := progressColWidth(total)
 	format := "%-*s  " + p.Table.Format
 	names := append([]any{cw, "COUNT"}, strArgs(p.Table.Names)...)
 	dashes := append([]any{cw, strings.Repeat("-", cw)}, strArgs(p.Table.Dashes)...)
@@ -48,12 +48,13 @@ func RunEach[T any](
 	run func(int) T,
 	row func(T) string,
 ) []T {
+	parallelism = Parallelism(parallelism)
 	results := make([]T, n)
 	sem := make(chan struct{}, parallelism)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	countWidth := len(strconv.Itoa(n))
-	colWidth := ProgressColWidth(n)
+	colWidth := progressColWidth(n)
 	for i := range n {
 		wg.Add(1)
 		sem <- struct{}{}
@@ -63,7 +64,7 @@ func RunEach[T any](
 			results[idx] = run(idx)
 			if progress {
 				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, n)
-				line := FirstLine(row(results[idx]))
+				line := firstLine(row(results[idx]))
 				mu.Lock()
 				_, _ = fmt.Fprintf(w, "%-*s  %s", colWidth, label, line)
 				mu.Unlock()
@@ -74,11 +75,25 @@ func RunEach[T any](
 	return results
 }
 
-// ProgressColWidth returns the width of the COUNT column for total packages.
-func ProgressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
+// Rest returns the part of output not already printed by RunEach.
+func (p Progress) Rest(output string) string {
+	if !p.Enabled {
+		return output
+	}
+	return output[strings.IndexByte(output, '\n')+1:]
+}
 
-// FirstLine returns the first line of s, including its trailing newline.
-func FirstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
+// Indent returns the padding that aligns an extra row under the COUNT column.
+func (p Progress) Indent(total int) string {
+	if !p.Enabled {
+		return ""
+	}
+	return strings.Repeat(" ", progressColWidth(total)) + "  "
+}
+
+func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
+
+func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
 
 func strArgs(ss []string) []any {
 	args := make([]any, len(ss))
