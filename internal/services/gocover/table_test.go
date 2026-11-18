@@ -66,8 +66,10 @@ func TestRunEach(t *testing.T) {
 		}
 		row := func(v int) string { return fmt.Sprintf("PASS  pkg%d\nmore\n", v/10) }
 		got := RunEach(&buf, enabled, 12, 2, run, row)
-		if got[0] != 0 || got[11] != 110 || len(got) != 12 {
-			t.Errorf("enabled=%v: results = %v", enabled, got)
+		for i, v := range got {
+			if v != i*10 || len(got) != 12 {
+				t.Fatalf("enabled=%v: results = %v", enabled, got)
+			}
 		}
 		if p := peak.Load(); p > 2 {
 			t.Errorf("enabled=%v: %d calls ran at once, limit 2", enabled, p)
@@ -80,9 +82,13 @@ func TestRunEach(t *testing.T) {
 		}
 		lines := strings.Split(strings.TrimSuffix(buf.String(), "\n"), "\n")
 		sort.Strings(lines)
-		if len(lines) != 12 || lines[0] != "[ 1/12]  PASS  pkg0" ||
-			lines[11] != "[12/12]  PASS  pkg11" {
-			t.Errorf("progress lines = %q", lines)
+		want := make([]string, 0, 12)
+		for i := range 12 {
+			want = append(want, fmt.Sprintf("[%2d/12]  PASS  pkg%d", i+1, i))
+		}
+		sort.Strings(want)
+		if strings.Join(lines, "|") != strings.Join(want, "|") {
+			t.Errorf("progress lines = %q, want %q", lines, want)
 		}
 	}
 }

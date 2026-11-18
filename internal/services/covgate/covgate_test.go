@@ -518,6 +518,11 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 			idxProgress1, idxProgress2, idxFinal, out,
 		)
 	}
+	for _, pkg := range []string{"pkg/a", "pkg/b"} {
+		if got := strings.Count(out, pkg+"\n"); got != 1 {
+			t.Errorf("expected %s row once, got %d:\n%s", pkg, got, out)
+		}
+	}
 }
 
 func hasProgressLineWith(out, marker, contains string) bool {
