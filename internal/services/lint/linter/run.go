@@ -28,6 +28,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/pkgname"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/rcvrname"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/tempdir"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/todoissue"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/typeassert"
 )
 
@@ -53,6 +54,7 @@ const (
 	RuleImportAlias   Rule = "importalias"
 	RuleBgCtx         Rule = "bgctx"
 	RuleTempDir       Rule = "tempdir"
+	RuleTodoIssue     Rule = "todoissue"
 )
 
 // AllRules returns every valid rule name.
@@ -62,6 +64,7 @@ func AllRules() []Rule {
 		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
 		RuleTypeAssert, RuleParamCount,
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
+		RuleTodoIssue,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
 	}
 }
@@ -156,6 +159,9 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		}},
 		{RuleTempDir, false, func(in checkInput) []analysis.Diagnostic {
 			return tempdir.Check(in.fset, in.path, in.f)
+		}},
+		{RuleTodoIssue, false, func(in checkInput) []analysis.Diagnostic {
+			return todoissue.Check(in.fset, in.path, in.f)
 		}},
 		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
 			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)
