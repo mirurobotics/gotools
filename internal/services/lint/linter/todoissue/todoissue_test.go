@@ -185,6 +185,15 @@ var p = 4
 `,
 			wantLines: []int{4, 14},
 		},
+		{
+			name: "todo with no space after slashes is not a directive",
+			src: `package foo
+
+//TODO:fix
+var q = 1
+`,
+			wantLines: []int{3},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

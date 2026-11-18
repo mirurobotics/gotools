@@ -1,22 +1,18 @@
-package todoissue
+package analysis
 
 import "strings"
 
-// isDirective reports whether a comment is a tool directive such as //nolint.
-func isDirective(text string) bool {
-	body, ok := strings.CutPrefix(text, "//")
-	if !ok {
-		return false
-	}
-	if isGoStyleDirective(body) {
+// IsDirective reports whether a comment is a tool directive such as //nolint.
+func IsDirective(text string) bool {
+	if isGoStyleDirective(strings.TrimPrefix(text, "//")) {
 		return true
 	}
-	for _, cgo := range []string{"export ", "extern ", "line "} {
-		if strings.HasPrefix(body, cgo) {
+	body := strings.TrimSpace(strings.TrimPrefix(text, "//"))
+	for _, cgo := range []string{"//export ", "//extern ", "//line "} {
+		if strings.HasPrefix(text, cgo) {
 			return true
 		}
 	}
-	body = strings.TrimSpace(body)
 	return strings.HasPrefix(body, "nolint") ||
 		strings.HasPrefix(body, "#nosec") ||
 		strings.HasPrefix(body, "+build")

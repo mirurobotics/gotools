@@ -56,7 +56,7 @@ func groupLines(fset *token.FileSet, cg *ast.CommentGroup) []line {
 
 // checkedText returns the text to check; for a directive, only its free-text note.
 func checkedText(text string) (string, bool) {
-	if !isDirective(text) {
+	if !analysis.IsDirective(text) {
 		return text, true
 	}
 	note, ok := directiveNote(strings.TrimSpace(strings.TrimPrefix(text, "//")))
@@ -94,7 +94,7 @@ func hasNolint(cg *ast.CommentGroup) bool {
 	for _, c := range cg.List {
 		body := strings.TrimSpace(strings.TrimPrefix(c.Text, "//"))
 		list, ok := strings.CutPrefix(body, "nolint:")
-		if !ok || !isDirective(c.Text) {
+		if !ok {
 			continue
 		}
 		list, _, _ = strings.Cut(list, "//")
