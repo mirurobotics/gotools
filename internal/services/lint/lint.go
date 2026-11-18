@@ -162,10 +162,7 @@ type stepResult struct {
 func timedRun(name string, fn func() error) stepResult {
 	start := time.Now()
 	err := fn()
-	return stepResult{
-		timing: stepTiming{name, time.Since(start)},
-		failed: err != nil,
-	}
+	return stepResult{timing: stepTiming{name, time.Since(start)}, failed: err != nil}
 }
 
 func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTiming) {
@@ -199,9 +196,7 @@ func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTimin
 
 // collectResults returns the timings of all steps, in order, and the names
 // of the steps that failed.
-func collectResults(
-	results []stepResult,
-) (failures []string, timings []stepTiming) {
+func collectResults(results []stepResult) (failures []string, timings []stepTiming) {
 	for _, r := range results {
 		timings = append(timings, r.timing)
 		if r.failed {
