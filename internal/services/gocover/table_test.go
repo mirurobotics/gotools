@@ -66,8 +66,11 @@ func TestRunEach(t *testing.T) {
 		}
 		row := func(v int) string { return fmt.Sprintf("PASS  pkg%d\nmore\n", v/10) }
 		got := RunEach(&buf, enabled, 12, 2, run, row)
+		if len(got) != 12 {
+			t.Fatalf("enabled=%v: got %d results, want 12", enabled, len(got))
+		}
 		for i, v := range got {
-			if v != i*10 || len(got) != 12 {
+			if v != i*10 {
 				t.Fatalf("enabled=%v: results = %v", enabled, got)
 			}
 		}
