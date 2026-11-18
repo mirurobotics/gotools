@@ -32,23 +32,31 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			continue
 		}
 
-		for _, spec := range gd.Specs {
-			vs, ok := spec.(*ast.ValueSpec)
-			if !ok || hasNolint(fset, f, vs) {
-				continue
-			}
-			for _, name := range mutableNames(vs) {
-				pos := fset.Position(name.Pos())
-				diags = append(diags, analysis.Diagnostic{
-					File:    filename,
-					Line:    pos.Line,
-					Message: "mutable global variable: use const or a function instead",
-				})
-			}
+		for _, name := range declMutableNames(fset, f, gd) {
+			pos := fset.Position(name.Pos())
+			diags = append(diags, analysis.Diagnostic{
+				File:    filename,
+				Line:    pos.Line,
+				Message: "mutable global variable: use const or a function instead",
+			})
 		}
 	}
 
 	return diags
+}
+
+// declMutableNames returns the mutable names across every spec of a var
+// declaration, skipping specs that carry a nolint directive.
+func declMutableNames(fset *token.FileSet, f *ast.File, gd *ast.GenDecl) []*ast.Ident {
+	var names []*ast.Ident
+	for _, spec := range gd.Specs {
+		vs, ok := spec.(*ast.ValueSpec)
+		if !ok || hasNolint(fset, f, vs) {
+			continue
+		}
+		names = append(names, mutableNames(vs)...)
+	}
+	return names
 }
 
 // mutableNames returns the names in a var spec that are neither interface
@@ -129,14 +137,11 @@ func hasNolint(fset *token.FileSet, f *ast.File, node ast.Node) bool {
 // hasNolintAtPos returns true if there is a nolint:mutableglobal comment
 // on the same line or the line immediately before pos.
 func hasNolintAtPos(fset *token.FileSet, f *ast.File, pos token.Position) bool {
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			cLine := fset.Position(c.Pos()).Line
-			if cLine >= pos.Line-1 && cLine <= pos.Line {
-				if strings.Contains(c.Text, "nolint:mutableglobal") {
-					return true
-				}
-			}
+	for _, c := range analysis.Comments(f) {
+		cLine := fset.Position(c.Pos()).Line
+		if cLine >= pos.Line-1 && cLine <= pos.Line &&
+			strings.Contains(c.Text, "nolint:mutableglobal") {
+			return true
 		}
 	}
 	return false

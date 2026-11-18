@@ -160,7 +160,7 @@ func TestNewCheckCommand_FlagDefaults(t *testing.T) {
 		"tab-width":       4,
 		"max-func-len":    30,
 		"max-file-len":    300,
-		"max-nest-depth":  4,
+		"max-nest-depth":  2,
 		"max-param-count": 6,
 	}
 	for name, want := range intDefaults {
@@ -309,7 +309,7 @@ func TestNewLintCommand_FlagDefaults(t *testing.T) {
 		"tab-width":       4,
 		"max-func-len":    30,
 		"max-file-len":    300,
-		"max-nest-depth":  4,
+		"max-nest-depth":  2,
 		"max-param-count": 6,
 	}
 	for name, want := range intDefaults {

@@ -45,23 +45,26 @@ func ExtractBlocks(f *ast.File) []ImportBlock {
 			continue
 		}
 
-		block := ImportBlock{
-			Imports:   nil,
-			Pos:       gd.Pos(),
-			End:       gd.End(),
-			IsGrouped: gd.Lparen.IsValid(),
-		}
-
-		for _, spec := range gd.Specs {
-			if is, ok := spec.(*ast.ImportSpec); ok {
-				block.Imports = append(block.Imports, newImport(is))
-			}
-		}
-
-		blocks = append(blocks, block)
+		blocks = append(blocks, newImportBlock(gd))
 	}
 
 	return blocks
+}
+
+// newImportBlock converts an import declaration to an ImportBlock.
+func newImportBlock(gd *ast.GenDecl) ImportBlock {
+	block := ImportBlock{
+		Imports:   nil,
+		Pos:       gd.Pos(),
+		End:       gd.End(),
+		IsGrouped: gd.Lparen.IsValid(),
+	}
+	for _, spec := range gd.Specs {
+		if is, ok := spec.(*ast.ImportSpec); ok {
+			block.Imports = append(block.Imports, newImport(is))
+		}
+	}
+	return block
 }
 
 // newImport converts an import spec to an Import.

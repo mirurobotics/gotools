@@ -55,22 +55,26 @@ func filterOverlapping(fset *token.FileSet, candidates []Candidate) []Candidate 
 	}
 	kept := make([]Candidate, 0, len(candidates))
 	for _, c := range candidates {
-		cStart := fset.Position(c.Pos).Offset
-		cEnd := fset.Position(c.End).Offset
-		overlaps := false
-		for _, k := range kept {
-			kStart := fset.Position(k.Pos).Offset
-			kEnd := fset.Position(k.End).Offset
-			if cStart < kEnd && cEnd > kStart {
-				overlaps = true
-				break
-			}
-		}
-		if !overlaps {
+		if !overlapsAny(fset, c, kept) {
 			kept = append(kept, c)
 		}
 	}
 	return kept
+}
+
+// overlapsAny reports whether c's byte range overlaps the byte range
+// of any candidate in kept.
+func overlapsAny(fset *token.FileSet, c Candidate, kept []Candidate) bool {
+	cStart := fset.Position(c.Pos).Offset
+	cEnd := fset.Position(c.End).Offset
+	for _, k := range kept {
+		kStart := fset.Position(k.Pos).Offset
+		kEnd := fset.Position(k.End).Offset
+		if cStart < kEnd && cEnd > kStart {
+			return true
+		}
+	}
+	return false
 }
 
 // CheckCandidates converts a slice of candidates into diagnostics,

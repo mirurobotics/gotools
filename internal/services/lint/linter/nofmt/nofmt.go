@@ -91,14 +91,10 @@ func callName(call *ast.CallExpr) string {
 // on the same line as pos.
 func hasNolint(fset *token.FileSet, f *ast.File, pos token.Pos) bool {
 	line := fset.Position(pos).Line
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			if fset.Position(c.Pos()).Line != line {
-				continue
-			}
-			if strings.Contains(c.Text, "nolint:nofmt") {
-				return true
-			}
+	for _, c := range analysis.Comments(f) {
+		if fset.Position(c.Pos()).Line == line &&
+			strings.Contains(c.Text, "nolint:nofmt") {
+			return true
 		}
 	}
 	return false

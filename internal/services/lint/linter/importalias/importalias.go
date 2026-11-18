@@ -17,26 +17,19 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		return nil
 	}
 	var diags []analysis.Diagnostic
-	for _, decl := range f.Decls {
-		gd, ok := decl.(*ast.GenDecl)
-		if !ok || gd.Tok != token.IMPORT {
+	for _, is := range f.Imports {
+		if is.Name == nil || !isBadAlias(is.Name.Name) {
 			continue
 		}
-		for _, spec := range gd.Specs {
-			is, ok := spec.(*ast.ImportSpec)
-			if !ok || is.Name == nil || !isBadAlias(is.Name.Name) {
-				continue
-			}
-			pos := fset.Position(is.Name.Pos())
-			diags = append(diags, analysis.Diagnostic{
-				File: filename,
-				Line: pos.Line,
-				Message: fmt.Sprintf(
-					"import alias %q contains underscore; use camelCase instead",
-					is.Name.Name,
-				),
-			})
-		}
+		pos := fset.Position(is.Name.Pos())
+		diags = append(diags, analysis.Diagnostic{
+			File: filename,
+			Line: pos.Line,
+			Message: fmt.Sprintf(
+				"import alias %q contains underscore; use camelCase instead",
+				is.Name.Name,
+			),
+		})
 	}
 	return diags
 }

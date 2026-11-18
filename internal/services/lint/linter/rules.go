@@ -212,13 +212,14 @@ func applyCandidateFixers(
 			continue
 		}
 		candidates := fx.find(fset, f, src, cfg.MaxLineWidth, cfg.TabWidth)
+		if len(candidates) == 0 {
+			continue
+		}
 		src = analysis.Fix(fset, src, candidates)
-		if len(candidates) > 0 {
-			var err error
-			fset, f, err = reparse(path, src)
-			if err != nil {
-				return nil, nil, nil, err
-			}
+		var err error
+		fset, f, err = reparse(path, src)
+		if err != nil {
+			return nil, nil, nil, err
 		}
 	}
 	return src, fset, f, nil

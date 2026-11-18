@@ -2,6 +2,7 @@ package tag
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"io"
 	"os"
@@ -39,25 +40,23 @@ func VersionLess(a, b string) bool {
 	}
 
 	for k := 0; k < minLen; k++ {
-		ai := pa[k]
-		bi := pb[k]
-
-		aNum, aOK := ParseNum(ai)
-		bNum, bOK := ParseNum(bi)
-
-		if aOK && bOK {
-			if aNum != bNum {
-				return aNum < bNum
-			}
-			continue
-		}
-
-		if ai != bi {
-			return ai < bi
+		if c := comparePart(pa[k], pb[k]); c != 0 {
+			return c < 0
 		}
 	}
 
 	return len(pa) < len(pb)
+}
+
+// comparePart compares one version segment, numerically when both
+// segments are numbers and lexically otherwise.
+func comparePart(a, b string) int {
+	aNum, aOK := ParseNum(a)
+	bNum, bOK := ParseNum(b)
+	if aOK && bOK {
+		return cmp.Compare(aNum, bNum)
+	}
+	return strings.Compare(a, b)
 }
 
 // SplitVersionParts splits a version string into

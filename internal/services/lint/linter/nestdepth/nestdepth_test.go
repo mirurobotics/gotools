@@ -62,6 +62,41 @@ func f() {
 				" — consider early returns or extracting a helper",
 		},
 		{
+			name: "at default limit of 2",
+			src: `package foo
+
+func f(xs []int) {
+	for _, x := range xs {
+		if x > 0 {
+			_ = x
+		}
+	}
+}
+`,
+			maxDepth: 2,
+			wantN:    0,
+			wantMsg:  "",
+		},
+		{
+			name: "over default limit of 2",
+			src: `package foo
+
+func f(xss [][]int) {
+	for _, xs := range xss {
+		for _, x := range xs {
+			if x > 0 {
+				_ = x
+			}
+		}
+	}
+}
+`,
+			maxDepth: 2,
+			wantN:    1,
+			wantMsg: "nesting depth is 3 (limit 2)" +
+				" — consider early returns or extracting a helper",
+		},
+		{
 			name: "switch case body no extra depth",
 			src: `package foo
 

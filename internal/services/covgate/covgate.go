@@ -154,17 +154,7 @@ func (r *runner) findOrphanTests(
 		return nil, nil
 	}
 	testDir := filepath.ToSlash(filepath.Clean(opts.TestDir))
-	claimed := make(map[string]struct{}, len(pkgs))
-	if opts.SrcPrefix != "" {
-		for _, pkg := range pkgs {
-			relPkg := gocover.RelPkg(pkg, module)
-			testSub := strings.TrimPrefix(relPkg, opts.SrcPrefix+"/")
-			if testSub == relPkg {
-				continue
-			}
-			claimed[testDir+"/"+testSub] = struct{}{}
-		}
-	}
+	claimed := claimedTestDirs(pkgs, module, testDir, opts.SrcPrefix)
 	testPkgs, err := r.goListTestPackages("./" + testDir + "/...")
 	if err != nil {
 		return nil, err
@@ -177,6 +167,27 @@ func (r *runner) findOrphanTests(
 		orphans = append(orphans, testPkg)
 	}
 	return orphans, nil
+}
+
+// claimedTestDirs maps each source package to the test directory it
+// claims through the src-prefix mapping. Packages outside srcPrefix
+// claim nothing, and an empty srcPrefix claims nothing at all.
+func claimedTestDirs(
+	pkgs []string, module, testDir, srcPrefix string,
+) map[string]struct{} {
+	claimed := make(map[string]struct{}, len(pkgs))
+	if srcPrefix == "" {
+		return claimed
+	}
+	for _, pkg := range pkgs {
+		relPkg := gocover.RelPkg(pkg, module)
+		testSub := strings.TrimPrefix(relPkg, srcPrefix+"/")
+		if testSub == relPkg {
+			continue
+		}
+		claimed[testDir+"/"+testSub] = struct{}{}
+	}
+	return claimed
 }
 
 // buildWorkItems merges source packages and orphan test packages

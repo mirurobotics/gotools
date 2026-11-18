@@ -72,16 +72,9 @@ func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
 // and comments. Comment bytes, including /* */ blocks, are blanked first.
 func countLines(fset *token.FileSet, f *ast.File, src []byte) int {
 	code := bytes.Clone(src)
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			start := fset.Position(c.Pos()).Offset
-			end := commentEnd(src, start, c)
-			for i := start; i < end && i < len(code); i++ {
-				if code[i] != '\n' {
-					code[i] = ' '
-				}
-			}
-		}
+	for _, c := range analysis.Comments(f) {
+		start := fset.Position(c.Pos()).Offset
+		blankRange(code, start, commentEnd(src, start, c))
 	}
 	count := 0
 	for _, line := range bytes.Split(code, []byte("\n")) {
@@ -90,6 +83,16 @@ func countLines(fset *token.FileSet, f *ast.File, src []byte) int {
 		}
 	}
 	return count
+}
+
+// blankRange replaces every byte of code in [start, end) with a space,
+// keeping newlines so line numbering is unchanged.
+func blankRange(code []byte, start, end int) {
+	for i := start; i < end && i < len(code); i++ {
+		if code[i] != '\n' {
+			code[i] = ' '
+		}
+	}
 }
 
 // commentEnd returns the byte offset just past comment c in src. The scanner

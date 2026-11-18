@@ -123,12 +123,10 @@ func baseName(expr ast.Expr) string {
 
 // hasNolint returns true if there is a //nolint:tempdir comment on the given line.
 func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			if fset.Position(c.Pos()).Line == line &&
-				strings.Contains(c.Text, "nolint:tempdir") {
-				return true
-			}
+	for _, c := range analysis.Comments(f) {
+		if fset.Position(c.Pos()).Line == line &&
+			strings.Contains(c.Text, "nolint:tempdir") {
+			return true
 		}
 	}
 	return false

@@ -93,16 +93,8 @@ func stripMarkers(text string) string {
 // hasNolint reports a //nolint directive naming todoissue in the comment group.
 func hasNolint(cg *ast.CommentGroup) bool {
 	for _, c := range cg.List {
-		body := strings.TrimSpace(strings.TrimPrefix(c.Text, "//"))
-		list, ok := strings.CutPrefix(body, "nolint:")
-		if !ok {
-			continue
-		}
-		list, _, _ = strings.Cut(list, "//")
-		for _, name := range strings.Split(list, ",") {
-			if strings.TrimSpace(name) == "todoissue" {
-				return true
-			}
+		if analysis.NolintsRule(c.Text, "todoissue") {
+			return true
 		}
 	}
 	return false

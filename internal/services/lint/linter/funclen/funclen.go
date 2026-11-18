@@ -75,13 +75,11 @@ func funcBody(n ast.Node) (*ast.BlockStmt, string, bool) {
 // hasNolint returns true if there is a //nolint:funclen comment on the
 // given line or the line immediately before it.
 func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			cLine := fset.Position(c.Pos()).Line
-			if cLine >= line-1 && cLine <= line &&
-				strings.Contains(c.Text, nolintDirective) {
-				return true
-			}
+	for _, c := range analysis.Comments(f) {
+		cLine := fset.Position(c.Pos()).Line
+		if cLine >= line-1 && cLine <= line &&
+			strings.Contains(c.Text, nolintDirective) {
+			return true
 		}
 	}
 	return false

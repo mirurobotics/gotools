@@ -65,12 +65,10 @@ func isBackgroundCall(call *ast.CallExpr, ctxPkg string) bool {
 
 // hasNolint returns true if there is a //nolint:bgctx comment on the given line.
 func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			if fset.Position(c.Pos()).Line == line &&
-				strings.Contains(c.Text, "nolint:bgctx") {
-				return true
-			}
+	for _, c := range analysis.Comments(f) {
+		if fset.Position(c.Pos()).Line == line &&
+			strings.Contains(c.Text, "nolint:bgctx") {
+			return true
 		}
 	}
 	return false

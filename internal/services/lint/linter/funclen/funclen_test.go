@@ -1,6 +1,7 @@
 package funclen
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"strings"
@@ -188,4 +189,33 @@ func TestCheck(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCountLinesStopsAtEndOfLines(t *testing.T) {
+	src := "package foo\n\nfunc f() {\n\ta := 1\n\t_ = a\n}\n"
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "foo.go", src, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := funcDeclBody(t, f)
+	// Only the first four lines are available, so the scan must stop
+	// before the closing brace instead of indexing past the slice.
+	lines := strings.Split(src, "\n")[:4]
+	allLines := make([][]byte, len(lines))
+	for i, l := range lines {
+		allLines[i] = []byte(l)
+	}
+	if got := countLines(fset, body, allLines); got != 1 {
+		t.Errorf("countLines = %d, want 1", got)
+	}
+}
+
+func funcDeclBody(t *testing.T, f *ast.File) *ast.BlockStmt {
+	t.Helper()
+	fn, ok := f.Decls[0].(*ast.FuncDecl)
+	if !ok {
+		t.Fatalf("decl is %T, want *ast.FuncDecl", f.Decls[0])
+	}
+	return fn.Body
 }
