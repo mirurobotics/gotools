@@ -114,7 +114,8 @@ import (
 			wantMsg: "",
 		},
 		{
-			name: "non-import declarations ignored",
+			name:     "non-import declarations ignored",
+			filename: "",
 			src: `package foo
 
 import my_fmt "fmt"
