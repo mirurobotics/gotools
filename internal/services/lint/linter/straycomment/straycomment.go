@@ -18,6 +18,9 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			attached[gd.Doc] = true
 		}
 	}
+	for _, imp := range f.Imports {
+		attached[imp.Doc] = true
+	}
 	for _, cg := range analysis.DocGroups(f) {
 		attached[cg] = true
 	}

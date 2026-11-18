@@ -146,6 +146,17 @@ package foo
 // static int one() { return 1; }
 import "C"
 
+import (
+	// #include <stdlib.h>
+	// #include <string.h>
+	"C"
+)
+
+// G is exported to C.
+//
+//export G
+func G() {}
+
 // F is exported to C.
 //
 //export F

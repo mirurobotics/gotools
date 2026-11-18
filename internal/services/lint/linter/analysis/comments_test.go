@@ -11,6 +11,9 @@ const commentsSrc = `package foo
 import (
 	// fmt doc.
 	"fmt" // fmt line
+
+	// #include <stdlib.h>
+	"C"
 )
 
 // T doc.

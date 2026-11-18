@@ -5,7 +5,7 @@ import (
 	"go/token"
 )
 
-// DocGroups returns the doc comment groups of declarations, specs, and fields.
+// DocGroups returns the doc groups of declarations and fields, minus cgo preambles.
 func DocGroups(f *ast.File) []*ast.CommentGroup {
 	var docs []*ast.CommentGroup
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -21,7 +21,9 @@ func DocGroups(f *ast.File) []*ast.CommentGroup {
 		case *ast.ValueSpec:
 			docs = append(docs, x.Doc)
 		case *ast.ImportSpec:
-			docs = append(docs, x.Doc)
+			if x.Path.Value != `"C"` {
+				docs = append(docs, x.Doc)
+			}
 		case *ast.Field:
 			docs = append(docs, x.Doc)
 		}

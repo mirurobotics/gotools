@@ -54,6 +54,10 @@ package foo
 import (
 	// fmt is used for printing.
 	"fmt" // trailing
+
+	// #include <stdlib.h>
+	// #include <string.h>
+	"C"
 )
 
 // T is a type.
