@@ -31,7 +31,6 @@ type runner struct {
 	goListTestPackages func(string) ([]string, error)
 	measure            func(pkg string, testPaths []string) (float64, []byte, error)
 	runTests           func(paths []string) ([]byte, error)
-	parallelism        int
 	emitProgress       bool
 }
 
@@ -48,7 +47,6 @@ func Run(opts Opts) error {
 		goListTestPackages: gocover.GoListTestPackages,
 		measure:            gocover.Measure,
 		runTests:           gocover.RunTests,
-		parallelism:        gocover.Parallelism(opts.Parallelism),
 		emitProgress:       opts.Parallelism == 0,
 	}
 	return r.run(opts)
@@ -60,10 +58,7 @@ func (r *runner) run(opts Opts) error {
 	}
 	w := opts.Out
 
-	parallelism := r.parallelism
-	if parallelism <= 0 {
-		parallelism = gocover.Parallelism(opts.Parallelism)
-	}
+	parallelism := gocover.Parallelism(opts.Parallelism)
 
 	_, _ = fmt.Fprintf(
 		w, "Checking per-package coverage "+

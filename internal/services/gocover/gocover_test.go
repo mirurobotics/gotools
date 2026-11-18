@@ -14,8 +14,10 @@ func TestParallelism(t *testing.T) {
 	if got := Parallelism(3); got != 3 {
 		t.Errorf("Parallelism(3) = %d, want 3", got)
 	}
-	if got := Parallelism(0); got != runtime.NumCPU() {
-		t.Errorf("Parallelism(0) = %d, want %d", got, runtime.NumCPU())
+	for _, n := range []int{0, -1} {
+		if got := Parallelism(n); got != runtime.NumCPU() {
+			t.Errorf("Parallelism(%d) = %d, want %d", n, got, runtime.NumCPU())
+		}
 	}
 }
 

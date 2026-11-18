@@ -23,7 +23,6 @@ type runner struct {
 	goModule       func() (string, error)
 	goListPackages func(string) ([]string, error)
 	measure        func(pkg string, testPaths []string) (float64, []byte, error)
-	parallelism    int
 	emitProgress   bool
 }
 
@@ -33,7 +32,6 @@ func Run(opts Opts) error {
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
 		measure:        gocover.Measure,
-		parallelism:    gocover.Parallelism(opts.Parallelism),
 		emitProgress:   opts.Parallelism == 0,
 	}
 	return r.run(opts)
@@ -45,10 +43,7 @@ func (r *runner) run(opts Opts) error {
 	}
 	w := opts.Out
 
-	parallelism := r.parallelism
-	if parallelism <= 0 {
-		parallelism = gocover.Parallelism(opts.Parallelism)
-	}
+	parallelism := gocover.Parallelism(opts.Parallelism)
 
 	_, _ = fmt.Fprintln(w, "Updating .covgate files (ratchet up only)...")
 	_, _ = fmt.Fprintln(w)
