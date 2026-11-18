@@ -38,7 +38,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 
 // funcParams returns the parameter list and position of a function
 // declaration or literal. ok is false for other nodes and for functions
-// without parameters.
+// with a nil parameter list.
 func funcParams(n ast.Node) (*ast.FieldList, token.Pos, bool) {
 	var ft *ast.FuncType
 	switch fn := n.(type) {

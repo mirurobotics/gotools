@@ -122,7 +122,7 @@ import my_fmt "fmt"
 
 var x_y = my_fmt.Sprint()`,
 			wantN:   1,
-			wantMsg: "",
+			wantMsg: `import alias "my_fmt" contains underscore; use camelCase instead`,
 		},
 	}
 

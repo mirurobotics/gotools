@@ -22,7 +22,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		if !ok {
 			return true
 		}
-		// type switch uses nil Type
+		// comma-ok/type-switch assign, or x.(type) (nil Type)
 		if safe[ta.Pos()] || ta.Type == nil {
 			return true
 		}
