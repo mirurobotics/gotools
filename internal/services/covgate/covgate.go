@@ -201,16 +201,17 @@ func (r *runner) applyExclude(
 func (r *runner) runPackages(
 	items []workItem, ctx checkPackageCtx, parallelism int, w io.Writer,
 ) []checkResult {
-	run := func(i int) (checkResult, string) {
+	run := func(i int) checkResult {
 		var res checkResult
 		if items[i].testOnly {
 			res = r.checkTestOnly(items[i].pkg, ctx)
 		} else {
 			res = r.checkPackage(items[i].pkg, ctx)
 		}
-		return res, res.output
+		return res
 	}
-	return gocover.Run(r.progress(), w, len(items), parallelism, run)
+	row := func(res checkResult) string { return res.output }
+	return gocover.RunEach(w, r.emitProgress, len(items), parallelism, run, row)
 }
 
 func (r *runner) progress() gocover.Progress {

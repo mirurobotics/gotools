@@ -46,13 +46,12 @@ func TestProgress_WriteHeader(t *testing.T) {
 	}
 }
 
-func TestRun(t *testing.T) {
+func TestRunEach(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		var buf bytes.Buffer
-		p := Progress{Enabled: enabled, Table: testTable()}
-		got := Run(p, &buf, 3, 2, func(i int) (int, string) {
-			return i * 10, fmt.Sprintf("PASS  pkg%d\nmore\n", i)
-		})
+		run := func(i int) int { return i * 10 }
+		row := func(v int) string { return fmt.Sprintf("PASS  pkg%d\nmore\n", v/10) }
+		got := RunEach(&buf, enabled, 3, 2, run, row)
 		if fmt.Sprint(got) != "[0 10 20]" {
 			t.Errorf("enabled=%v: results = %v", enabled, got)
 		}

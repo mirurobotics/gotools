@@ -40,9 +40,13 @@ func (p Progress) WriteHeader(w io.Writer, total, parallelism int) {
 	_, _ = fmt.Fprintf(w, format, dashes...)
 }
 
-// Run calls run for each index below n, at most parallelism at a time.
-func Run[T any](
-	p Progress, w io.Writer, n, parallelism int, run func(int) (T, string),
+// RunEach calls run for each index below n, at most parallelism at a time.
+func RunEach[T any](
+	w io.Writer,
+	progress bool,
+	n, parallelism int,
+	run func(int) T,
+	row func(T) string,
 ) []T {
 	results := make([]T, n)
 	sem := make(chan struct{}, parallelism)
@@ -56,12 +60,12 @@ func Run[T any](
 		go func(idx int) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			res, out := run(idx)
-			results[idx] = res
-			if p.Enabled {
+			results[idx] = run(idx)
+			if progress {
 				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, n)
+				line := FirstLine(row(results[idx]))
 				mu.Lock()
-				_, _ = fmt.Fprintf(w, "%-*s  %s", colWidth, label, FirstLine(out))
+				_, _ = fmt.Fprintf(w, "%-*s  %s", colWidth, label, line)
 				mu.Unlock()
 			}
 		}(i)

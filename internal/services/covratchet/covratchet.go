@@ -96,11 +96,11 @@ type ratchetCtx struct {
 func (r *runner) runPackages(
 	pkgs []string, ctx ratchetCtx, parallelism int, w io.Writer,
 ) []ratchetResult {
-	run := func(i int) (ratchetResult, string) {
-		res := r.ratchetPackage(pkgs[i], ctx.module, ctx.srcPrefix, ctx.testDir)
-		return res, res.output
+	run := func(i int) ratchetResult {
+		return r.ratchetPackage(pkgs[i], ctx.module, ctx.srcPrefix, ctx.testDir)
 	}
-	return gocover.Run(r.progress(), w, len(pkgs), parallelism, run)
+	row := func(res ratchetResult) string { return res.output }
+	return gocover.RunEach(w, r.emitProgress, len(pkgs), parallelism, run, row)
 }
 
 func (r *runner) progress() gocover.Progress {
