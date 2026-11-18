@@ -4,7 +4,6 @@ import (
 	"go/ast"
 	"go/token"
 	"slices"
-	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
@@ -162,8 +161,7 @@ func firstProse(cg *ast.CommentGroup) *ast.Comment {
 		return nil
 	}
 	for _, c := range cg.List {
-		blank := strings.TrimSpace(strings.TrimPrefix(c.Text, "//")) == ""
-		if !blank && !analysis.IsDirective(c.Text) {
+		if analysis.ProseLines(&ast.CommentGroup{List: []*ast.Comment{c}}) > 0 {
 			return c
 		}
 	}
