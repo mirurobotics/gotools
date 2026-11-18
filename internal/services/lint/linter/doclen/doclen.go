@@ -42,7 +42,6 @@ func Check(
 	return diags
 }
 
-// cgoPreambles returns the doc groups that cmd/cgo reads as C preambles.
 func cgoPreambles(f *ast.File) map[*ast.CommentGroup]bool {
 	m := map[*ast.CommentGroup]bool{}
 	for _, decl := range f.Decls {
