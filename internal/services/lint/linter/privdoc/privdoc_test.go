@@ -102,6 +102,18 @@ type T struct {
 		// B is in an unexported field.
 		B int
 	}
+	Items []struct {
+		c int // in a slice
+	}
+	Ptr *struct {
+		d int // in a pointer
+	}
+	Map map[string]struct {
+		e int // in a map
+	}
+	Ch chan struct {
+		f int // in a chan
+	}
 }
 
 type I interface {
@@ -119,7 +131,7 @@ var (
 	y = 2 // trailing
 )
 `,
-			wantLines: []int{3, 5, 10, 11, 15, 19, 25, 29, 32, 34, 36},
+			wantLines: []int{3, 5, 10, 11, 15, 19, 23, 26, 29, 32, 37, 41, 44, 46, 48},
 		},
 		{
 			name: "directives and blank lines allowed",
@@ -127,6 +139,9 @@ var (
 
 //nolint:funclen // reason
 func f() {}
+
+//export callback
+func callback() {}
 
 //
 //go:generate echo hi

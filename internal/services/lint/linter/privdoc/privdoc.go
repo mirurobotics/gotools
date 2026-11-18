@@ -88,6 +88,15 @@ func fieldGroups(expr ast.Expr, parentPublic bool) []*ast.CommentGroup {
 		list = t.Fields
 	case *ast.InterfaceType:
 		list = t.Methods
+	case *ast.StarExpr:
+		return fieldGroups(t.X, parentPublic)
+	case *ast.ArrayType:
+		return fieldGroups(t.Elt, parentPublic)
+	case *ast.ChanType:
+		return fieldGroups(t.Value, parentPublic)
+	case *ast.MapType:
+		keys := fieldGroups(t.Key, parentPublic)
+		return append(keys, fieldGroups(t.Value, parentPublic)...)
 	default:
 		return nil
 	}
