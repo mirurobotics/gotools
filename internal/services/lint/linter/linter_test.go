@@ -957,3 +957,30 @@ func F() {}
 		t.Errorf("got %d diagnostics, want only foo.go:3:\n%s", diags, out)
 	}
 }
+
+func TestRun_Check_PrivDoc(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir+"/foo.go", `package foo
+
+// f does a thing.
+func f() {}
+`)
+	for _, exclude := range []bool{false, true} {
+		cfg := defaultCfg
+		cfg.Exclude = map[Rule]bool{RulePrivDoc: exclude}
+		cfg.Out = &strings.Builder{}
+		diags, _, err := Run(dir, false, cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := cfg.Out.(*strings.Builder).String()
+		want := 1
+		if exclude {
+			want = 0
+		}
+		found := strings.Contains(out, "foo.go:3: comment on identifier")
+		if diags != want || found != !exclude {
+			t.Errorf("exclude=%v: got %d diagnostics:\n%s", exclude, diags, out)
+		}
+	}
+}

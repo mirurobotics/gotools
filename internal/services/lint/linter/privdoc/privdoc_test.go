@@ -161,8 +161,16 @@ func g() {}
 var state struct {
 	count int // hits
 }
+
+var cfg = struct {
+	port int // listen port
+}{8080}
+
+type K map[struct {
+	k int // key field
+}]int
 `,
-			wantLines: []int{3, 9, 13},
+			wantLines: []int{3, 9, 13, 17, 21},
 		},
 		{
 			name: "directives and blank lines allowed",

@@ -26,91 +26,108 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
+type allowed map[*ast.CommentGroup]bool
+
 func proseComments(f *ast.File) []*ast.Comment {
-	var groups []*ast.Comment
-	add := func(cgs ...*ast.CommentGroup) {
-		for _, cg := range cgs {
-			if c := firstProse(cg); c != nil {
-				groups = append(groups, c)
-			}
+	ok := allowedGroups(f)
+	bodies := analysis.FuncBodies(f)
+	groups := append(analysis.DocGroups(f), analysis.LineComments(f)...)
+	var prose []*ast.Comment
+	for _, cg := range groups {
+		if cg == nil || ok[cg] || analysis.InAnyBody(cg.Pos(), bodies) {
+			continue
+		}
+		ok[cg] = true
+		if c := firstProse(cg); c != nil {
+			prose = append(prose, c)
 		}
 	}
+	slices.SortFunc(prose, func(a, b *ast.Comment) int {
+		return int(a.Pos() - b.Pos())
+	})
+	return prose
+}
+
+func allowedGroups(f *ast.File) allowed {
+	ok := allowed{}
 	for _, decl := range f.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
-			if !funcPublic(d) {
-				add(d.Doc)
-			}
+			public := funcPublic(d)
+			ok.add(public, d.Doc)
+			ok.fields(d.Recv, public, false)
+			ok.walk(d.Type, public)
 		case *ast.GenDecl:
-			add(genDeclGroups(d)...)
+			ok.genDecl(d)
 		}
 	}
-	slices.SortFunc(groups, func(a, b *ast.Comment) int {
-		return int(a.Pos() - b.Pos())
-	})
-	return groups
+	return ok
 }
 
-func genDeclGroups(d *ast.GenDecl) []*ast.CommentGroup {
-	if d.Tok == token.IMPORT {
-		return nil
-	}
-	var groups []*ast.CommentGroup
-	anyPublic := false
+func (ok allowed) genDecl(d *ast.GenDecl) {
+	anyPublic := d.Tok == token.IMPORT
 	for _, spec := range d.Specs {
 		switch s := spec.(type) {
+		case *ast.ImportSpec:
+			ok.add(true, s.Doc, s.Comment)
 		case *ast.TypeSpec:
 			public := s.Name.IsExported()
 			anyPublic = anyPublic || public
-			if !public {
-				groups = append(groups, s.Doc, s.Comment)
-			}
-			groups = append(groups, fieldGroups(s.Type, public)...)
+			ok.add(public, s.Doc, s.Comment)
+			ok.fields(s.TypeParams, public, false)
+			ok.walk(s.Type, public)
 		case *ast.ValueSpec:
 			public := anyExported(s.Names)
 			anyPublic = anyPublic || public
-			if !public {
-				groups = append(groups, s.Doc, s.Comment)
-			}
+			ok.add(public, s.Doc, s.Comment)
 			if s.Type != nil {
-				groups = append(groups, fieldGroups(s.Type, public)...)
+				ok.walk(s.Type, public)
+			}
+			for _, v := range s.Values {
+				ok.walk(v, public)
 			}
 		}
 	}
-	if !anyPublic {
-		groups = append(groups, d.Doc)
-	}
-	return groups
+	ok.add(anyPublic, d.Doc)
 }
 
-func fieldGroups(expr ast.Expr, parentPublic bool) []*ast.CommentGroup {
-	var list *ast.FieldList
-	switch t := expr.(type) {
-	case *ast.StructType:
-		list = t.Fields
-	case *ast.InterfaceType:
-		list = t.Methods
-	case *ast.StarExpr:
-		return fieldGroups(t.X, parentPublic)
-	case *ast.ArrayType:
-		return fieldGroups(t.Elt, parentPublic)
-	case *ast.ChanType:
-		return fieldGroups(t.Value, parentPublic)
-	case *ast.MapType:
-		keys := fieldGroups(t.Key, parentPublic)
-		return append(keys, fieldGroups(t.Value, parentPublic)...)
-	default:
-		return nil
-	}
-	var groups []*ast.CommentGroup
-	for _, field := range list.List {
-		public := parentPublic && fieldPublic(field)
-		if !public {
-			groups = append(groups, field.Doc, field.Comment)
+func (ok allowed) walk(n ast.Node, public bool) {
+	ast.Inspect(n, func(x ast.Node) bool {
+		switch t := x.(type) {
+		case *ast.StructType:
+			ok.fields(t.Fields, public, true)
+			return false
+		case *ast.InterfaceType:
+			ok.fields(t.Methods, public, true)
+			return false
+		case *ast.FuncType:
+			ok.fields(t.TypeParams, public, false)
+			ok.fields(t.Params, public, false)
+			ok.fields(t.Results, public, false)
+			return false
 		}
-		groups = append(groups, fieldGroups(field.Type, public)...)
+		return true
+	})
+}
+
+func (ok allowed) fields(list *ast.FieldList, public, named bool) {
+	if list == nil {
+		return
 	}
-	return groups
+	for _, field := range list.List {
+		p := public && (!named || fieldPublic(field))
+		ok.add(p, field.Doc, field.Comment)
+		ok.walk(field.Type, p)
+	}
+}
+
+func (ok allowed) add(public bool, groups ...*ast.CommentGroup) {
+	if !public {
+		return
+	}
+	for _, cg := range groups {
+		ok[cg] = true
+	}
 }
 
 func fieldPublic(field *ast.Field) bool {
@@ -158,7 +175,7 @@ func anyExported(names []*ast.Ident) bool {
 }
 
 func firstProse(cg *ast.CommentGroup) *ast.Comment {
-	if cg == nil || hasNolint(cg) {
+	if hasNolint(cg) {
 		return nil
 	}
 	for _, c := range cg.List {
