@@ -31,11 +31,11 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		case *ast.BinaryExpr:
 			markStringChain(x, concat)
 			if !concat[x] && breaks(fset, x.X.End(), x.Y.Pos()) {
-				lines[fset.Position(x.Pos()).Line] = true
+				lines[fset.Position(x.X.End()).Line] = true
 			}
 		case *ast.SelectorExpr:
 			if breaks(fset, x.X.End(), x.Sel.Pos()) {
-				lines[fset.Position(x.Pos()).Line] = true
+				lines[fset.Position(x.X.End()).Line] = true
 			}
 		}
 		return true

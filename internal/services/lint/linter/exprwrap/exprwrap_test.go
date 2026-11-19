@@ -202,10 +202,45 @@ func f(x []string) string {
 			wantLines: []int{4},
 		},
 		{
-			name: "raw string exempt",
-			src: "package foo\n\nfunc f() string {\n" +
-				"\ts := `a\nb`\n\treturn s\n}\n",
+			name: "raw string operand exempt",
+			src: "package foo\n\nfunc f(y string) bool {\n" +
+				"\tok := y == `a\nb`\n\treturn ok\n}\n",
 			wantLines: nil,
+		},
+		{
+			name: "multi-line call and literal operands exempt",
+			src: `package foo
+
+type T struct{ a, b int }
+
+func f(g func(int, int) bool, t T, ok bool) bool {
+	x := g(
+		1,
+		2,
+	) || ok
+	y := t == T{
+		a: 1,
+		b: 2,
+	}
+	return x && y
+}
+`,
+			wantLines: nil,
+		},
+		{
+			name: "reported on the line of the break",
+			src: `package foo
+
+func f(g func(int, int) bool, ok bool) bool {
+	x := g(
+		1,
+		2,
+	) ||
+		ok
+	return x
+}
+`,
+			wantLines: []int{7},
 		},
 		{
 			name: "package-level var",
