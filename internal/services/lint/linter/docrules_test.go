@@ -93,3 +93,8 @@ func TestRun_Check_DocRestateRule(t *testing.T) {
 	src := "package foo\n\n// Run runs.\nfunc Run() {}\n"
 	assertCommentRule(t, RuleDocRestate, src, "foo.go:3: doc comment for Run")
 }
+
+func TestRun_Check_CommentedCodeRule(t *testing.T) {
+	src := "package foo\n\n// x := 1\nconst X = 1\n"
+	assertCommentRule(t, RuleCommentedCode, src, "foo.go:3: commented-out code")
+}
