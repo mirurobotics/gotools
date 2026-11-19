@@ -321,3 +321,19 @@ func f() {
 		wantLines: []int{3, 8, 15},
 	})
 }
+
+func TestCheck_NestedBareVarFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
+
+func f() {
+	// for _, it := range items {
+	//	var buf bytes.Buffer
+	//	render(&buf, it)
+	// }
+}
+`,
+		wantLines: []int{4},
+	})
+}
