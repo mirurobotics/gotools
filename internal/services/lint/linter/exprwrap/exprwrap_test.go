@@ -420,6 +420,36 @@ func f(g func() bool, a, b, c bool) bool {
 			wantLines: nil,
 		},
 		{
+			name: "nolint inside a nested func literal leaves the outer break",
+			src: `package foo
+
+func f(run func(func() bool) bool, a, b, c bool) bool {
+	ok := run(func() bool {
+		//nolint:exprwrap
+		return a ||
+			b
+	}) &&
+		c
+	return ok
+}
+`,
+			wantLines: []int{8},
+		},
+		{
+			name: "nolint on the break line",
+			src: `package foo
+
+func f(g func(int) bool, ok bool) bool {
+	x := g(
+		1,
+	) || //nolint:exprwrap
+		ok
+	return x
+}
+`,
+			wantLines: nil,
+		},
+		{
 			name: "nolint on line above",
 			src: `package foo
 

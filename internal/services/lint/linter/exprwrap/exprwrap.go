@@ -91,7 +91,10 @@ func diagnostics(
 ) []analysis.Diagnostic {
 	diags := make([]analysis.Diagnostic, 0, len(lines))
 	for line, start := range lines {
-		if analysis.NolintOnLines(fset, f, ruleName, start-1, line) {
+		if analysis.NolintOnLines(fset, f, ruleName, start-1, start) {
+			continue
+		}
+		if analysis.NolintOnLines(fset, f, ruleName, line, line) {
 			continue
 		}
 		diag := analysis.Diagnostic{File: filename, Line: line, Message: message}
