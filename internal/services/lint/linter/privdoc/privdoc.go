@@ -29,11 +29,10 @@ type allowed map[*ast.CommentGroup]bool
 
 func proseComments(f *ast.File) []*ast.Comment {
 	ok := allowedGroups(f)
-	bodies := analysis.FuncBodies(f)
 	groups := append(analysis.DocGroups(f), analysis.LineComments(f)...)
 	var prose []*ast.Comment
 	for _, cg := range groups {
-		if cg == nil || ok[cg] || analysis.InAnyBody(cg.Pos(), bodies) {
+		if cg == nil || ok[cg] {
 			continue
 		}
 		if c := firstProse(cg); c != nil {
@@ -159,7 +158,7 @@ func firstProse(cg *ast.CommentGroup) *ast.Comment {
 		return nil
 	}
 	for _, c := range cg.List {
-		if analysis.ProseLines(&ast.CommentGroup{List: []*ast.Comment{c}}) > 0 {
+		if analysis.ProseLineCount(&ast.CommentGroup{List: []*ast.Comment{c}}) > 0 {
 			return c
 		}
 	}

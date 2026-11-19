@@ -6,34 +6,74 @@ import (
 	"strings"
 )
 
-// DocGroups returns the doc comment groups of declarations, specs, and fields.
-func DocGroups(f *ast.File) []*ast.CommentGroup {
-	var docs []*ast.CommentGroup
+// NamedDoc pairs a doc comment group with the single name it documents, if any.
+type NamedDoc struct {
+	Name *ast.Ident
+	Doc  *ast.CommentGroup
+}
+
+// NamedDocs pairs doc groups outside function bodies with their single name, if any.
+func NamedDocs(f *ast.File) []NamedDoc {
+	var docs []NamedDoc
 	ast.Inspect(f, func(n ast.Node) bool {
 		switch x := n.(type) {
+		case *ast.BlockStmt:
+			return false
 		case *ast.FuncDecl:
-			docs = append(docs, x.Doc)
+			docs = append(docs, NamedDoc{x.Name, x.Doc})
 		case *ast.GenDecl:
-			docs = append(docs, x.Doc)
+			docs = append(docs, NamedDoc{genDeclName(x), x.Doc})
 		case *ast.TypeSpec:
-			docs = append(docs, x.Doc)
+			docs = append(docs, NamedDoc{x.Name, x.Doc})
 		case *ast.ValueSpec:
-			docs = append(docs, x.Doc)
+			docs = append(docs, NamedDoc{soleName(x.Names), x.Doc})
 		case *ast.ImportSpec:
-			docs = append(docs, x.Doc)
+			docs = append(docs, NamedDoc{nil, x.Doc})
 		case *ast.Field:
-			docs = append(docs, x.Doc)
+			docs = append(docs, NamedDoc{soleName(x.Names), x.Doc})
 		}
 		return true
 	})
 	return docs
 }
 
-// LineComments returns the trailing line comment groups of specs and fields.
+// DocGroups returns the doc comment groups outside function bodies.
+func DocGroups(f *ast.File) []*ast.CommentGroup {
+	named := NamedDocs(f)
+	docs := make([]*ast.CommentGroup, len(named))
+	for i, d := range named {
+		docs[i] = d.Doc
+	}
+	return docs
+}
+
+func genDeclName(d *ast.GenDecl) *ast.Ident {
+	if d.Lparen != token.NoPos || len(d.Specs) != 1 {
+		return nil
+	}
+	switch s := d.Specs[0].(type) {
+	case *ast.TypeSpec:
+		return s.Name
+	case *ast.ValueSpec:
+		return soleName(s.Names)
+	}
+	return nil
+}
+
+func soleName(names []*ast.Ident) *ast.Ident {
+	if len(names) != 1 {
+		return nil
+	}
+	return names[0]
+}
+
+// LineComments returns trailing comments of specs and fields outside function bodies.
 func LineComments(f *ast.File) []*ast.CommentGroup {
 	var groups []*ast.CommentGroup
 	ast.Inspect(f, func(n ast.Node) bool {
 		switch x := n.(type) {
+		case *ast.BlockStmt:
+			return false
 		case *ast.TypeSpec:
 			groups = append(groups, x.Comment)
 		case *ast.ValueSpec:
@@ -75,16 +115,36 @@ func InAnyBody(pos token.Pos, bodies []*ast.BlockStmt) bool {
 	return false
 }
 
-// ProseLines counts cg lines, ignoring directives and leading/trailing blanks.
-func ProseLines(cg *ast.CommentGroup) int {
+// ProseLines returns the prose lines of cg's non-directive comments, without markers.
+func ProseLines(cg *ast.CommentGroup) []string {
 	var lines []string
 	for _, c := range cg.List {
 		if IsDirective(c.Text) {
 			continue
 		}
-		text := strings.TrimSuffix(strings.TrimPrefix(c.Text, "/*"), "*/")
-		lines = append(lines, strings.Split(text, "\n")...)
+		if text, ok := strings.CutPrefix(c.Text, "//"); ok {
+			lines = append(lines, text)
+			continue
+		}
+		lines = append(lines, blockLines(c.Text)...)
 	}
+	return lines
+}
+
+func blockLines(text string) []string {
+	text = strings.TrimSuffix(strings.TrimPrefix(text, "/*"), "*/")
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "*"); ok {
+			lines[i] = rest
+		}
+	}
+	return lines
+}
+
+// ProseLineCount counts cg lines, ignoring directives and leading/trailing blanks.
+func ProseLineCount(cg *ast.CommentGroup) int {
+	lines := ProseLines(cg)
 	for len(lines) > 0 && isBlank(lines[len(lines)-1]) {
 		lines = lines[:len(lines)-1]
 	}
@@ -94,9 +154,7 @@ func ProseLines(cg *ast.CommentGroup) int {
 	return len(lines)
 }
 
-func isBlank(line string) bool {
-	return strings.TrimSpace(strings.TrimPrefix(line, "//")) == ""
-}
+func isBlank(line string) bool { return strings.TrimSpace(line) == "" }
 
 // Comments returns every comment in f, flattened across groups, in source order.
 func Comments(f *ast.File) []*ast.Comment {
