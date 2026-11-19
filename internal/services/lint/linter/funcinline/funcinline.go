@@ -94,8 +94,10 @@ func inlineableStmt(
 	if fset.Position(stmt.Pos()).Line != fset.Position(stmt.End()).Line {
 		return nil, false
 	}
-	if analysis.HasCommentsBetween(fset, f, body.Lbrace, body.Rbrace) ||
-		analysis.ContainsFuncLit(stmt) {
+	if analysis.HasCommentsBetween(fset, f, body.Lbrace, body.Rbrace) {
+		return nil, false
+	}
+	if analysis.ContainsFuncLit(stmt) {
 		return nil, false
 	}
 	return stmt, true

@@ -56,6 +56,8 @@ func exampleBodies(filename string, f *ast.File) []*ast.BlockStmt {
 
 func isOutput(cg *ast.CommentGroup) bool {
 	text := strings.ToLower(strings.TrimSpace(cg.Text()))
-	return strings.HasPrefix(text, "output:") ||
-		strings.HasPrefix(text, "unordered output:")
+	if strings.HasPrefix(text, "output:") {
+		return true
+	}
+	return strings.HasPrefix(text, "unordered output:")
 }

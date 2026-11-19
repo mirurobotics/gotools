@@ -97,12 +97,12 @@ func isStructTagLine(trimmed string) bool {
 		return false
 	}
 	tag := trimmed[idx+1 : end]
-	return strings.Contains(tag, `json:"`) ||
-		strings.Contains(tag, `gorm:"`) ||
-		strings.Contains(tag, `yaml:"`) ||
-		strings.Contains(tag, `xml:"`) ||
-		strings.Contains(tag, `db:"`) ||
-		strings.Contains(tag, `validate:"`)
+	for _, key := range []string{"json", "gorm", "yaml", "xml", "db", "validate"} {
+		if strings.Contains(tag, key+`:"`) {
+			return true
+		}
+	}
+	return false
 }
 
 func paramlessFuncSigRe() *regexp.Regexp {
@@ -123,17 +123,21 @@ func isStringLiteralLine(trimmed string) bool {
 		return false
 	}
 	bare := strings.TrimRight(trimmed, ",")
-	if (strings.HasPrefix(bare, `"`) && strings.HasSuffix(bare, `"`)) ||
-		(strings.HasPrefix(bare, "`") && strings.HasSuffix(bare, "`")) {
+	if isQuoted(bare) {
 		return true
 	}
 	if _, rhs, ok := strings.Cut(trimmed, "= "); ok {
 		rhs = strings.TrimSpace(rhs)
 		rhs = strings.TrimRight(rhs, ",")
-		if (strings.HasPrefix(rhs, `"`) && strings.HasSuffix(rhs, `"`)) ||
-			(strings.HasPrefix(rhs, "`") && strings.HasSuffix(rhs, "`")) {
+		if isQuoted(rhs) {
 			return true
 		}
 	}
 	return false
+}
+
+func isQuoted(s string) bool { return isWrappedIn(s, `"`) || isWrappedIn(s, "`") }
+
+func isWrappedIn(s, q string) bool {
+	return strings.HasPrefix(s, q) && strings.HasSuffix(s, q)
 }

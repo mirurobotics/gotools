@@ -25,6 +25,15 @@ func TestCheck(t *testing.T) {
 			wantMsg:   "",
 		},
 		{
+			name:     "init exempt",
+			filename: "",
+			src: `package foo` +
+				`; func init(a, b, c, d, e, f int) {}`,
+			maxParams: 5,
+			wantN:     0,
+			wantMsg:   "",
+		},
+		{
 			name:     "over limit",
 			filename: "",
 			src: `package foo` +

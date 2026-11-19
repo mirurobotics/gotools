@@ -15,9 +15,10 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	if !strings.Contains(name, "_") {
 		return nil
 	}
-	if strings.HasPrefix(name, "test_") ||
-		strings.HasPrefix(name, "mock_") ||
-		strings.HasSuffix(name, "_test") {
+	if strings.HasPrefix(name, "test_") || strings.HasPrefix(name, "mock_") {
+		return nil
+	}
+	if strings.HasSuffix(name, "_test") {
 		return nil
 	}
 	pos := fset.Position(f.Name.Pos())
