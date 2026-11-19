@@ -38,7 +38,7 @@ func TestCheck_FmtPrintlnInLibrary(t *testing.T) {
 		wantN: 1,
 		wantMsg: "fmt.Println should not be used" +
 			" outside main;" +
-			" use structured logging",
+			" use structured logging or t.Log",
 	})
 }
 
@@ -50,7 +50,7 @@ func TestCheck_FmtPrintfInLibrary(t *testing.T) {
 		wantN: 1,
 		wantMsg: "fmt.Printf should not be used" +
 			" outside main;" +
-			" use structured logging",
+			" use structured logging or t.Log",
 	})
 }
 
@@ -72,7 +72,7 @@ func TestCheck_PrintlnBuiltinInLibrary(t *testing.T) {
 		wantN: 1,
 		wantMsg: "println should not be used" +
 			" outside main;" +
-			" use structured logging",
+			" use structured logging or t.Log",
 	})
 }
 
@@ -84,7 +84,7 @@ func TestCheck_PrintBuiltinInLibrary(t *testing.T) {
 		wantN: 1,
 		wantMsg: "print should not be used" +
 			" outside main;" +
-			" use structured logging",
+			" use structured logging or t.Log",
 	})
 }
 
@@ -96,7 +96,7 @@ func TestCheck_LogPrintfInLibrary(t *testing.T) {
 		wantN: 1,
 		wantMsg: "log.Printf should not be used" +
 			" outside main;" +
-			" use structured logging",
+			" use structured logging or t.Log",
 	})
 }
 
@@ -108,7 +108,7 @@ func TestCheck_LogFatalInLibrary(t *testing.T) {
 		wantN: 1,
 		wantMsg: "log.Fatal should not be used" +
 			" outside main;" +
-			" use structured logging",
+			" use structured logging or t.Log",
 	})
 }
 
@@ -119,7 +119,7 @@ func TestCheck_TestFileNotExempt(t *testing.T) {
 			`; func f() { fmt.Println("hi") }`,
 		wantN: 1,
 		wantMsg: "fmt.Println should not be used outside main;" +
-			" use structured logging",
+			" use structured logging or t.Log",
 	})
 }
 
@@ -182,7 +182,7 @@ func TestCheck_NolintOnDifferentLineDoesNotExempt(t *testing.T) {
 		wantN: 1,
 		wantMsg: "fmt.Println should not be used" +
 			" outside main;" +
-			" use structured logging",
+			" use structured logging or t.Log",
 	})
 }
 
@@ -229,7 +229,7 @@ func TestCheck_ExampleOutsideTestFileFlagged(t *testing.T) {
 		src:      `package foo; import "fmt"; func ExampleF() { fmt.Println("hi") }`,
 		wantN:    1,
 		wantMsg: "fmt.Println should not be used outside main;" +
-			" use structured logging",
+			" use structured logging or t.Log",
 	})
 }
 
@@ -241,6 +241,6 @@ func TestCheck_ExampleLookalikesInTestFileFlagged(t *testing.T) {
 			`; func Examplehelper() { fmt.Println("hi") }`,
 		wantN: 2,
 		wantMsg: "fmt.Println should not be used outside main;" +
-			" use structured logging",
+			" use structured logging or t.Log",
 	})
 }

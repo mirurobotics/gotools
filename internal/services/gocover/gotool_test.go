@@ -5,29 +5,18 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/testutil"
 )
 
 func makeGoProject(t *testing.T) {
 	t.Helper()
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-
-	goMod := "module testmod\n\ngo 1.23\n"
-	//nolint:gosec // G306: test file
-	_ = os.WriteFile(filepath.Join(tmp, "go.mod"), []byte(goMod), 0o644)
-	pkg := filepath.Join(tmp, "mypkg")
-	//nolint:gosec // G301: test directory
-	_ = os.MkdirAll(pkg, 0o755)
-	lib := "package mypkg\n\n" +
-		"func Add(a, b int) int { return a + b }\n"
-	//nolint:gosec // G306: test file
-	_ = os.WriteFile(filepath.Join(pkg, "lib.go"), []byte(lib), 0o644)
+	lib := "package mypkg\n\nfunc Add(a, b int) int { return a + b }\n"
 	testSrc := "package mypkg\n\n" +
 		"import \"testing\"\n\n" +
 		"func TestAdd(t *testing.T) {\n" +
 		"\tif Add(1,2) != 3 { t.Fatal() }\n}\n"
-	//nolint:gosec // G306: test file
-	_ = os.WriteFile(filepath.Join(pkg, "lib_test.go"), []byte(testSrc), 0o644)
+	testutil.WriteTestModule(t, lib, testSrc)
 }
 
 func TestGoModule(t *testing.T) {

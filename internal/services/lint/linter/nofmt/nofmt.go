@@ -54,7 +54,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			Line: pos.Line,
 			Message: name +
 				" should not be used outside" +
-				" main; use structured logging",
+				" main; use structured logging or t.Log",
 		})
 		return true
 	})
