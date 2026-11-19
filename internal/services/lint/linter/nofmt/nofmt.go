@@ -3,9 +3,6 @@ package nofmt
 import (
 	"go/ast"
 	"go/token"
-	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
@@ -37,7 +34,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	var diags []analysis.Diagnostic
 
 	ast.Inspect(f, func(n ast.Node) bool {
-		if isExample(filename, n) {
+		if fn, ok := n.(*ast.FuncDecl); ok && analysis.IsExampleFunc(filename, fn) {
 			return false
 		}
 		call, ok := n.(*ast.CallExpr)
@@ -70,19 +67,6 @@ func isExempt(filename string, f *ast.File) bool {
 		return true
 	}
 	return analysis.IsLintSource(filename) || analysis.IsCmdSource(filename)
-}
-
-func isExample(filename string, n ast.Node) bool {
-	fn, ok := n.(*ast.FuncDecl)
-	if !ok || fn.Recv != nil || !analysis.IsTestFile(filename) {
-		return false
-	}
-	suffix, ok := strings.CutPrefix(fn.Name.Name, "Example")
-	if !ok || suffix == "" {
-		return ok
-	}
-	r, _ := utf8.DecodeRuneInString(suffix)
-	return !unicode.IsLower(r)
 }
 
 func callName(call *ast.CallExpr) string {

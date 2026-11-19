@@ -1,6 +1,11 @@
 package analysis
 
-import "testing"
+import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"testing"
+)
 
 func TestIsTestFile(t *testing.T) {
 	tests := []struct {
@@ -85,4 +90,41 @@ func TestIsCmdSource(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIsExampleFunc(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+		src  string
+		want bool
+	}{
+		{"bare Example", "foo_test.go", "func Example() {}", true},
+		{"Example for a name", "foo_test.go", "func ExampleFoo() {}", true},
+		{"Example with suffix", "foo_test.go", "func Example_suffix() {}", true},
+		{"lowercase after prefix", "foo_test.go", "func Examplehelper() {}", false},
+		{"method", "foo_test.go", "func (T) ExampleM() {}", false},
+		{"other name", "foo_test.go", "func TestFoo() {}", false},
+		{"not a test file", "foo.go", "func Example() {}", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := IsExampleFunc(tc.file, parseFunc(t, tc.src)); got != tc.want {
+				t.Errorf("IsExampleFunc(%q, %q) = %v", tc.file, tc.src, got)
+			}
+		})
+	}
+}
+
+func parseFunc(t *testing.T, src string) *ast.FuncDecl {
+	t.Helper()
+	f, err := parser.ParseFile(token.NewFileSet(), "x.go", "package x\n"+src, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn, ok := f.Decls[0].(*ast.FuncDecl)
+	if !ok {
+		t.Fatalf("first decl is %T, want *ast.FuncDecl", f.Decls[0])
+	}
+	return fn
 }

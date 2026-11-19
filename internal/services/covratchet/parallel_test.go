@@ -2,8 +2,6 @@ package covratchet
 
 import (
 	"bytes"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -40,18 +38,6 @@ func hasProgressLineWith(out, marker, contains string) bool {
 	return false
 }
 
-func chdirWithPkgs(t *testing.T, rels ...string) {
-	t.Helper()
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-	for _, rel := range rels {
-		//nolint:gosec // G301: test directory
-		if err := os.MkdirAll(filepath.Join(tmp, rel), 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
 func runPkgs(t *testing.T, progress bool, parallelism int, rels ...string) string {
 	t.Helper()
 	pkgs := make([]string, 0, len(rels))
@@ -73,33 +59,17 @@ func runPkgs(t *testing.T, progress bool, parallelism int, rels ...string) strin
 	return buf.String()
 }
 
-func assertInOrder(t *testing.T, out string, ordered ...string) {
-	t.Helper()
-	prev, prevIdx := "", -1
-	for _, s := range ordered {
-		idx := strings.Index(out, s)
-		if idx < 0 {
-			t.Errorf("output missing %q:\n%s", s, out)
-			return
-		}
-		if idx <= prevIdx {
-			t.Errorf("expected %q (%d) after %q (%d):\n%s", s, idx, prev, prevIdx, out)
-		}
-		prev, prevIdx = s, idx
-	}
-}
-
 func TestRun_Parallelism(t *testing.T) {
-	chdirWithPkgs(t, "pkg/a", "pkg/b", "pkg/c")
+	testutil.MakePkgDirs(t, "pkg/a", "pkg/b", "pkg/c")
 	out := runPkgs(t, false, 2, "pkg/a", "pkg/b", "pkg/c")
-	assertInOrder(t, out, "pkg/a", "pkg/b", "pkg/c")
+	testutil.AssertInOrder(t, out, "pkg/a", "pkg/b", "pkg/c")
 	if !strings.Contains(out, "Updated: 3") {
 		t.Errorf("expected Updated: 3 in output: %s", out)
 	}
 }
 
 func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
-	chdirWithPkgs(t, "pkg/a", "pkg/b")
+	testutil.MakePkgDirs(t, "pkg/a", "pkg/b")
 	out := runPkgs(t, true, 0, "pkg/a", "pkg/b")
 	for _, marker := range []string{"[1/2]", "[2/2]"} {
 		if !hasProgressLineWith(out, marker, "pkg/") {
@@ -111,14 +81,14 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 		t.Errorf("expected one STATUS header (progress IS the table); got %d:\n%s",
 			got, out)
 	}
-	assertInOrder(t, out, "Running 2 packages with parallelism=", "COUNT")
-	assertInOrder(t, out, "[1/2]", "Done.")
-	assertInOrder(t, out, "[2/2]", "Done.")
-	assertRowsOnce(t, out, "pkg/a", "pkg/b")
+	testutil.AssertInOrder(t, out, "Running 2 packages with parallelism=", "COUNT")
+	testutil.AssertInOrder(t, out, "[1/2]", "Done.")
+	testutil.AssertInOrder(t, out, "[2/2]", "Done.")
+	testutil.AssertRowsOnce(t, out, "pkg/a", "pkg/b")
 }
 
 func TestRun_SuppressesProgress_WhenExplicitParallelism(t *testing.T) {
-	chdirWithPkgs(t, "pkg/a", "pkg/b")
+	testutil.MakePkgDirs(t, "pkg/a", "pkg/b")
 	out := runPkgs(t, false, 2, "pkg/a", "pkg/b")
 	for _, unwanted := range []string{
 		"[1/2]", "[2/2]", "Running 2 packages with parallelism=", "COUNT",
@@ -130,14 +100,5 @@ func TestRun_SuppressesProgress_WhenExplicitParallelism(t *testing.T) {
 	if got := strings.Count(out, "STATUS"); got != 1 {
 		t.Errorf("expected one STATUS header (no progress section); got %d:\n%s",
 			got, out)
-	}
-}
-
-func assertRowsOnce(t *testing.T, out string, pkgs ...string) {
-	t.Helper()
-	for _, pkg := range pkgs {
-		if got := strings.Count(out, pkg+"\n"); got != 1 {
-			t.Errorf("expected %s row once, got %d:\n%s", pkg, got, out)
-		}
 	}
 }
