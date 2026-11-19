@@ -74,7 +74,7 @@ func bindLinterConfigFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
 	)
 	fl.IntVar(
 		&flags.MaxFuncLen, "max-func-len", 30,
-		"maximum function length (non-blank, non-comment)",
+		"maximum function length (code lines; a multi-line literal counts once)",
 	)
 	fl.IntVar(
 		&flags.MaxFileLen, "max-file-len", 300,

@@ -10,7 +10,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports functions whose body exceeds maxLen non-blank, non-comment lines.
+// Check reports functions over maxLen code lines; a multi-line literal counts as one.
 func Check(
 	fset *token.FileSet,
 	filename string,
@@ -65,19 +65,49 @@ func funcBody(n ast.Node) (*ast.BlockStmt, string, bool) {
 
 func countLines(fset *token.FileSet, body *ast.BlockStmt, allLines [][]byte) int {
 	startLine := fset.Position(body.Lbrace).Line
-	endLine := fset.Position(body.Rbrace).Line
+	endLine := min(fset.Position(body.Rbrace).Line, len(allLines)+1)
+	skip := literalTailLines(fset, body)
 
 	count := 0
 	for lineNum := startLine + 1; lineNum < endLine; lineNum++ {
-		idx := lineNum - 1
-		if idx >= len(allLines) {
-			break
+		if !skip[lineNum] && isCodeLine(allLines[lineNum-1]) {
+			count++
 		}
-		trimmed := strings.TrimSpace(string(allLines[idx]))
-		if trimmed == "" || strings.HasPrefix(trimmed, "//") {
-			continue
-		}
-		count++
 	}
 	return count
+}
+
+func isCodeLine(line []byte) bool {
+	trimmed := strings.TrimSpace(string(line))
+	return trimmed != "" && !strings.HasPrefix(trimmed, "//")
+}
+
+func literalTailLines(fset *token.FileSet, body *ast.BlockStmt) map[int]bool {
+	skip := make(map[int]bool)
+	codeStarts := make(map[int]bool)
+	var closingLines []int
+	ast.Inspect(body, func(n ast.Node) bool {
+		switch n.(type) {
+		case nil, *ast.CommentGroup, *ast.Comment:
+			return false
+		}
+		codeStarts[fset.Position(n.Pos()).Line] = true
+		lit, ok := n.(*ast.CompositeLit)
+		if !ok {
+			return true
+		}
+		first := fset.Position(lit.Pos()).Line
+		last := fset.Position(lit.End()).Line
+		for line := first + 1; line <= last; line++ {
+			skip[line] = true
+		}
+		closingLines = append(closingLines, last)
+		return false
+	})
+	for _, line := range closingLines {
+		if codeStarts[line] {
+			delete(skip, line)
+		}
+	}
+	return skip
 }
