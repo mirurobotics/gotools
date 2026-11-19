@@ -1,9 +1,9 @@
 package doclen
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 type checkCase struct {
@@ -16,26 +16,9 @@ type checkCase struct {
 
 func runCheckCase(t *testing.T, tt checkCase) {
 	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, tt.filename, tt.src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
+	fset, f := linttest.Parse(t, tt.filename, tt.src)
 	diags := Check(fset, tt.filename, f, tt.lim)
-	if len(diags) != len(tt.wantLines) {
-		t.Fatalf(
-			"got %d diagnostics, want %d: %v",
-			len(diags), len(tt.wantLines), diags,
-		)
-	}
-	for i, d := range diags {
-		if d.Line != tt.wantLines[i] {
-			t.Errorf("diag %d line = %d, want %d", i, d.Line, tt.wantLines[i])
-		}
-		if tt.wantMsg != "" && d.Message != tt.wantMsg {
-			t.Errorf("diag %d message = %q, want %q", i, d.Message, tt.wantMsg)
-		}
-	}
+	linttest.AssertLines(t, diags, tt.wantLines, tt.wantMsg)
 }
 
 func TestCheck_MultiLineFuncDocFlagged(t *testing.T) {

@@ -1,10 +1,10 @@
 package linelen
 
 import (
-	"go/parser"
-	"go/token"
 	"strings"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 type checkCase struct {
@@ -15,18 +15,9 @@ type checkCase struct {
 
 func runCheckCase(t *testing.T, tt checkCase) {
 	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", tt.src, parser.ParseComments)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
+	fset, f := linttest.Parse(t, "test.go", tt.src)
 	diags := Check(fset, "test.go", f, []byte(tt.src), 88, 8)
-	if len(diags) != tt.wantN {
-		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
-	}
-	if tt.wantN > 0 && tt.wantMsg != "" && diags[0].Message != tt.wantMsg {
-		t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
-	}
+	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
 }
 
 func TestCheck_ShortLine(t *testing.T) {

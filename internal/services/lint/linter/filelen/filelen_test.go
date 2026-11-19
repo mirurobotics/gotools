@@ -1,10 +1,10 @@
 package filelen
 
 import (
-	"go/parser"
-	"go/token"
 	"strings"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 func body(n int) string { return strings.Repeat("var _ = 1\n", n) }
@@ -24,22 +24,10 @@ func runCheckCase(t *testing.T, tt checkCase) {
 	if filename == "" {
 		filename = "test.go"
 	}
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, filename, tt.src, parser.ParseComments)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
+	fset, f := linttest.Parse(t, filename, tt.src)
 	diags := Check(fset, filename, f, []byte(tt.src), tt.maxLen)
-	if len(diags) != tt.wantN {
-		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
-	}
-	if tt.wantN == 0 {
-		return
-	}
-	if diags[0].Message != tt.wantMsg {
-		t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
-	}
-	if diags[0].Line != tt.wantLine {
+	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
+	if tt.wantN > 0 && diags[0].Line != tt.wantLine {
 		t.Errorf("line = %d, want %d", diags[0].Line, tt.wantLine)
 	}
 }

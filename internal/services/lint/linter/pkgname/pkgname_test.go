@@ -1,9 +1,9 @@
 package pkgname
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 type checkCase struct {
@@ -14,18 +14,8 @@ type checkCase struct {
 
 func runCheckCase(t *testing.T, tt checkCase) {
 	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", tt.src, 0)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	diags := Check(fset, "test.go", f)
-	if len(diags) != tt.wantN {
-		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
-	}
-	if tt.wantN > 0 && diags[0].Message != tt.wantMsg {
-		t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
-	}
+	fset, f := linttest.Parse(t, "test.go", tt.src)
+	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
 }
 
 func TestCheck_CleanName(t *testing.T) {

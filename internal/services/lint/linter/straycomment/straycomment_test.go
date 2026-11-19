@@ -1,9 +1,9 @@
 package straycomment
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 type checkCase struct {
@@ -13,23 +13,8 @@ type checkCase struct {
 
 func runCheckCase(t *testing.T, tt checkCase) {
 	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	diags := Check(fset, "foo.go", f)
-	if len(diags) != len(tt.wantLines) {
-		t.Fatalf(
-			"got %d diagnostics, want %d: %v",
-			len(diags), len(tt.wantLines), diags,
-		)
-	}
-	for i, d := range diags {
-		if d.Line != tt.wantLines[i] || d.Message != message {
-			t.Errorf("diag %d = %v, want line %d", i, d, tt.wantLines[i])
-		}
-	}
+	fset, f := linttest.Parse(t, "foo.go", tt.src)
+	linttest.AssertLines(t, Check(fset, "foo.go", f), tt.wantLines, message)
 }
 
 func TestCheck_SectionBannerFlaggedOncePerGroup(t *testing.T) {

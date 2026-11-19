@@ -1,9 +1,9 @@
 package paramcount
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 type checkCase struct {
@@ -20,18 +20,9 @@ func runCheckCase(t *testing.T, tt checkCase) {
 	if filename == "" {
 		filename = "test.go"
 	}
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, filename, tt.src, parser.ParseComments)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
+	fset, f := linttest.Parse(t, filename, tt.src)
 	diags := Check(fset, filename, f, tt.maxParams)
-	if len(diags) != tt.wantN {
-		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
-	}
-	if tt.wantN > 0 && tt.wantMsg != "" && diags[0].Message != tt.wantMsg {
-		t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
-	}
+	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
 }
 
 func TestCheck_AtLimit(t *testing.T) {

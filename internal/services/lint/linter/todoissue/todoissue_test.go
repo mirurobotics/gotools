@@ -1,9 +1,9 @@
 package todoissue
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 type checkCase struct {
@@ -13,22 +13,12 @@ type checkCase struct {
 
 func runCheckCase(t *testing.T, tt checkCase) {
 	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
+	fset, f := linttest.Parse(t, "foo.go", tt.src)
 	diags := Check(fset, "foo.go", f)
-	if len(diags) != len(tt.wantLines) {
-		t.Fatalf(
-			"got %d diagnostics, want %d: %v",
-			len(diags), len(tt.wantLines), diags,
-		)
-	}
-	for i, d := range diags {
-		wrong := d.File != "foo.go" || d.Line != tt.wantLines[i]
-		if wrong || d.Message != message {
-			t.Errorf("diag %d = %v, want line %d", i, d, tt.wantLines[i])
+	linttest.AssertLines(t, diags, tt.wantLines, message)
+	for _, d := range diags {
+		if d.File != "foo.go" {
+			t.Errorf("diag file = %q, want foo.go", d.File)
 		}
 	}
 }

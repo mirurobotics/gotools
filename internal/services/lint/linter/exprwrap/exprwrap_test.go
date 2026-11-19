@@ -1,9 +1,9 @@
 package exprwrap
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 type checkCase struct {
@@ -13,23 +13,8 @@ type checkCase struct {
 
 func runCheckCase(t *testing.T, tt checkCase) {
 	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	diags := Check(fset, "foo.go", f)
-	if want := len(tt.wantLines); len(diags) != want {
-		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), want, diags)
-	}
-	for i, d := range diags {
-		if d.Line != tt.wantLines[i] {
-			t.Errorf("diag %d line = %d, want %d", i, d.Line, tt.wantLines[i])
-		}
-		if d.Message != message {
-			t.Errorf("message = %q, want %q", d.Message, message)
-		}
-	}
+	fset, f := linttest.Parse(t, "foo.go", tt.src)
+	linttest.AssertLines(t, Check(fset, "foo.go", f), tt.wantLines, message)
 }
 
 func TestCheck_SingleLine(t *testing.T) {

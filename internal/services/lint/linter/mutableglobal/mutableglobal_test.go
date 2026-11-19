@@ -1,9 +1,9 @@
 package mutableglobal
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 type checkCase struct {
@@ -15,18 +15,8 @@ type checkCase struct {
 
 func runCheckCase(t *testing.T, tt checkCase) {
 	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, tt.filename, tt.src, parser.ParseComments)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	diags := Check(fset, tt.filename, f)
-	if len(diags) != tt.wantN {
-		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
-	}
-	if tt.wantN > 0 && tt.wantMsg != "" && diags[0].Message != tt.wantMsg {
-		t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
-	}
+	fset, f := linttest.Parse(t, tt.filename, tt.src)
+	linttest.AssertCount(t, Check(fset, tt.filename, f), tt.wantN, tt.wantMsg)
 }
 
 func TestCheck_ConstIsAllowed(t *testing.T) {

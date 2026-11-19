@@ -1,9 +1,9 @@
 package funccomment
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 type checkCase struct {
@@ -14,23 +14,8 @@ type checkCase struct {
 
 func runCheckCase(t *testing.T, tt checkCase) {
 	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, tt.filename, tt.src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	diags := Check(fset, tt.filename, f)
-	if len(diags) != len(tt.wantLines) {
-		t.Fatalf(
-			"got %d diagnostics, want %d: %v",
-			len(diags), len(tt.wantLines), diags,
-		)
-	}
-	for i, d := range diags {
-		if d.Line != tt.wantLines[i] || d.Message != message {
-			t.Errorf("diag %d = %v, want line %d", i, d, tt.wantLines[i])
-		}
-	}
+	fset, f := linttest.Parse(t, tt.filename, tt.src)
+	linttest.AssertLines(t, Check(fset, tt.filename, f), tt.wantLines, message)
 }
 
 func TestCheck_LineCommentInBodyFlagged(t *testing.T) {

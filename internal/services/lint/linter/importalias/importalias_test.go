@@ -1,9 +1,9 @@
 package importalias
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
 type checkCase struct {
@@ -19,19 +19,8 @@ func runCheckCase(t *testing.T, tt checkCase) {
 	if filename == "" {
 		filename = "test.go"
 	}
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, filename, tt.src, 0)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	diags := Check(fset, filename, f)
-	if len(diags) != tt.wantN {
-		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
-	}
-	checkMsg := tt.wantN > 0 && tt.wantMsg != ""
-	if checkMsg && diags[0].Message != tt.wantMsg {
-		t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
-	}
+	fset, f := linttest.Parse(t, filename, tt.src)
+	linttest.AssertCount(t, Check(fset, filename, f), tt.wantN, tt.wantMsg)
 }
 
 func TestCheck_NoAlias(t *testing.T) {
