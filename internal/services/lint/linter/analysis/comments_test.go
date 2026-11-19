@@ -1,8 +1,10 @@
 package analysis
 
 import (
+	"go/ast"
 	"go/parser"
 	"go/token"
+	"reflect"
 	"testing"
 )
 
@@ -69,7 +71,7 @@ func nonNil[T any](xs []*T) int {
 	return n
 }
 
-func TestProseLines(t *testing.T) {
+func TestProseLineCount(t *testing.T) {
 	tests := []struct {
 		name string
 		src  string
@@ -79,6 +81,8 @@ func TestProseLines(t *testing.T) {
 		{"inner blank line counted", "// a\n//\n// b\n", 3},
 		{"directive and blank lines dropped", "//\n// a\n//\n//nolint:x\n", 1},
 		{"block comment trimmed", "/*\na\n*/\n", 1},
+		{"starred block comment trimmed", "/*\n * a\n *\n * b\n */\n", 3},
+		{"trailing bare star dropped", "/*\n * a\n *\n */\n", 1},
 		{"empty block comment", "/* */\n", 0},
 	}
 	for _, tt := range tests {
@@ -89,8 +93,93 @@ func TestProseLines(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := ProseLines(f.Doc); got != tt.want {
-				t.Errorf("ProseLines = %d, want %d", got, tt.want)
+			if got := ProseLineCount(f.Doc); got != tt.want {
+				t.Errorf("ProseLineCount = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNamedDocs(t *testing.T) {
+	src := commentsSrc + `
+// Pair doc.
+var a, b = 1, 2
+
+// Group doc.
+const (
+	// C doc.
+	C = 1
+)
+
+func Local() {
+	// x doc.
+	var x = 1 // x line
+	_ = x
+}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "foo.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"-", "-", "T", "A", "V", "F", "H", "-", "-", "C"}
+	if got := documentedNames(f); !reflect.DeepEqual(got, want) {
+		t.Errorf("NamedDocs names = %v, want %v", got, want)
+	}
+	if n := nonNil(LineComments(f)); n != 3 {
+		t.Errorf("LineComments = %d non-nil groups, want 3 (none from bodies)", n)
+	}
+}
+
+func documentedNames(f *ast.File) []string {
+	var got []string
+	for _, d := range NamedDocs(f) {
+		if d.Doc == nil {
+			continue
+		}
+		name := "-"
+		if d.Name != nil {
+			name = d.Name.Name
+		}
+		got = append(got, name)
+	}
+	return got
+}
+
+func TestNamedDocs_Import(t *testing.T) {
+	const importSrc = "package bar\n\n// os doc.\nimport \"os\"\n"
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "bar.go", importSrc, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := documentedNames(f), []string{"-"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("NamedDocs on import = %v, want %v", got, want)
+	}
+}
+
+func TestProseLines(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{"line comments", "// a\n// b\n", []string{" a", " b"}},
+		{"directive dropped", "// a\n//nolint:x\n", []string{" a"}},
+		{"line comment star kept", "// * a\n", []string{" * a"}},
+		{"starred block split", "/*\n * a\n */\n", []string{"", " a", " "}},
+		{"plain block split", "/* a\nb */\n", []string{" a", "b "}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fset := token.NewFileSet()
+			src := tt.src + "package foo\n"
+			f, err := parser.ParseFile(fset, "foo.go", src, parser.ParseComments)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := ProseLines(f.Doc); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ProseLines = %q, want %q", got, tt.want)
 			}
 		})
 	}

@@ -31,9 +31,8 @@ func Check(
 		diags = append(diags, *d)
 	}
 	preambles := cgoPreambles(f)
-	bodies := analysis.FuncBodies(f)
 	for _, cg := range analysis.DocGroups(f) {
-		if cg == nil || preambles[cg] || analysis.InAnyBody(cg.Pos(), bodies) {
+		if cg == nil || preambles[cg] {
 			continue
 		}
 		if d := check(fset, filename, cg, lim.Doc); d != nil {
@@ -76,7 +75,7 @@ func check(
 	if cg == nil || limit <= 0 {
 		return nil
 	}
-	n := analysis.ProseLines(cg)
+	n := analysis.ProseLineCount(cg)
 	if n <= limit {
 		return nil
 	}

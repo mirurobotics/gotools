@@ -11,6 +11,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/collapse"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/ctxpos"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/doclen"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/docrestate"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/errfmt"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/exprwrap"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/filelen"
@@ -62,6 +63,7 @@ const (
 	RuleStrayComment  Rule = "straycomment"
 	RulePrivDoc       Rule = "privdoc"
 	RuleExprWrap      Rule = "exprwrap"
+	RuleDocRestate    Rule = "docrestate"
 )
 
 // AllRules returns every valid rule name.
@@ -73,6 +75,7 @@ func AllRules() []Rule {
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
 		RuleTodoIssue, RuleExprWrap,
 		RuleFuncComment, RuleDocLen, RuleStrayComment, RulePrivDoc,
+		RuleDocRestate,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
 	}
 }
@@ -189,6 +192,9 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		}},
 		{RuleExprWrap, false, func(in checkInput) []analysis.Diagnostic {
 			return exprwrap.Check(in.fset, in.path, in.f)
+		}},
+		{RuleDocRestate, false, func(in checkInput) []analysis.Diagnostic {
+			return docrestate.Check(in.fset, in.path, in.f)
 		}},
 		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
 			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)
