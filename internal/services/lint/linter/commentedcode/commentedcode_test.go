@@ -249,3 +249,14 @@ case int:
 		wantLines: []int{4},
 	})
 }
+
+func TestCheck_NonASCIIStringLiteralFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
+
+// fmt.Println("héllo")
+`,
+		wantLines: []int{3},
+	})
+}
