@@ -22,7 +22,10 @@ func initRepo(t *testing.T) {
 
 func isolateGit(t *testing.T) {
 	t.Helper()
-	for _, k := range []string{"GIT_DIR", "GIT_WORK_TREE"} {
+	for _, k := range []string{
+		"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
+		"GIT_COMMON_DIR", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+	} {
 		t.Setenv(k, "")
 		if err := os.Unsetenv(k); err != nil {
 			t.Fatal(err)

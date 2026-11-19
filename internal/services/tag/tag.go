@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -30,21 +31,8 @@ func SortVersionTags(tags []string) {
 
 // VersionLess compares two version strings like sort -V.
 func VersionLess(a, b string) bool {
-	pa := SplitVersionParts(a)
-	pb := SplitVersionParts(b)
-
-	minLen := len(pa)
-	if len(pb) < minLen {
-		minLen = len(pb)
-	}
-
-	for k := 0; k < minLen; k++ {
-		if c := comparePart(pa[k], pb[k]); c != 0 {
-			return c < 0
-		}
-	}
-
-	return len(pa) < len(pb)
+	pa, pb := SplitVersionParts(a), SplitVersionParts(b)
+	return slices.CompareFunc(pa, pb, comparePart) < 0
 }
 
 // SplitVersionParts splits a version into numeric and non-numeric segments.
