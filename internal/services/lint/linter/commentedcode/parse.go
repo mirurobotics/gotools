@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"strings"
+	"unicode/utf8"
 )
 
 func isCode(s string) bool {
@@ -18,14 +19,14 @@ func isDecls(s string) bool {
 	src := "package p\n" + s + "\n"
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "", src, 0)
-	return err == nil && len(f.Decls) > 0 && !spacedDot(fset, src, f)
+	return err == nil && len(f.Decls) > 0 && !isProse(fset, src, f)
 }
 
 func isStmts(s string) bool {
 	src := "package p\nfunc _() {\n" + s + "\n}\n"
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "", src, 0)
-	if err != nil || spacedDot(fset, src, f) {
+	if err != nil || isProse(fset, src, f) {
 		return false
 	}
 	body := firstBody(f)
@@ -41,6 +42,30 @@ func isStmts(s string) bool {
 		return ok
 	})
 	return ok && hasCodeNode(body)
+}
+
+func isProse(fset *token.FileSet, src string, f *ast.File) bool {
+	return spacedDot(fset, src, f) || hasNonASCIIIdent(f)
+}
+
+func hasNonASCIIIdent(f *ast.File) bool {
+	found := false
+	ast.Inspect(f, func(n ast.Node) bool {
+		if id, ok := n.(*ast.Ident); ok && !isASCII(id.Name) {
+			found = true
+		}
+		return !found
+	})
+	return found
+}
+
+func isASCII(s string) bool {
+	for i := range len(s) {
+		if s[i] >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
 }
 
 func spacedDot(fset *token.FileSet, src string, f *ast.File) bool {

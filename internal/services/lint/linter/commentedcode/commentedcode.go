@@ -16,9 +16,9 @@ func Check(
 ) []analysis.Diagnostic {
 	outputs := analysis.ExampleOutputs(filename, f)
 	preambles := analysis.CgoPreambles(f)
+	s := source{tf: fset.File(f.Pos()), src: src}
 	var diags []analysis.Diagnostic
 	for _, cg := range f.Comments {
-		s := source{tf: fset.File(cg.Pos()), src: src}
 		skip := outputs[cg] || preambles[cg] || isTrailing(s, cg)
 		if skip || analysis.HasNolint(cg, "commentedcode") {
 			continue

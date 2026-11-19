@@ -28,6 +28,11 @@ package foo
 // e.g. Close()
 // i.e. x.Run()
 // cf. foo()
+// // note
+// func f() { e.g. x }
+// 获取用户信息(从缓存)
+// 状态=成功
+// 计数器++
 // deprecated
 //
 func F() {}
