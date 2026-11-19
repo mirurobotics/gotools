@@ -234,3 +234,41 @@ func TestCountLines_ShortSource(t *testing.T) {
 		t.Errorf("countLines = %d, want 1", got)
 	}
 }
+
+func TestCheck_MultiLineLiteralCountsAsOneLine(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: "package foo\n\nfunc f() {\n" +
+			"\ttests := []struct {\n\t\tname string\n\t}{\n" +
+			strings.Repeat("\t\t{\n\t\t\tname: \"a\",\n\t\t},\n", 20) +
+			"\t}\n\t_ = tests\n}\n",
+		maxLen:  2,
+		wantN:   0,
+		wantMsg: "",
+	})
+}
+
+func TestCheck_LinesAroundLiteralStillCounted(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: "package foo\n\nfunc f() {\n" +
+			"\tx := []int{\n\t\t1,\n\t\t2,\n\t}\n" +
+			strings.Repeat("\t_ = x\n", 3) + "}\n",
+		maxLen:  3,
+		wantN:   1,
+		wantMsg: "function f is 4 lines (limit 3)",
+	})
+}
+
+func TestCheck_FuncLiteralInsideLiteralStillChecked(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: "package foo\n\nfunc f() {\n" +
+			"\tfns := []func(){\n\t\tfunc() {\n" +
+			strings.Repeat("\t\t\tx := 1\n", 4) +
+			"\t\t},\n\t}\n\t_ = fns\n}\n",
+		maxLen:  3,
+		wantN:   1,
+		wantMsg: "anonymous function is 4 lines (limit 3)",
+	})
+}
