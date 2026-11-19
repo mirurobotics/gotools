@@ -78,8 +78,8 @@ func isErrorCall(call *ast.CallExpr) bool {
 	if !ok {
 		return false
 	}
-	return (ident.Name == "errors" && sel.Sel.Name == "New") ||
-		(ident.Name == "fmt" && sel.Sel.Name == "Errorf")
+	name := ident.Name + "." + sel.Sel.Name
+	return name == "errors.New" || name == "fmt.Errorf"
 }
 
 func isAcronymStart(s string) bool {

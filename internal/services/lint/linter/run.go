@@ -142,7 +142,17 @@ func reparse(path string, src []byte) (*token.FileSet, *ast.File, error) {
 	return fset, f, err
 }
 
-// FindGoFiles returns .go files under root, skipping hidden, vendor, and testdata.
+// skipDir reports whether FindGoFiles should skip a directory: hidden
+// directories, vendor, testdata, and codegen.
+func skipDir(name string) bool {
+	switch name {
+	case "vendor", "testdata", "codegen":
+		return true
+	}
+	return strings.HasPrefix(name, ".")
+}
+
+// FindGoFiles returns .go files under root, skipping directories skipDir reports.
 func FindGoFiles(root string) ([]string, error) {
 	var files []string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -150,12 +160,7 @@ func FindGoFiles(root string) ([]string, error) {
 			return err
 		}
 		if info.IsDir() {
-			name := info.Name()
-			skip := strings.HasPrefix(name, ".") ||
-				name == "vendor" ||
-				name == "testdata" ||
-				name == "codegen"
-			if skip {
+			if skipDir(info.Name()) {
 				return filepath.SkipDir
 			}
 			return nil

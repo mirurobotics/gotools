@@ -141,8 +141,8 @@ var x_y = my_fmt.Sprint()`,
 			if len(diags) != tt.wantN {
 				t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
 			}
-			if tt.wantN > 0 && tt.wantMsg != "" &&
-				diags[0].Message != tt.wantMsg {
+			checkMsg := tt.wantN > 0 && tt.wantMsg != ""
+			if checkMsg && diags[0].Message != tt.wantMsg {
 				t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
 			}
 		})

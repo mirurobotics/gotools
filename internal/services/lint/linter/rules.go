@@ -12,6 +12,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/ctxpos"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/doclen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/errfmt"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/exprwrap"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/filelen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funccomment"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcinline"
@@ -60,6 +61,7 @@ const (
 	RuleDocLen        Rule = "doclen"
 	RuleStrayComment  Rule = "straycomment"
 	RulePrivDoc       Rule = "privdoc"
+	RuleExprWrap      Rule = "exprwrap"
 )
 
 // AllRules returns every valid rule name.
@@ -69,7 +71,7 @@ func AllRules() []Rule {
 		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
 		RuleTypeAssert, RuleParamCount,
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
-		RuleTodoIssue,
+		RuleTodoIssue, RuleExprWrap,
 		RuleFuncComment, RuleDocLen, RuleStrayComment, RulePrivDoc,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
 	}
@@ -184,6 +186,9 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		}},
 		{RulePrivDoc, false, func(in checkInput) []analysis.Diagnostic {
 			return privdoc.Check(in.fset, in.path, in.f)
+		}},
+		{RuleExprWrap, false, func(in checkInput) []analysis.Diagnostic {
+			return exprwrap.Check(in.fset, in.path, in.f)
 		}},
 		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
 			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)

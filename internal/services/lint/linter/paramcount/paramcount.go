@@ -16,9 +16,10 @@ func Check(
 	f *ast.File,
 	maxParams int,
 ) []analysis.Diagnostic {
-	if maxParams <= 0 ||
-		analysis.IsTestFile(filename) ||
-		analysis.IsLintSource(filename) {
+	if maxParams <= 0 {
+		return nil
+	}
+	if analysis.IsTestFile(filename) || analysis.IsLintSource(filename) {
 		return nil
 	}
 
@@ -50,8 +51,10 @@ func Check(
 }
 
 func isExemptFunc(name string) bool {
-	return name == "main" || name == "init" ||
-		strings.HasPrefix(name, "Test") || strings.HasPrefix(name, "Benchmark")
+	if name == "main" || name == "init" {
+		return true
+	}
+	return strings.HasPrefix(name, "Test") || strings.HasPrefix(name, "Benchmark")
 }
 
 func countParams(params *ast.FieldList, ctxPkg string) int {

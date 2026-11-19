@@ -69,10 +69,10 @@ func tryCollapseSig(
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
-	if hasMultiLineField(fset, recv) ||
-		hasMultiLineField(fset, funcType.TypeParams) ||
-		hasMultiLineField(fset, funcType.Params) ||
-		hasMultiLineField(fset, funcType.Results) {
+	fields := []*ast.FieldList{
+		recv, funcType.TypeParams, funcType.Params, funcType.Results,
+	}
+	if anyMultiLineField(fset, fields) {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
@@ -91,6 +91,17 @@ func tryCollapseSig(
 		End:       body.Lbrace + 1,
 		Collapsed: collapsed,
 	}, true
+}
+
+// anyMultiLineField reports whether any list in lists has a field whose
+// type spans multiple lines.
+func anyMultiLineField(fset *token.FileSet, lists []*ast.FieldList) bool {
+	for _, fields := range lists {
+		if hasMultiLineField(fset, fields) {
+			return true
+		}
+	}
+	return false
 }
 
 func hasMultiLineField(fset *token.FileSet, fields *ast.FieldList) bool {
