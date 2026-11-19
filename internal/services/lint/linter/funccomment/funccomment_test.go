@@ -156,6 +156,23 @@ func Example() {
 	})
 }
 
+func TestCheck_OutputCommentInExampleLookalikesFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
+
+func (T) ExampleM() {
+	// Output: 1
+}
+
+func Examplehelper() {
+	// Output: 2
+}
+`,
+		wantLines: []int{4, 8},
+	})
+}
+
 func TestCheck_DocCommentsAndDeclarationsWithoutBodyAllowed(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
