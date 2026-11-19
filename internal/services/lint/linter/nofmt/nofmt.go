@@ -7,6 +7,8 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
+const messageSuffix = " should not be used outside main; use structured logging or t.Log"
+
 func banned() map[string]bool {
 	return map[string]bool{
 		"fmt.Print":   true,
@@ -25,7 +27,7 @@ func builtinBanned() map[string]bool {
 	return map[string]bool{"print": true, "println": true}
 }
 
-// Check reports print and log calls outside main, tests, cmd/, and linter source.
+// Check reports print and log calls outside main, cmd/, linter source, and examples.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	if isExempt(filename, f) {
 		return nil
@@ -34,6 +36,9 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	var diags []analysis.Diagnostic
 
 	ast.Inspect(f, func(n ast.Node) bool {
+		if fn, ok := n.(*ast.FuncDecl); ok && analysis.IsExampleFunc(filename, fn) {
+			return false
+		}
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
@@ -47,11 +52,9 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			return true
 		}
 		diags = append(diags, analysis.Diagnostic{
-			File: filename,
-			Line: pos.Line,
-			Message: name +
-				" should not be used outside" +
-				" main/test; use structured logging",
+			File:    filename,
+			Line:    pos.Line,
+			Message: name + messageSuffix,
 		})
 		return true
 	})
@@ -60,7 +63,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 }
 
 func isExempt(filename string, f *ast.File) bool {
-	if f.Name.Name == "main" || analysis.IsTestFile(filename) {
+	if f.Name.Name == "main" {
 		return true
 	}
 	return analysis.IsLintSource(filename) || analysis.IsCmdSource(filename)

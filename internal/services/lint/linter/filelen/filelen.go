@@ -12,7 +12,7 @@ import (
 
 const ruleName = "filelen"
 
-// Check flags non-test files over maxLen code lines unless nolinted at the package.
+// Check flags files over maxLen code lines unless nolinted at the package.
 func Check(
 	fset *token.FileSet,
 	filename string,
@@ -21,9 +21,6 @@ func Check(
 	maxLen int,
 ) []analysis.Diagnostic {
 	if maxLen <= 0 {
-		return nil
-	}
-	if analysis.IsTestFile(filename) || analysis.IsTestHelper(filename) {
 		return nil
 	}
 	count := countLines(fset, f, src)

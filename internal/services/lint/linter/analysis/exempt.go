@@ -2,7 +2,10 @@ package analysis
 
 import (
 	"bytes"
+	"go/ast"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // IsTestFile returns true if the filename ends with _test.go.
@@ -30,5 +33,15 @@ func IsLintSource(filename string) bool {
 // IsCmdSource returns true if the file lives under a cmd/ directory.
 func IsCmdSource(filename string) bool { return strings.Contains(filename, "cmd/") }
 
-// IsTestHelper returns true if the file lives under a tests/ directory.
-func IsTestHelper(filename string) bool { return strings.Contains(filename, "tests/") }
+// IsExampleFunc reports whether fn is a go test Example function in a test file.
+func IsExampleFunc(filename string, fn *ast.FuncDecl) bool {
+	if fn.Recv != nil || !IsTestFile(filename) {
+		return false
+	}
+	suffix, ok := strings.CutPrefix(fn.Name.Name, "Example")
+	if !ok || suffix == "" {
+		return ok
+	}
+	r, _ := utf8.DecodeRuneInString(suffix)
+	return !unicode.IsLower(r)
+}

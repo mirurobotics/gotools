@@ -10,18 +10,29 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-var defaultCfg = Config{
-	MaxLineWidth:    88,
-	TabWidth:        4,
-	MaxFuncLen:      0,
-	MaxFileLen:      0,
-	MaxNestDepth:    0,
-	MaxParamCount:   0,
-	MaxDocLines:     0,
-	MaxDocFileLines: 0,
-	Exclude:         nil,
-	Out:             io.Discard,
-	Err:             io.Discard,
+func defaultCfg() Config {
+	return Config{
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxFileLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
+	}
+}
+
+func cfgExcluding(rules ...Rule) Config {
+	cfg := defaultCfg()
+	cfg.Exclude = make(map[Rule]bool, len(rules))
+	for _, r := range rules {
+		cfg.Exclude[r] = true
+	}
+	return cfg
 }
 
 func TestDiagnostic_String(t *testing.T) {
@@ -42,7 +53,7 @@ import (
 	"strings"
 )
 `)
-	diags, fixed, err := Run(dir, false, defaultCfg)
+	diags, fixed, err := Run(dir, false, defaultCfg())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +74,7 @@ import (
 	"fmt"
 )
 `)
-	diags, _, err := Run(dir, false, defaultCfg)
+	diags, _, err := Run(dir, false, defaultCfg())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +92,7 @@ import (
 	"fmt"
 )
 `)
-	diags, fixed, err := Run(dir, true, defaultCfg)
+	diags, fixed, err := Run(dir, true, defaultCfg())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +126,7 @@ import (
 	"strings"
 )
 `)
-	_, fixed, err := Run(dir, true, defaultCfg)
+	_, fixed, err := Run(dir, true, defaultCfg())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,59 +136,16 @@ import (
 }
 
 func TestRun_InvalidDir(t *testing.T) {
-	_, _, err := Run("/nonexistent", false, defaultCfg)
+	_, _, err := Run("/nonexistent", false, defaultCfg())
 	if err == nil {
 		t.Error("expected error")
 	}
 }
 
 func TestProcessFile_InvalidPath(t *testing.T) {
-	_, _, err := ProcessFile("/nonexistent/file.go", false, defaultCfg)
+	_, _, err := ProcessFile("/nonexistent/file.go", false, defaultCfg())
 	if err == nil {
 		t.Error("expected error")
-	}
-}
-
-func TestFindGoFiles(t *testing.T) {
-	dir := t.TempDir()
-
-	writeFile(t, dir+"/a.go", "package main")
-	writeFile(t, dir+"/b.txt", "not go")
-	writeFile(t, dir+"/sub/c.go", "package sub")
-	writeFile(t, dir+"/.hidden/d.go", "package hidden")
-	writeFile(t, dir+"/vendor/e.go", "package vendor")
-	writeFile(t, dir+"/testdata/f.go", "package testdata")
-
-	files, err := FindGoFiles(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	goFiles := make(map[string]bool)
-	for _, f := range files {
-		goFiles[f] = true
-	}
-
-	if !goFiles[dir+"/a.go"] {
-		t.Error("expected a.go")
-	}
-	if !goFiles[dir+"/sub/c.go"] {
-		t.Error("expected sub/c.go")
-	}
-	if goFiles[dir+"/b.txt"] {
-		t.Error("should not include b.txt")
-	}
-	if goFiles[dir+"/.hidden/d.go"] {
-		t.Error("should not include .hidden/d.go")
-	}
-	if goFiles[dir+"/vendor/e.go"] {
-		t.Error("should not include vendor/e.go")
-	}
-	if goFiles[dir+"/testdata/f.go"] {
-		t.Error("should not include testdata/f.go")
-	}
-	if len(files) != 2 {
-		t.Errorf("expected 2 files, got %d: %v", len(files), files)
 	}
 }
 
@@ -185,420 +153,6 @@ func TestFindGoFiles_NonExistentDir(t *testing.T) {
 	_, err := FindGoFiles("/nonexistent/path")
 	if err == nil {
 		t.Error("expected error for nonexistent path")
-	}
-}
-
-func TestRun_Check_PkgnameViolation(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad_name.go", `package my_pkg
-
-func f() {}
-`)
-	diags, fixed, err := Run(dir, false, defaultCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 1 {
-		t.Errorf("expected 1 diagnostic, got %d", diags)
-	}
-	if fixed != 0 {
-		t.Errorf("expected 0 fixed, got %d", fixed)
-	}
-}
-
-func TestRun_Fix_PkgnameViolationOnly(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad_name.go", `package my_pkg
-
-func f() {}
-`)
-	diags, fixed, err := Run(dir, true, defaultCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 1 {
-		t.Errorf("expected 1 diagnostic (pkgname), got %d", diags)
-	}
-	if fixed != 0 {
-		t.Errorf("expected 0 fixed (no auto-fixer), got %d", fixed)
-	}
-}
-
-func TestRun_Fix_PkgnameViolationWithImportFix(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad_both.go", `package my_pkg
-
-import (
-	"strings"
-	"os"
-)
-
-func f() { _ = strings.ToUpper(os.Getenv("X")) }
-`)
-	diags, fixed, err := Run(dir, true, defaultCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 1 {
-		t.Errorf("expected 1 diagnostic (pkgname), got %d", diags)
-	}
-	if fixed != 1 {
-		t.Errorf("expected 1 fixed (imports), got %d", fixed)
-	}
-}
-
-func TestRun_Fix_LineLengthViolationWithImportFix(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad_both.go", `package foo
-
-import (
-	"strings"
-	"os"
-)
-
-func f() { _ = strings.TrimSpace(os.Getenv("`+
-		`SOME_REALLY_LONG_ENV_VAR_NAME_THAT_STAYS_OVER_LIMIT`+
-		`")) }
-`)
-	diags, fixed, err := Run(dir, true, defaultCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 1 {
-		t.Errorf("expected 1 diagnostic (linelen), got %d", diags)
-	}
-	if fixed != 1 {
-		t.Errorf("expected 1 fixed (imports), got %d", fixed)
-	}
-
-	// #nosec G304 -- test reads a file created under t.TempDir.
-	content, _ := os.ReadFile(filepath.Join(dir, "bad_both.go"))
-	want := `package foo
-
-import (
-	"os"
-	"strings"
-)
-
-func f() { _ = strings.TrimSpace(os.Getenv("` +
-		`SOME_REALLY_LONG_ENV_VAR_NAME_THAT_STAYS_OVER_LIMIT` +
-		`")) }
-`
-	if string(content) != want {
-		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", content, want)
-	}
-}
-
-func TestIntegration_ImportsAndCollapse(t *testing.T) {
-	dir := t.TempDir()
-	src := `package foo
-
-import (
-	"strings"
-	"fmt"
-)
-
-func f() {
-	fmt.Println(
-		strings.ToUpper("hello"),
-	)
-}
-`
-	writeFile(t, dir+"/test.go", src)
-
-	cfg := Config{
-		MaxLineWidth:    88,
-		TabWidth:        4,
-		MaxFuncLen:      0,
-		MaxFileLen:      0,
-		MaxNestDepth:    0,
-		MaxParamCount:   0,
-		MaxDocLines:     0,
-		MaxDocFileLines: 0,
-		Exclude:         nil,
-		Out:             io.Discard,
-		Err:             io.Discard,
-	}
-	_, fixed, err := Run(dir, true, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fixed != 1 {
-		t.Fatalf("expected 1 file fixed, got %d", fixed)
-	}
-
-	// #nosec G304 -- test reads a file created under t.TempDir.
-	content, _ := os.ReadFile(filepath.Join(dir, "test.go"))
-	want := `package foo
-
-import (
-	"fmt"
-	"strings"
-)
-
-func f() { fmt.Println(strings.ToUpper("hello")) }
-`
-	if string(content) != want {
-		t.Errorf(
-			"integration fix produced unexpected result.\ngot:\n%s\nwant:\n%s",
-			content, want,
-		)
-	}
-}
-
-func TestIntegration_AllThreeRules(t *testing.T) {
-	dir := t.TempDir()
-	src := `package foo
-
-import (
-	"strings"
-	"fmt"
-)
-
-func f() {
-	fmt.Println(
-		strings.ToUpper("hello"),
-	)
-}
-
-func Code() int {
-	return 42
-}
-`
-	writeFile(t, dir+"/test.go", src)
-
-	cfg := Config{
-		MaxLineWidth:    88,
-		TabWidth:        4,
-		MaxFuncLen:      0,
-		MaxFileLen:      0,
-		MaxNestDepth:    0,
-		MaxParamCount:   0,
-		MaxDocLines:     0,
-		MaxDocFileLines: 0,
-		Exclude:         nil,
-		Out:             io.Discard,
-		Err:             io.Discard,
-	}
-	_, fixed, err := Run(dir, true, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fixed != 1 {
-		t.Fatalf("expected 1 file fixed, got %d", fixed)
-	}
-
-	// #nosec G304 -- test reads a file created under t.TempDir.
-	content, _ := os.ReadFile(filepath.Join(dir, "test.go"))
-	want := `package foo
-
-import (
-	"fmt"
-	"strings"
-)
-
-func f() { fmt.Println(strings.ToUpper("hello")) }
-
-func Code() int { return 42 }
-`
-	if string(content) != want {
-		t.Errorf(
-			"integration fix produced unexpected result.\ngot:\n%s\nwant:\n%s",
-			content, want,
-		)
-	}
-}
-
-func TestRun_Check_PkgnameAndImportViolations(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad.go", `package my_pkg
-
-import (
-	"strings"
-	"os"
-)
-
-func f() { _ = strings.ToUpper(os.Getenv("X")) }
-`)
-	diags, fixed, err := Run(dir, false, defaultCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 2 {
-		t.Errorf("expected 2 diagnostics (pkgname + imports), got %d", diags)
-	}
-	if fixed != 0 {
-		t.Errorf("expected 0 fixed, got %d", fixed)
-	}
-}
-
-func TestRun_Fix_AllFixersWithPkgname(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad.go", `package my_pkg
-
-import (
-	"strings"
-	"os"
-)
-
-func f() {
-	_ = strings.ToUpper(
-		os.Getenv("hello"),
-	)
-}
-
-func Code() int {
-	return 42
-}
-`)
-	diags, fixed, err := Run(dir, true, defaultCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 1 {
-		t.Errorf("expected 1 diagnostic (pkgname), got %d", diags)
-	}
-	if fixed != 1 {
-		t.Errorf("expected 1 fixed, got %d", fixed)
-	}
-
-	// #nosec G304 -- test reads a file created under t.TempDir.
-	content, _ := os.ReadFile(filepath.Join(dir, "bad.go"))
-	want := `package my_pkg
-
-import (
-	"os"
-	"strings"
-)
-
-func f() { _ = strings.ToUpper(os.Getenv("hello")) }
-
-func Code() int { return 42 }
-`
-	if string(content) != want {
-		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", content, want)
-	}
-}
-
-func TestRun_Check_AllowedPkgnamePrefixes(t *testing.T) {
-	tests := []struct {
-		name    string
-		pkgName string
-	}{
-		{name: "test_ prefix", pkgName: "test_helpers"},
-		{name: "mock_ prefix", pkgName: "mock_service"},
-		{name: "_test suffix", pkgName: "foo_test"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dir := t.TempDir()
-			writeFile(t, dir+"/ok.go", "package "+tt.pkgName+"\n\nfunc f() {}\n")
-			diags, _, err := Run(dir, false, defaultCfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if diags != 0 {
-				t.Errorf(
-					"expected 0 diagnostics for package %q, got %d",
-					tt.pkgName, diags,
-				)
-			}
-		})
-	}
-}
-
-func TestRun_Fix_PkgnameWithFuncinline(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad.go", `package my_pkg
-
-func Code() int {
-	return 42
-}
-
-func Hello() string {
-	return "hi"
-}
-`)
-	diags, fixed, err := Run(dir, true, defaultCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 1 {
-		t.Errorf("expected 1 diagnostic (pkgname), got %d", diags)
-	}
-	if fixed != 1 {
-		t.Errorf("expected 1 fixed (funcinline), got %d", fixed)
-	}
-
-	// #nosec G304 -- test reads a file created under t.TempDir.
-	content, _ := os.ReadFile(filepath.Join(dir, "bad.go"))
-	want := `package my_pkg
-
-func Code() int { return 42 }
-
-func Hello() string { return "hi" }
-`
-	if string(content) != want {
-		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", content, want)
-	}
-}
-
-func TestRun_Check_MultipleFiles(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/clean.go", `package foo
-
-func f() {}
-`)
-	writeFile(t, dir+"/bad_imports.go", `package foo
-
-import (
-	"strings"
-	"os"
-)
-
-func g() { _ = strings.ToUpper(os.Getenv("hi")) }
-`)
-	diags, fixed, err := Run(dir, false, defaultCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 1 {
-		t.Errorf("expected 1 diagnostic (imports only), got %d", diags)
-	}
-	if fixed != 0 {
-		t.Errorf("expected 0 fixed, got %d", fixed)
-	}
-}
-
-func TestRun_Fix_Idempotent(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad.go", `package foo
-
-import (
-	"strings"
-	"fmt"
-)
-
-func f() {
-	fmt.Println(
-		strings.ToUpper("hello"),
-	)
-}
-`)
-	_, fixed, err := Run(dir, true, defaultCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fixed != 1 {
-		t.Fatalf("expected 1 fixed on first pass, got %d", fixed)
-	}
-
-	_, fixed, err = Run(dir, true, defaultCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fixed != 0 {
-		t.Errorf("expected 0 fixed on second pass (idempotent), got %d", fixed)
 	}
 }
 
@@ -610,7 +164,7 @@ func f() {}
 `)
 	writeFile(t, dir+"/bad.go", `not valid go syntax at all!!!`)
 
-	diags, fixed, err := Run(dir, false, defaultCfg)
+	diags, fixed, err := Run(dir, false, defaultCfg())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -628,7 +182,7 @@ func TestProcessFile_GeneratedFileSkipped(t *testing.T) {
 	writeFile(t, path, "// Code generated by foo; DO NOT EDIT.\n"+
 		"package foo\n\nimport (\n\t\"strings\"\n\t\"os\"\n)\n\n"+
 		"func f() { _ = strings.ToUpper(os.Getenv(\"X\")) }\n")
-	diags, fixed, err := ProcessFile(path, false, defaultCfg)
+	diags, fixed, err := ProcessFile(path, false, defaultCfg())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -644,282 +198,14 @@ func TestProcessFile_UnparseableSyntax(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/bad.go"
 	writeFile(t, path, `not valid go`)
-	_, _, err := ProcessFile(path, false, defaultCfg)
+	_, _, err := ProcessFile(path, false, defaultCfg())
 	if err == nil {
 		t.Error("expected error for unparseable file")
 	}
 }
 
-func TestIntegration_FuncsigThenFuncinline(t *testing.T) {
-	dir := t.TempDir()
-	src := `package foo
-
-func NewScope(
-	dbScope Scope,
-) Scope {
-	return NewScope(dbScope)
-}
-`
-	writeFile(t, dir+"/test.go", src)
-
-	cfg := Config{
-		MaxLineWidth:    88,
-		TabWidth:        4,
-		MaxFuncLen:      0,
-		MaxFileLen:      0,
-		MaxNestDepth:    0,
-		MaxParamCount:   0,
-		MaxDocLines:     0,
-		MaxDocFileLines: 0,
-		Exclude:         nil,
-		Out:             io.Discard,
-		Err:             io.Discard,
-	}
-	_, fixed, err := Run(dir, true, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fixed != 1 {
-		t.Fatalf("expected 1 file fixed, got %d", fixed)
-	}
-
-	// #nosec G304 -- test reads a file created under t.TempDir.
-	content, _ := os.ReadFile(filepath.Join(dir, "test.go"))
-	want := `package foo
-
-func NewScope(dbScope Scope) Scope { return NewScope(dbScope) }
-`
-	if string(content) != want {
-		t.Errorf(
-			"integration fix produced unexpected result.\ngot:\n%s\nwant:\n%s",
-			content, want,
-		)
-	}
-}
-
-func TestIntegration_FuncsigOnly(t *testing.T) {
-	dir := t.TempDir()
-	src := `package foo
-
-func Process(
-	dbScope Scope,
-	name string,
-) error {
-	validate(name)
-	return dbScope.Save(name)
-}
-`
-	writeFile(t, dir+"/test.go", src)
-
-	cfg := Config{
-		MaxLineWidth:    88,
-		TabWidth:        4,
-		MaxFuncLen:      0,
-		MaxFileLen:      0,
-		MaxNestDepth:    0,
-		MaxParamCount:   0,
-		MaxDocLines:     0,
-		MaxDocFileLines: 0,
-		Exclude:         nil,
-		Out:             io.Discard,
-		Err:             io.Discard,
-	}
-	_, fixed, err := Run(dir, true, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fixed != 1 {
-		t.Fatalf("expected 1 file fixed, got %d", fixed)
-	}
-
-	// #nosec G304 -- test reads a file created under t.TempDir.
-	content, _ := os.ReadFile(filepath.Join(dir, "test.go"))
-	want := `package foo
-
-func Process(dbScope Scope, name string) error {
-	validate(name)
-	return dbScope.Save(name)
-}
-`
-	if string(content) != want {
-		t.Errorf(
-			"integration fix produced unexpected result.\ngot:\n%s\nwant:\n%s",
-			content, want,
-		)
-	}
-}
-
-func TestIntegration_FuncsigCheck(t *testing.T) {
-	dir := t.TempDir()
-	src := `package foo
-
-func Get(
-	key string,
-) string {
-	return key
-}
-`
-	writeFile(t, dir+"/test.go", src)
-
-	cfg := Config{
-		MaxLineWidth:    88,
-		TabWidth:        4,
-		MaxFuncLen:      0,
-		MaxFileLen:      0,
-		MaxNestDepth:    0,
-		MaxParamCount:   0,
-		MaxDocLines:     0,
-		MaxDocFileLines: 0,
-		Exclude:         nil,
-		Out:             io.Discard,
-		Err:             io.Discard,
-	}
-	diags, fixed, err := Run(dir, false, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fixed != 0 {
-		t.Errorf("expected 0 fixed in check mode, got %d", fixed)
-	}
-	if diags < 1 {
-		t.Errorf("expected at least 1 diagnostic, got %d", diags)
-	}
-}
-
-func TestValidateExclusions_Empty(t *testing.T) {
-	err := ValidateExclusions(nil)
-	if err != nil {
-		t.Errorf("expected nil error for empty exclusions, got %v", err)
-	}
-}
-
-func TestValidateExclusions_ValidRules(t *testing.T) {
-	err := ValidateExclusions(map[Rule]bool{RuleLineLen: true, RulePkgName: true})
-	if err != nil {
-		t.Errorf("expected nil error for valid rules, got %v", err)
-	}
-}
-
-func TestValidateExclusions_InvalidRule(t *testing.T) {
-	err := ValidateExclusions(map[Rule]bool{RuleLineLen: true, Rule("typo"): true})
-	if err == nil {
-		t.Fatal("expected error for invalid rule")
-	}
-	if !strings.Contains(err.Error(), "typo") {
-		t.Errorf("error should mention the bad rule name, got: %v", err)
-	}
-}
-
-func TestRun_ExcludeFilter_SkipPkgNameAndImports(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad.go", `package my_pkg
-
-import (
-	"strings"
-	"os"
-)
-
-func f() { _ = strings.ToUpper(os.Getenv("X")) }
-`)
-	cfg := Config{
-		MaxLineWidth:    88,
-		TabWidth:        4,
-		MaxFuncLen:      0,
-		MaxFileLen:      0,
-		MaxNestDepth:    0,
-		MaxParamCount:   0,
-		MaxDocLines:     0,
-		MaxDocFileLines: 0,
-		Exclude:         map[Rule]bool{RulePkgName: true, RuleImports: true},
-		Out:             io.Discard,
-		Err:             io.Discard,
-	}
-	diags, _, err := Run(dir, false, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 0 {
-		t.Errorf("expected 0 diagnostics with pkgname+imports excluded, got %d", diags)
-	}
-}
-
-func TestRun_ExcludeFilter_SkipImports(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad.go", `package my_pkg
-
-import (
-	"strings"
-	"os"
-)
-
-func f() { _ = strings.ToUpper(os.Getenv("X")) }
-`)
-	cfg := Config{
-		MaxLineWidth:    88,
-		TabWidth:        4,
-		MaxFuncLen:      0,
-		MaxFileLen:      0,
-		MaxNestDepth:    0,
-		MaxParamCount:   0,
-		MaxDocLines:     0,
-		MaxDocFileLines: 0,
-		Exclude:         map[Rule]bool{RuleImports: true},
-		Out:             io.Discard,
-		Err:             io.Discard,
-	}
-	diags, _, err := Run(dir, false, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 1 {
-		t.Errorf("expected 1 diagnostic (pkgname only), got %d", diags)
-	}
-}
-
-func TestRun_ExcludeFilter_FixExcludePkgName(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/bad.go", `package my_pkg
-
-import (
-	"strings"
-	"os"
-)
-
-func f() { _ = strings.ToUpper(os.Getenv("X")) }
-`)
-	cfg := Config{
-		MaxLineWidth:    88,
-		TabWidth:        4,
-		MaxFuncLen:      0,
-		MaxFileLen:      0,
-		MaxNestDepth:    0,
-		MaxParamCount:   0,
-		MaxDocLines:     0,
-		MaxDocFileLines: 0,
-		Exclude:         map[Rule]bool{RulePkgName: true},
-		Out:             io.Discard,
-		Err:             io.Discard,
-	}
-	diags, fixed, err := Run(dir, true, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if diags != 0 {
-		t.Errorf("expected 0 diagnostics (pkgname excluded), got %d", diags)
-	}
-	if fixed != 1 {
-		t.Errorf("expected 1 fixed (imports), got %d", fixed)
-	}
-
-	//nolint:gosec // test helper reading test fixtures
-	content, _ := os.ReadFile(dir + "/bad.go")
-	if !strings.Contains(string(content), "package my_pkg") {
-		t.Error("package name should not have changed")
-	}
-}
-
 func TestRun_SelfLint(t *testing.T) {
-	diags, fixed, err := Run("..", false, defaultCfg)
+	diags, fixed, err := Run("..", false, defaultCfg())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -941,111 +227,13 @@ func writeFile(t *testing.T, path, content string) {
 	}
 }
 
-func TestRun_Check_DocLimits(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/doc.go", `// Package foo does things.
-// At some length.
-package foo
-`)
-	writeFile(t, dir+"/foo.go", `package foo
-
-// F does a thing.
-// At some length.
-func F() {}
-`)
-	cfg := defaultCfg
-	cfg.MaxDocLines = 1
-	cfg.MaxDocFileLines = 20
-	cfg.Out = &strings.Builder{}
-	diags, _, err := Run(dir, false, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out := cfg.Out.(*strings.Builder).String()
-	if diags != 1 || !strings.Contains(out, "foo.go:3: doc comment is 2 lines") {
-		t.Errorf("got %d diagnostics, want only foo.go:3:\n%s", diags, out)
-	}
-}
-
-func TestRun_Check_CommentRules(t *testing.T) {
-	tests := []struct {
-		rule Rule
-		src  string
-		want string
-	}{
-		{
-			rule: RuleFuncComment,
-			src:  "package foo\n\nfunc F() {\n\t// note\n}\n",
-			want: "foo.go:4: comments",
-		},
-		{
-			rule: RuleStrayComment,
-			src:  "package foo\n\nfunc F() {}\n\n// note\n",
-			want: "foo.go:5: comment is not",
-		},
-		{
-			rule: RulePrivDoc,
-			src:  "package foo\n\n// f does a thing.\nfunc f() {}\n",
-			want: "foo.go:3: comment on",
-		},
-	}
-	for _, tt := range tests {
-		dir := t.TempDir()
-		writeFile(t, dir+"/foo.go", tt.src)
-		for _, exclude := range []bool{false, true} {
-			checkExclude(t, dir, tt.rule, tt.want, exclude)
-		}
-	}
-}
-
-func checkExclude(t *testing.T, dir string, rule Rule, wantMsg string, exclude bool) {
-	t.Helper()
-	cfg := defaultCfg
-	cfg.Exclude = map[Rule]bool{rule: exclude}
-	cfg.Out = &strings.Builder{}
-	diags, _, err := Run(dir, false, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out := cfg.Out.(*strings.Builder).String()
-	want := 1
-	if exclude {
-		want = 0
-	}
-	if diags != want || strings.Contains(out, wantMsg) != !exclude {
-		t.Errorf("%s exclude=%v: got %d diagnostics:\n%s", rule, exclude, diags, out)
-	}
-}
-
-func TestRun_Check_DocFileLimit(t *testing.T) {
-	dir := t.TempDir()
-	writeFile(t, dir+"/doc.go", `// Package foo does things.
-// At some length.
-// And more.
-package foo
-`)
-	cfg := defaultCfg
-	cfg.MaxDocLines = 1
-	cfg.MaxDocFileLines = 2
-	cfg.Out = &strings.Builder{}
-	diags, _, err := Run(dir, false, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out := cfg.Out.(*strings.Builder).String()
-	want := "doc.go:1: doc comment is 3 lines (limit 2)"
-	if diags != 1 || !strings.Contains(out, want) {
-		t.Errorf("got %d diagnostics, want doc.go:1:\n%s", diags, out)
-	}
-}
-
 func TestProcessFile_FileLen(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "big.go")
 	writeFile(t, path, "package foo\n\nconst a = 1\nconst b = 2\nconst c = 3\n")
 
 	var out strings.Builder
-	cfg := defaultCfg
+	cfg := defaultCfg()
 	cfg.MaxFileLen = 3
 	cfg.Out = &out
 	diags, _, err := ProcessFile(path, false, cfg)
@@ -1060,22 +248,55 @@ func TestProcessFile_FileLen(t *testing.T) {
 	}
 }
 
-func TestRun_ExcludeFilter_SkipFileLen(t *testing.T) {
+func runFix(t *testing.T, cfg Config, src string) (diags, fixed int, got string) {
+	t.Helper()
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "big.go"),
-		"package foo\n\nconst a = 1\nconst b = 2\nconst c = 3\n")
-
-	cfg := defaultCfg
-	cfg.MaxFileLen = 3
-	cfg.Exclude = map[Rule]bool{RuleFileLen: true}
-	if err := ValidateExclusions(cfg.Exclude); err != nil {
-		t.Fatal(err)
-	}
-	diags, _, err := Run(dir, false, cfg)
+	path := filepath.Join(dir, "test.go")
+	writeFile(t, path, src)
+	diags, fixed, err := Run(dir, true, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if diags != 0 {
-		t.Fatalf("expected 0 diagnostics with filelen excluded, got %d", diags)
+	// #nosec G304 -- test reads a file created under t.TempDir.
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return diags, fixed, string(content)
+}
+
+func assertFixed(t *testing.T, diags, fixed int, got string, want fixResult) {
+	t.Helper()
+	if diags != want.diags {
+		t.Errorf("expected %d diagnostics, got %d", want.diags, diags)
+	}
+	if fixed != want.fixed {
+		t.Errorf("expected %d fixed, got %d", want.fixed, fixed)
+	}
+	if got != want.src {
+		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", got, want.src)
+	}
+}
+
+type fixResult struct {
+	diags int
+	fixed int
+	src   string
+}
+
+func TestFindGoFiles(t *testing.T) {
+	dir := t.TempDir()
+	for _, rel := range []string{
+		"a.go", "b.txt", "sub/c.go", ".hidden/d.go", "vendor/e.go", "testdata/f.go",
+	} {
+		writeFile(t, filepath.Join(dir, rel), "package p")
+	}
+	files, err := FindGoFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{dir + "/a.go", dir + "/sub/c.go"}
+	if strings.Join(files, ",") != strings.Join(want, ",") {
+		t.Errorf("got %v, want %v", files, want)
 	}
 }

@@ -41,13 +41,10 @@ func bodyComments(cg *ast.CommentGroup, bodies []*ast.BlockStmt) []*ast.Comment 
 }
 
 func exampleBodies(filename string, f *ast.File) []*ast.BlockStmt {
-	if !analysis.IsTestFile(filename) {
-		return nil
-	}
 	var bodies []*ast.BlockStmt
 	for _, decl := range f.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
-		if ok && fn.Body != nil && strings.HasPrefix(fn.Name.Name, "Example") {
+		if ok && fn.Body != nil && analysis.IsExampleFunc(filename, fn) {
 			bodies = append(bodies, fn.Body)
 		}
 	}

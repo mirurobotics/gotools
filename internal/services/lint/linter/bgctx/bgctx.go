@@ -9,10 +9,6 @@ import (
 
 // Check reports diagnostics for calls to context.Background().
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	if analysis.IsTestFile(filename) {
-		return nil
-	}
-
 	ctxPkg := analysis.ContextPkgName(f)
 	if ctxPkg == "" {
 		return nil

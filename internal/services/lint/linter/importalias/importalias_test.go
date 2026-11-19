@@ -1,150 +1,160 @@
 package importalias
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
-func TestCheck(t *testing.T) {
-	tests := []struct {
-		name     string
-		filename string
-		src      string
-		wantN    int
-		wantMsg  string
-	}{
-		{
-			name:     "no alias",
-			filename: "",
-			src:      `package foo; import "fmt"`,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name:     "alias without underscore",
-			filename: "",
-			src:      `package foo; import errs "errors"`,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name:     "underscore alias rejected",
-			filename: "",
-			src:      `package foo; import my_errs "errors"`,
-			wantN:    1,
-			wantMsg: `import alias "my_errs" contains` +
-				` underscore; use camelCase instead`,
-		},
-		{
-			name:     "multiple underscores rejected",
-			filename: "",
-			src:      `package foo; import my_cool_pkg "errors"`,
-			wantN:    1,
-			wantMsg: `import alias "my_cool_pkg" contains` +
-				` underscore; use camelCase instead`,
-		},
-		{
-			name:     "test_ prefix allowed",
-			filename: "",
-			src:      `package foo; import test_helpers "errors"`,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name:     "mock_ prefix allowed",
-			filename: "",
-			src:      `package foo; import mock_service "errors"`,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name:     "dot import ignored",
-			filename: "",
-			src:      `package foo; import . "errors"`,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name:     "blank import ignored",
-			filename: "",
-			src:      `package foo; import _ "errors"`,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name:     "underscore prefix alias rejected",
-			filename: "",
-			src:      `package foo; import _foo "errors"`,
-			wantN:    1,
-			wantMsg: `import alias "_foo" contains` +
-				` underscore; use camelCase instead`,
-		},
-		{
-			name:     "mixed group",
-			filename: "",
-			src: `package foo
+type checkCase struct {
+	filename string
+	src      string
+	wantN    int
+	wantMsg  string
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	filename := tt.filename
+	if filename == "" {
+		filename = "test.go"
+	}
+	fset, f := linttest.Parse(t, filename, tt.src)
+	linttest.AssertCount(t, Check(fset, filename, f), tt.wantN, tt.wantMsg)
+}
+
+func TestCheck_NoAlias(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src:      `package foo; import "fmt"`,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_AliasWithoutUnderscore(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src:      `package foo; import errs "errors"`,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_UnderscoreAliasRejected(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src:      `package foo; import my_errs "errors"`,
+		wantN:    1,
+		wantMsg: `import alias "my_errs" contains` +
+			` underscore; use camelCase instead`,
+	})
+}
+
+func TestCheck_MultipleUnderscoresRejected(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src:      `package foo; import my_cool_pkg "errors"`,
+		wantN:    1,
+		wantMsg: `import alias "my_cool_pkg" contains` +
+			` underscore; use camelCase instead`,
+	})
+}
+
+func TestCheck_TestPrefixAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src:      `package foo; import test_helpers "errors"`,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_MockPrefixAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src:      `package foo; import mock_service "errors"`,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_DotImportIgnored(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src:      `package foo; import . "errors"`,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_BlankImportIgnored(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src:      `package foo; import _ "errors"`,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_UnderscorePrefixAliasRejected(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src:      `package foo; import _foo "errors"`,
+		wantN:    1,
+		wantMsg: `import alias "_foo" contains` +
+			` underscore; use camelCase instead`,
+	})
+}
+
+func TestCheck_MixedGroup(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: `package foo
 
 import (
 	"fmt"
 	my_errs "errors"
 	mock_db "database/sql"
 )`,
-			wantN: 1,
-			wantMsg: `import alias "my_errs" contains` +
-				` underscore; use camelCase instead`,
-		},
-		{
-			name:     "test file exempt",
-			filename: "foo_test.go",
-			src:      `package foo; import my_errs "errors"`,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name:     "multiple violations",
-			filename: "",
-			src: `package foo
+		wantN: 1,
+		wantMsg: `import alias "my_errs" contains` +
+			` underscore; use camelCase instead`,
+	})
+}
+
+func TestCheck_TestFileNotExempt(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src:      `package foo; import my_errs "errors"`,
+		wantN:    1,
+		wantMsg:  `import alias "my_errs" contains underscore; use camelCase instead`,
+	})
+}
+
+func TestCheck_MultipleViolations(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: `package foo
 
 import (
 	my_errs "errors"
 	my_fmt "fmt"
 )`,
-			wantN:   2,
-			wantMsg: "",
-		},
-		{
-			name:     "non-import declarations ignored",
-			filename: "",
-			src: `package foo
+		wantN:   2,
+		wantMsg: "",
+	})
+}
+
+func TestCheck_NonImportDeclarationsIgnored(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: `package foo
 
 import my_fmt "fmt"
 
 var x_y = my_fmt.Sprint()`,
-			wantN:   1,
-			wantMsg: `import alias "my_fmt" contains underscore; use camelCase instead`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			filename := tt.filename
-			if filename == "" {
-				filename = "test.go"
-			}
-			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, filename, tt.src, 0)
-			if err != nil {
-				t.Fatalf("parse: %v", err)
-			}
-			diags := Check(fset, filename, f)
-			if len(diags) != tt.wantN {
-				t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
-			}
-			checkMsg := tt.wantN > 0 && tt.wantMsg != ""
-			if checkMsg && diags[0].Message != tt.wantMsg {
-				t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
-			}
-		})
-	}
+		wantN:   1,
+		wantMsg: `import alias "my_fmt" contains underscore; use camelCase instead`,
+	})
 }

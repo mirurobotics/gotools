@@ -9,11 +9,8 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports underscored import aliases outside test files, except test_ and mock_.
+// Check reports underscored import aliases, except test_ and mock_.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	if analysis.IsTestFile(filename) {
-		return nil
-	}
 	var diags []analysis.Diagnostic
 	for _, is := range f.Imports {
 		if is.Name == nil || !isBadAlias(is.Name.Name) {

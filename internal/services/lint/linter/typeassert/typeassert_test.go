@@ -1,23 +1,28 @@
 package typeassert
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
-func TestCheck(t *testing.T) {
-	tests := []struct {
-		name     string
-		filename string
-		src      string
-		wantN    int
-		wantMsg  string
-	}{
-		{
-			name:     "comma-ok form",
-			filename: "foo.go",
-			src: `package foo
+type checkCase struct {
+	filename string
+	src      string
+	wantN    int
+	wantMsg  string
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, tt.filename, tt.src)
+	linttest.AssertCount(t, Check(fset, tt.filename, f), tt.wantN, tt.wantMsg)
+}
+
+func TestCheck_CommaOkForm(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 func f() {
 	var x interface{} = 1
@@ -26,13 +31,15 @@ func f() {
 	_ = ok
 }
 `,
-			wantN:   0,
-			wantMsg: "",
-		},
-		{
-			name:     "bare assertion in assign",
-			filename: "foo.go",
-			src: `package foo
+		wantN:   0,
+		wantMsg: "",
+	})
+}
+
+func TestCheck_BareAssertionInAssign(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 func f() {
 	var x interface{} = 1
@@ -40,13 +47,15 @@ func f() {
 	_ = val
 }
 `,
-			wantN:   1,
-			wantMsg: "bare type assertion may panic; use val, ok := x.(T)",
-		},
-		{
-			name:     "type switch exempt",
-			filename: "foo.go",
-			src: `package foo
+		wantN:   1,
+		wantMsg: "bare type assertion may panic; use val, ok := x.(T)",
+	})
+}
+
+func TestCheck_TypeSwitchExempt(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 func f() {
 	var x interface{} = 1
@@ -55,13 +64,15 @@ func f() {
 	}
 }
 `,
-			wantN:   0,
-			wantMsg: "",
-		},
-		{
-			name:     "bare assertion in function call",
-			filename: "foo.go",
-			src: `package foo
+		wantN:   0,
+		wantMsg: "",
+	})
+}
+
+func TestCheck_BareAssertionInFunctionCall(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 func g(i int) {}
 
@@ -70,13 +81,15 @@ func f() {
 	g(x.(int))
 }
 `,
-			wantN:   1,
-			wantMsg: "bare type assertion may panic; use val, ok := x.(T)",
-		},
-		{
-			name:     "test file exempt",
-			filename: "foo_test.go",
-			src: `package foo
+		wantN:   1,
+		wantMsg: "bare type assertion may panic; use val, ok := x.(T)",
+	})
+}
+
+func TestCheck_TestFileNotExempt(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
 
 func f() {
 	var x interface{} = 1
@@ -84,13 +97,15 @@ func f() {
 	_ = val
 }
 `,
-			wantN:   0,
-			wantMsg: "",
-		},
-		{
-			name:     "type switch with assign",
-			filename: "foo.go",
-			src: `package foo
+		wantN:   1,
+		wantMsg: "bare type assertion may panic; use val, ok := x.(T)",
+	})
+}
+
+func TestCheck_TypeSwitchWithAssign(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 func f() {
 	var x interface{} = 1
@@ -100,25 +115,7 @@ func f() {
 	}
 }
 `,
-			wantN:   0,
-			wantMsg: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, tt.filename, tt.src, parser.ParseComments)
-			if err != nil {
-				t.Fatalf("parse: %v", err)
-			}
-			diags := Check(fset, tt.filename, f)
-			if len(diags) != tt.wantN {
-				t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
-			}
-			if tt.wantN > 0 && tt.wantMsg != "" && diags[0].Message != tt.wantMsg {
-				t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
-			}
-		})
-	}
+		wantN:   0,
+		wantMsg: "",
+	})
 }

@@ -16,10 +16,7 @@ func Check(
 	f *ast.File,
 	maxParams int,
 ) []analysis.Diagnostic {
-	if maxParams <= 0 {
-		return nil
-	}
-	if analysis.IsTestFile(filename) || analysis.IsLintSource(filename) {
+	if maxParams <= 0 || analysis.IsLintSource(filename) {
 		return nil
 	}
 

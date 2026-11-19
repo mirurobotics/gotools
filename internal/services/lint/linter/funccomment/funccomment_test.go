@@ -1,22 +1,27 @@
 package funccomment
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
-func TestCheck(t *testing.T) {
-	tests := []struct {
-		name      string
-		filename  string
-		src       string
-		wantLines []int
-	}{
-		{
-			filename: "foo.go",
-			name:     "line comment in body flagged",
-			src: `package foo
+type checkCase struct {
+	filename  string
+	src       string
+	wantLines []int
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, tt.filename, tt.src)
+	linttest.AssertLines(t, Check(fset, tt.filename, f), tt.wantLines, message)
+}
+
+func TestCheck_LineCommentInBodyFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 func f() {
 	// explain
@@ -24,12 +29,14 @@ func f() {
 	_ = x
 }
 `,
-			wantLines: []int{4},
-		},
-		{
-			filename: "foo.go",
-			name:     "trailing and block comments flagged",
-			src: `package foo
+		wantLines: []int{4},
+	})
+}
+
+func TestCheck_TrailingAndBlockCommentsFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 func f() int {
 	x := 1 // trailing
@@ -37,23 +44,27 @@ func f() int {
 	return x
 }
 `,
-			wantLines: []int{4, 5},
-		},
-		{
-			filename: "foo.go",
-			name:     "func literal flagged",
-			src: `package foo
+		wantLines: []int{4, 5},
+	})
+}
+
+func TestCheck_FuncLiteralFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 var g = func() {
 	// inside literal
 }
 `,
-			wantLines: []int{4},
-		},
-		{
-			filename: "foo.go",
-			name:     "directives allowed",
-			src: `package foo
+		wantLines: []int{4},
+	})
+}
+
+func TestCheck_DirectivesAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 func f() {
 	x := 1 //nolint:gosec // reason
@@ -61,12 +72,14 @@ func f() {
 	_ = x
 }
 `,
-			wantLines: nil,
-		},
-		{
-			filename: "foo_test.go",
-			name:     "example output allowed",
-			src: `package foo
+		wantLines: nil,
+	})
+}
+
+func TestCheck_ExampleOutputAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
 
 func Example() {
 	println(1)
@@ -89,12 +102,14 @@ func ExampleLower() {
 	// output: 1
 }
 `,
-			wantLines: nil,
-		},
-		{
-			name:     "prose in example and output in non-example flagged",
-			filename: "foo_test.go",
-			src: `package foo
+		wantLines: nil,
+	})
+}
+
+func TestCheck_ProseInExampleAndOutputInNonExampleFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
 
 func Example() {
 	// prose
@@ -108,24 +123,45 @@ func helper() {
 	// 1
 }
 `,
-			wantLines: []int{4, 11, 12},
-		},
-		{
-			filename: "foo.go",
-			name:     "output comment outside example test flagged",
-			src: `package foo
+		wantLines: []int{4, 11, 12},
+	})
+}
+
+func TestCheck_OutputCommentOutsideExampleTestFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 func Example() {
 	// Output:
 	// 1
 }
 `,
-			wantLines: []int{4, 5},
-		},
-		{
-			filename: "foo.go",
-			name:     "doc comments and declarations without body allowed",
-			src: `package foo
+		wantLines: []int{4, 5},
+	})
+}
+
+func TestCheck_OutputCommentInExampleLookalikesFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
+
+func (T) ExampleM() {
+	// Output: 1
+}
+
+func Examplehelper() {
+	// Output: 2
+}
+`,
+		wantLines: []int{4, 8},
+	})
+}
+
+func TestCheck_DocCommentsAndDeclarationsWithoutBodyAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo.go",
+		src: `package foo
 
 // f does a thing.
 func f() {}
@@ -133,28 +169,6 @@ func f() {}
 // g is external.
 func g()
 `,
-			wantLines: nil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, tt.filename, tt.src, parser.ParseComments)
-			if err != nil {
-				t.Fatal(err)
-			}
-			diags := Check(fset, tt.filename, f)
-			if len(diags) != len(tt.wantLines) {
-				t.Fatalf(
-					"got %d diagnostics, want %d: %v",
-					len(diags), len(tt.wantLines), diags,
-				)
-			}
-			for i, d := range diags {
-				if d.Line != tt.wantLines[i] || d.Message != message {
-					t.Errorf("diag %d = %v, want line %d", i, d, tt.wantLines[i])
-				}
-			}
-		})
-	}
+		wantLines: nil,
+	})
 }

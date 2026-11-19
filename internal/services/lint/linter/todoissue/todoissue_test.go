@@ -1,20 +1,31 @@
 package todoissue
 
 import (
-	"go/parser"
-	"go/token"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
-func TestCheck(t *testing.T) {
-	tests := []struct {
-		name      string
-		src       string
-		wantLines []int
-	}{
-		{
-			name: "todo without link flagged",
-			src: `package foo
+type checkCase struct {
+	src       string
+	wantLines []int
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "foo.go", tt.src)
+	diags := Check(fset, "foo.go", f)
+	linttest.AssertLines(t, diags, tt.wantLines, message)
+	for _, d := range diags {
+		if d.File != "foo.go" {
+			t.Errorf("diag file = %q, want foo.go", d.File)
+		}
+	}
+}
+
+func TestCheck_TodoWithoutLinkFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // TODO: handle retries
 func f() {}
@@ -23,11 +34,13 @@ func g() {
 	// TODO(ben): clean up
 }
 `,
-			wantLines: []int{3, 7},
-		},
-		{
-			name: "todo with link on same or continuation line allowed",
-			src: `package foo
+		wantLines: []int{3, 7},
+	})
+}
+
+func TestCheck_TodoWithLinkOnSameOrContinuationLineAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // TODO: handle retries https://github.com/org/repo/issues/1
 func f() {}
@@ -51,22 +64,38 @@ var x = 1
  */
 var y = 2
 `,
-			wantLines: nil,
-		},
-		{
-			name: "link belongs to a later todo only",
-			src: `package foo
+		wantLines: nil,
+	})
+}
+
+func TestCheck_MiruPrefixedNolintSuppressesAGroup(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
+
+// TODO: known gap
+//miru:nolint:todoissue // tracked offline
+var n = 2
+`,
+		wantLines: nil,
+	})
+}
+
+func TestCheck_LinkBelongsToALaterTodoOnly(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // TODO: first
 // TODO: second https://github.com/org/repo/issues/4
 // TODO: third
 func f() {}
 `,
-			wantLines: []int{3, 5},
-		},
-		{
-			name: "non-todo comments, words, and directives skipped",
-			src: `package foo
+		wantLines: []int{3, 5},
+	})
+}
+
+func TestCheck_NonTodoCommentsWordsAndDirectivesSkipped(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // TODOS are tracked elsewhere.
 // Returns context.TODO when unset.
@@ -81,11 +110,13 @@ var z = 3
 // and http://localhost too.
 var w = 4
 `,
-			wantLines: []int{9, 12},
-		},
-		{
-			name: "star-prefixed and inner block lines flagged at their own line",
-			src: `package foo
+		wantLines: []int{9, 12},
+	})
+}
+
+func TestCheck_StarPrefixedAndInnerBlockLinesFlaggedAtTheirOwnLine(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 /*
  * TODO: fix
@@ -98,11 +129,13 @@ TODO: fix
 */
 var b = 2
 `,
-			wantLines: []int{4, 10},
-		},
-		{
-			name: "links in directives or other groups do not count",
-			src: `package foo
+		wantLines: []int{4, 10},
+	})
+}
+
+func TestCheck_LinksInDirectivesOrOtherGroupsDoNotCount(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // TODO: fix
 //go:generate curl https://example.com/issues/5
@@ -113,11 +146,13 @@ func f() {}
 // See https://example.com/issues/6.
 func g() {}
 `,
-			wantLines: []int{3, 7},
-		},
-		{
-			name: "nolint explanations are checked",
-			src: `package foo
+		wantLines: []int{3, 7},
+	})
+}
+
+func TestCheck_NolintExplanationsAreChecked(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 //nolint:gosec // TODO: remove once fixed
 var c = 1
@@ -125,11 +160,13 @@ var c = 1
 //nolint:gosec // TODO: remove https://example.com/issues/7
 var d = 2
 `,
-			wantLines: []int{3},
-		},
-		{
-			name: "nosec notes checked and blank lines end a todo",
-			src: `package foo
+		wantLines: []int{3},
+	})
+}
+
+func TestCheck_NosecNotesCheckedAndBlankLinesEndATodo(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // #nosec G304 -- TODO: validate path
 var e = 1
@@ -139,11 +176,13 @@ var e = 1
 // See https://pkg.go.dev/net/http.
 var g = 2
 `,
-			wantLines: []int{3, 6},
-		},
-		{
-			name: "directive notes are read per kind",
-			src: `package foo
+		wantLines: []int{3, 6},
+	})
+}
+
+func TestCheck_DirectiveNotesAreReadPerKind(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 //lint:ignore SA1000 TODO: fix
 var h = 1
@@ -163,11 +202,13 @@ var k = 4
 // https://example.com/issues/1
 var l = 5
 `,
-			wantLines: []int{3, 6, 13},
-		},
-		{
-			name: "list-marker todos checked and nolint suppresses a group",
-			src: `package foo
+		wantLines: []int{3, 6, 13},
+	})
+}
+
+func TestCheck_ListMarkerTodosCheckedAndNolintSuppressesAGroup(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // Plan:
 // - TODO: split this up
@@ -183,30 +224,24 @@ var o = 3
 // TODO: drop nolint:todoissue below
 var p = 4
 `,
-			wantLines: []int{4, 14},
-		},
-		{
-			name: "miru-prefixed nolint suppresses a group",
-			src: `package foo
+		wantLines: []int{4, 14},
+	})
+}
 
-// TODO: known gap
-//miru:nolint:todoissue // tracked offline
-var n = 2
-`,
-			wantLines: nil,
-		},
-		{
-			name: "todo with no space after slashes is not a directive",
-			src: `package foo
+func TestCheck_TodoWithNoSpaceAfterSlashesIsNotADirective(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 //TODO:fix
 var q = 1
 `,
-			wantLines: []int{3},
-		},
-		{
-			name: "prose starting with TODO punctuation is not a todo",
-			src: `package foo
+		wantLines: []int{3},
+	})
+}
+
+func TestCheck_ProseStartingWithTODOPunctuationIsNotATodo(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // Unlike
 // TODO, it signals intent.
@@ -214,29 +249,6 @@ var q = 1
 // TODO fix the retry loop
 var r = 1
 `,
-			wantLines: []int{6},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
-			if err != nil {
-				t.Fatal(err)
-			}
-			diags := Check(fset, "foo.go", f)
-			if len(diags) != len(tt.wantLines) {
-				t.Fatalf(
-					"got %d diagnostics, want %d: %v",
-					len(diags), len(tt.wantLines), diags,
-				)
-			}
-			for i, d := range diags {
-				wrong := d.File != "foo.go" || d.Line != tt.wantLines[i]
-				if wrong || d.Message != message {
-					t.Errorf("diag %d = %v, want line %d", i, d, tt.wantLines[i])
-				}
-			}
-		})
-	}
+		wantLines: []int{6},
+	})
 }
