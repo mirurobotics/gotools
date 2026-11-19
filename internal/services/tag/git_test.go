@@ -9,8 +9,6 @@ import (
 	"testing"
 )
 
-// initRepo creates a git repository in a fresh temp directory, makes it
-// the working directory for the test, and adds one commit.
 func initRepo(t *testing.T) {
 	t.Helper()
 	isolateGit(t)
@@ -22,9 +20,6 @@ func initRepo(t *testing.T) {
 	)
 }
 
-// isolateGit keeps git away from the caller's repository and config:
-// no inherited GIT_DIR/GIT_WORK_TREE, and no global or system config
-// (e.g. commit.gpgsign).
 func isolateGit(t *testing.T) {
 	t.Helper()
 	for _, k := range []string{"GIT_DIR", "GIT_WORK_TREE"} {
@@ -37,8 +32,6 @@ func isolateGit(t *testing.T) {
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 }
 
-// enterDir makes dir the working directory and stops git from
-// discovering a repository above it.
 func enterDir(t *testing.T, dir string) {
 	t.Helper()
 	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(dir))

@@ -79,3 +79,18 @@ func classify(path string) ImportGroup {
 	}
 	return GroupExternal
 }
+
+func newImportBlock(gd *ast.GenDecl) ImportBlock {
+	block := ImportBlock{
+		Imports:   nil,
+		Pos:       gd.Pos(),
+		End:       gd.End(),
+		IsGrouped: gd.Lparen.IsValid(),
+	}
+	for _, spec := range gd.Specs {
+		if is, ok := spec.(*ast.ImportSpec); ok {
+			block.Imports = append(block.Imports, newImport(is))
+		}
+	}
+	return block
+}

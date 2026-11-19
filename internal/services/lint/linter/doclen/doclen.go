@@ -47,21 +47,24 @@ func cgoPreambles(f *ast.File) map[*ast.CommentGroup]bool {
 	m := map[*ast.CommentGroup]bool{}
 	for _, decl := range f.Decls {
 		gd, ok := decl.(*ast.GenDecl)
-		if !ok || gd.Tok != token.IMPORT {
-			continue
-		}
-		for _, spec := range gd.Specs {
-			is, ok := spec.(*ast.ImportSpec)
-			if !ok || is.Path.Value != `"C"` {
-				continue
-			}
-			m[is.Doc] = true
-			if is.Doc == nil && len(gd.Specs) == 1 {
-				m[gd.Doc] = true
-			}
+		if ok && gd.Tok == token.IMPORT {
+			addCgoPreambles(m, gd)
 		}
 	}
 	return m
+}
+
+func addCgoPreambles(m map[*ast.CommentGroup]bool, gd *ast.GenDecl) {
+	for _, spec := range gd.Specs {
+		is, ok := spec.(*ast.ImportSpec)
+		if !ok || is.Path.Value != `"C"` {
+			continue
+		}
+		m[is.Doc] = true
+		if is.Doc == nil && len(gd.Specs) == 1 {
+			m[gd.Doc] = true
+		}
+	}
 }
 
 func check(

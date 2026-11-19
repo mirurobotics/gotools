@@ -71,3 +71,16 @@ func CheckCandidates(
 	}
 	return diags
 }
+
+func overlapsAny(fset *token.FileSet, c Candidate, kept []Candidate) bool {
+	cStart := fset.Position(c.Pos).Offset
+	cEnd := fset.Position(c.End).Offset
+	for _, k := range kept {
+		kStart := fset.Position(k.Pos).Offset
+		kEnd := fset.Position(k.End).Offset
+		if cStart < kEnd && cEnd > kStart {
+			return true
+		}
+	}
+	return false
+}

@@ -26,23 +26,29 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			continue
 		}
 
-		for _, spec := range gd.Specs {
-			vs, ok := spec.(*ast.ValueSpec)
-			if !ok || hasNolint(fset, f, vs.Pos()) {
-				continue
-			}
-			for _, name := range mutableNames(vs) {
-				pos := fset.Position(name.Pos())
-				diags = append(diags, analysis.Diagnostic{
-					File:    filename,
-					Line:    pos.Line,
-					Message: "mutable global variable: use const or a function instead",
-				})
-			}
+		for _, name := range declMutableNames(fset, f, gd) {
+			pos := fset.Position(name.Pos())
+			diags = append(diags, analysis.Diagnostic{
+				File:    filename,
+				Line:    pos.Line,
+				Message: "mutable global variable: use const or a function instead",
+			})
 		}
 	}
 
 	return diags
+}
+
+func declMutableNames(fset *token.FileSet, f *ast.File, gd *ast.GenDecl) []*ast.Ident {
+	var names []*ast.Ident
+	for _, spec := range gd.Specs {
+		vs, ok := spec.(*ast.ValueSpec)
+		if !ok || hasNolint(fset, f, vs.Pos()) {
+			continue
+		}
+		names = append(names, mutableNames(vs)...)
+	}
+	return names
 }
 
 func mutableNames(vs *ast.ValueSpec) []*ast.Ident {

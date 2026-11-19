@@ -80,3 +80,11 @@ func commentEnd(src []byte, start int, c *ast.Comment) int {
 	}
 	return start + 2 + bytes.Index(src[start+2:], []byte("*/")) + 2
 }
+
+func blankRange(code []byte, start, end int) {
+	for i := start; i < end && i < len(code); i++ {
+		if code[i] != '\n' {
+			code[i] = ' '
+		}
+	}
+}

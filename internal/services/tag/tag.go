@@ -190,3 +190,12 @@ func GitTags(errW io.Writer) ([]string, error) {
 	}
 	return tags, nil
 }
+
+func comparePart(a, b string) int {
+	aNum, aOK := ParseNum(a)
+	bNum, bOK := ParseNum(b)
+	if aOK && bOK {
+		return cmp.Compare(aNum, bNum)
+	}
+	return strings.Compare(a, b)
+}
