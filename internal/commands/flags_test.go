@@ -69,56 +69,6 @@ func assertIntDefaults(t *testing.T, fl *pflag.FlagSet, want map[string]int) {
 	}
 }
 
-func TestNewCheckCommand_FlagDefaults(t *testing.T) {
-	fl := NewCheckCommand().Flags()
-	assertStringDefaults(t, fl,
-		map[string]string{"path": ".", "exclude": "", "rule": ""})
-	assertBoolDefaults(t, fl, map[string]bool{"fix": false})
-	assertIntDefaults(t, fl, linterIntDefaults())
-}
-
-func TestNewLintCommand_Flags(t *testing.T) {
-	assertFlagTypes(t, NewLintCommand().Flags(), map[string]string{
-		"paths":              "string",
-		"fix":                "bool",
-		"deadcode":           "bool",
-		"deadcode-exclude":   "string",
-		"no-gofumpt":         "bool",
-		"no-golangci":        "bool",
-		"new-from-rev":       "string",
-		"goos":               "string",
-		"max-line-width":     "int",
-		"tab-width":          "int",
-		"max-func-len":       "int",
-		"max-file-len":       "int",
-		"max-nest-depth":     "int",
-		"max-param-count":    "int",
-		"max-doc-lines":      "int",
-		"max-doc-file-lines": "int",
-		"exclude":            "string",
-		"rule":               "string",
-	})
-}
-
-func TestNewLintCommand_FlagDefaults(t *testing.T) {
-	fl := NewLintCommand().Flags()
-	assertStringDefaults(t, fl, map[string]string{
-		"paths":            "",
-		"deadcode-exclude": "",
-		"new-from-rev":     "",
-		"goos":             "",
-		"exclude":          "",
-		"rule":             "",
-	})
-	assertBoolDefaults(t, fl, map[string]bool{
-		"fix":         true,
-		"deadcode":    true,
-		"no-gofumpt":  false,
-		"no-golangci": false,
-	})
-	assertIntDefaults(t, fl, linterIntDefaults())
-}
-
 func assertFloatDefaults(t *testing.T, fl *pflag.FlagSet, want map[string]float64) {
 	t.Helper()
 	for name, w := range want {

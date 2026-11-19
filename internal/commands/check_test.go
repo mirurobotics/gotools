@@ -42,3 +42,11 @@ func TestNewCheckCommand_Help(t *testing.T) {
 		t.Error("help output is empty")
 	}
 }
+
+func TestNewCheckCommand_FlagDefaults(t *testing.T) {
+	fl := NewCheckCommand().Flags()
+	assertStringDefaults(t, fl,
+		map[string]string{"path": ".", "exclude": "", "rule": ""})
+	assertBoolDefaults(t, fl, map[string]bool{"fix": false})
+	assertIntDefaults(t, fl, linterIntDefaults())
+}
