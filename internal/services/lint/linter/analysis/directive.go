@@ -8,14 +8,19 @@ func IsDirective(text string) bool {
 		return true
 	}
 	body := strings.TrimSpace(strings.TrimPrefix(text, "//"))
-	for _, cgo := range []string{"//export ", "//extern ", "//line "} {
-		if strings.HasPrefix(text, cgo) {
+	if hasAnyPrefix(text, "//export ", "//extern ", "//line ") {
+		return true
+	}
+	return hasAnyPrefix(body, "nolint", "#nosec", "+build")
+}
+
+func hasAnyPrefix(s string, prefixes ...string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(s, p) {
 			return true
 		}
 	}
-	return strings.HasPrefix(body, "nolint") ||
-		strings.HasPrefix(body, "#nosec") ||
-		strings.HasPrefix(body, "+build")
+	return false
 }
 
 func isGoStyleDirective(s string) bool {

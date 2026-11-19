@@ -221,12 +221,9 @@ func hasRawStringWithNewlines(exprs []ast.Expr) bool {
 				return false
 			}
 			lit, ok := n.(*ast.BasicLit)
-			if ok && lit.Kind == token.STRING {
-				if strings.HasPrefix(lit.Value, "`") &&
-					strings.Contains(lit.Value, "\n") {
-					found = true
-					return false
-				}
+			if ok && isMultiLineRawString(lit) {
+				found = true
+				return false
 			}
 			return true
 		})
@@ -235,6 +232,13 @@ func hasRawStringWithNewlines(exprs []ast.Expr) bool {
 		}
 	}
 	return false
+}
+
+func isMultiLineRawString(lit *ast.BasicLit) bool {
+	if lit.Kind != token.STRING || !strings.HasPrefix(lit.Value, "`") {
+		return false
+	}
+	return strings.Contains(lit.Value, "\n")
 }
 
 // Check reports diagnostics for multi-line expressions that could be collapsed.

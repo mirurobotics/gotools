@@ -60,10 +60,10 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 }
 
 func isExempt(filename string, f *ast.File) bool {
-	return f.Name.Name == "main" ||
-		analysis.IsTestFile(filename) ||
-		analysis.IsLintSource(filename) ||
-		analysis.IsCmdSource(filename)
+	if f.Name.Name == "main" || analysis.IsTestFile(filename) {
+		return true
+	}
+	return analysis.IsLintSource(filename) || analysis.IsCmdSource(filename)
 }
 
 func callName(call *ast.CallExpr) string {
