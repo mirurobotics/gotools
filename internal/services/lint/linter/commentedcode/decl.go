@@ -2,12 +2,13 @@ package commentedcode
 
 import "go/ast"
 
-func loneBareDecl(body *ast.BlockStmt) bool {
-	if len(body.List) != 1 {
-		return false
+func anyPlausibleDecl(decls []ast.Decl) bool {
+	for _, d := range decls {
+		if plausibleDecl(d) {
+			return true
+		}
 	}
-	ds, isDecl := body.List[0].(*ast.DeclStmt)
-	return isDecl && !plausibleDecl(ds.Decl)
+	return false
 }
 
 func plausibleDecl(d ast.Decl) bool {

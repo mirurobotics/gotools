@@ -133,3 +133,15 @@ func TestCheck_EmptyAndBlankCommentsSkipped(t *testing.T) {
 		wantLines: nil,
 	})
 }
+
+func TestCheck_RunOfBareDeclarationsSkipped(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
+
+// type assertion failed
+// var name here
+`,
+		wantLines: nil,
+	})
+}

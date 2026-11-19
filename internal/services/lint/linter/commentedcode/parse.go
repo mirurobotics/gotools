@@ -22,7 +22,7 @@ func isDecls(s string) bool {
 	if err != nil || len(f.Decls) == 0 || isProse(fset, src, f) {
 		return false
 	}
-	return len(f.Decls) > 1 || plausibleDecl(f.Decls[0])
+	return anyPlausibleDecl(f.Decls)
 }
 
 func isStmts(s string) bool {
@@ -44,7 +44,7 @@ func isStmts(s string) bool {
 		}
 		return ok
 	})
-	return ok && !loneBareDecl(body) && hasCodeNode(body)
+	return ok && hasCodeNode(body)
 }
 
 func isProse(fset *token.FileSet, src string, f *ast.File) bool {
@@ -149,7 +149,7 @@ func hasCodeNode(body *ast.BlockStmt) bool {
 		case *ast.CallExpr, *ast.AssignStmt, *ast.IncDecStmt,
 			*ast.ReturnStmt, *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt,
 			*ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt,
-			*ast.GoStmt, *ast.DeferStmt, *ast.DeclStmt, *ast.SendStmt, *ast.ExprStmt:
+			*ast.GoStmt, *ast.DeferStmt, *ast.SendStmt, *ast.ExprStmt:
 			found = true
 		}
 		return !found
