@@ -33,17 +33,22 @@ func AssertCount(t *testing.T, diags []analysis.Diagnostic, wantN int, wantMsg s
 }
 
 // AssertLines checks each diagnostic's line and, when wantMsg is set, its message.
-func AssertLines(t *testing.T, diags []analysis.Diagnostic, lines []int, msg string) {
+func AssertLines(
+	t *testing.T,
+	diags []analysis.Diagnostic,
+	wantLines []int,
+	wantMsg string,
+) {
 	t.Helper()
-	if len(diags) != len(lines) {
-		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), len(lines), diags)
+	if len(diags) != len(wantLines) {
+		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), len(wantLines), diags)
 	}
 	for i, d := range diags {
-		if d.Line != lines[i] {
-			t.Errorf("diag %d line = %d, want %d", i, d.Line, lines[i])
+		if d.Line != wantLines[i] {
+			t.Errorf("diag %d line = %d, want %d", i, d.Line, wantLines[i])
 		}
-		if msg != "" && d.Message != msg {
-			t.Errorf("diag %d message = %q, want %q", i, d.Message, msg)
+		if wantMsg != "" && d.Message != wantMsg {
+			t.Errorf("diag %d message = %q, want %q", i, d.Message, wantMsg)
 		}
 	}
 }
