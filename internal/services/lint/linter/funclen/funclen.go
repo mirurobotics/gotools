@@ -87,7 +87,8 @@ func literalTailLines(fset *token.FileSet, body *ast.BlockStmt) map[int]bool {
 	codeStarts := make(map[int]bool)
 	var closingLines []int
 	ast.Inspect(body, func(n ast.Node) bool {
-		if n == nil {
+		switch n.(type) {
+		case nil, *ast.CommentGroup, *ast.Comment:
 			return false
 		}
 		codeStarts[fset.Position(n.Pos()).Line] = true

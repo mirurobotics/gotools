@@ -307,3 +307,14 @@ func TestCheck_LiteralStartingOnClosingLineCounted(t *testing.T) {
 		wantMsg: "function f is 2 lines (limit 1)",
 	})
 }
+
+func TestCheck_TrailingCommentOnVarLiteralNotCounted(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: "package foo\n\nfunc f() {\n" +
+			"\tvar x = []int{\n\t\t1,\n\t} // cases\n\t_ = x\n}\n",
+		maxLen:  2,
+		wantN:   0,
+		wantMsg: "",
+	})
+}
