@@ -2,13 +2,12 @@ package commentedcode
 
 import "go/ast"
 
-func allPlausibleDecls(decls []ast.Decl) bool {
-	for _, d := range decls {
-		if !plausibleDecl(d) {
-			return false
-		}
+func loneBareDecl(body *ast.BlockStmt) bool {
+	if len(body.List) != 1 {
+		return false
 	}
-	return true
+	ds, isDecl := body.List[0].(*ast.DeclStmt)
+	return isDecl && !plausibleDecl(ds.Decl)
 }
 
 func plausibleDecl(d ast.Decl) bool {
@@ -16,7 +15,7 @@ func plausibleDecl(d ast.Decl) bool {
 		return fd.Body != nil
 	}
 	gd, isGen := d.(*ast.GenDecl)
-	return isGen && allPlausibleSpecs(gd.Specs)
+	return isGen && (gd.Lparen.IsValid() || allPlausibleSpecs(gd.Specs))
 }
 
 func allPlausibleSpecs(specs []ast.Spec) bool {

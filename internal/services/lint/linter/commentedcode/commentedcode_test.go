@@ -296,3 +296,28 @@ func TestCheck_CodeAfterDirectiveMidGroupFlagged(t *testing.T) {
 		wantLines: []int{5},
 	})
 }
+
+func TestCheck_BareSpecsInLargerRunsFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
+
+// const (
+//	A = iota
+//	B
+// )
+
+// var mu sync.Mutex
+//
+// func lock() {
+//	mu.Lock()
+// }
+
+func f() {
+	// var wg sync.WaitGroup
+	// wg.Add(1)
+}
+`,
+		wantLines: []int{3, 8, 15},
+	})
+}

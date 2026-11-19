@@ -22,7 +22,7 @@ func isDecls(s string) bool {
 	if err != nil || len(f.Decls) == 0 || isProse(fset, src, f) {
 		return false
 	}
-	return allPlausibleDecls(f.Decls)
+	return len(f.Decls) > 1 || plausibleDecl(f.Decls[0])
 }
 
 func isStmts(s string) bool {
@@ -44,7 +44,7 @@ func isStmts(s string) bool {
 		}
 		return ok
 	})
-	return ok && hasCodeNode(body)
+	return ok && !loneBareDecl(body) && hasCodeNode(body)
 }
 
 func isProse(fset *token.FileSet, src string, f *ast.File) bool {
@@ -107,8 +107,6 @@ func plausible(st ast.Stmt) bool {
 		return isAssignable(x.X)
 	case *ast.AssignStmt:
 		return allAssignable(x.Lhs)
-	case *ast.DeclStmt:
-		return plausibleDecl(x.Decl)
 	}
 	return true
 }
