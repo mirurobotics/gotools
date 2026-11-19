@@ -260,3 +260,39 @@ func TestCheck_NonASCIIStringLiteralFlagged(t *testing.T) {
 		wantLines: []int{3},
 	})
 }
+
+func TestCheck_DeclarationsWithValuesOrCompositeTypesFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
+
+// type T struct{}
+
+// type A = B
+
+// var xs []int
+
+// const c = 1
+
+// import "fmt"
+
+func f() {
+	// var m map[string]int
+}
+`,
+		wantLines: []int{3, 5, 7, 9, 11, 14},
+	})
+}
+
+func TestCheck_CodeAfterDirectiveMidGroupFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "foo_test.go",
+		src: `package foo
+
+// old way:
+//nolint:todoissue
+// x := 1
+`,
+		wantLines: []int{5},
+	})
+}

@@ -19,7 +19,10 @@ func isDecls(s string) bool {
 	src := "package p\n" + s + "\n"
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "", src, 0)
-	return err == nil && len(f.Decls) > 0 && !isProse(fset, src, f)
+	if err != nil || len(f.Decls) == 0 || isProse(fset, src, f) {
+		return false
+	}
+	return allPlausibleDecls(f.Decls)
 }
 
 func isStmts(s string) bool {
@@ -104,6 +107,8 @@ func plausible(st ast.Stmt) bool {
 		return isAssignable(x.X)
 	case *ast.AssignStmt:
 		return allAssignable(x.Lhs)
+	case *ast.DeclStmt:
+		return plausibleDecl(x.Decl)
 	}
 	return true
 }

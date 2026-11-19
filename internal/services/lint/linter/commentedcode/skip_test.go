@@ -33,6 +33,10 @@ package foo
 // 获取用户信息(从缓存)
 // 状态=成功
 // 计数器++
+// type assertion failed
+// var name here
+// const value
+// func helper()
 // deprecated
 //
 func F() {}

@@ -189,9 +189,6 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		{RuleStrayComment, false, func(in checkInput) []analysis.Diagnostic {
 			return straycomment.Check(in.fset, in.path, in.f)
 		}},
-		{RuleCommentedCode, false, func(in checkInput) []analysis.Diagnostic {
-			return commentedcode.Check(in.fset, in.path, in.f, in.src)
-		}},
 		{RulePrivDoc, false, func(in checkInput) []analysis.Diagnostic {
 			return privdoc.Check(in.fset, in.path, in.f)
 		}},
@@ -200,6 +197,9 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		}},
 		{RuleDocRestate, false, func(in checkInput) []analysis.Diagnostic {
 			return docrestate.Check(in.fset, in.path, in.f)
+		}},
+		{RuleCommentedCode, false, func(in checkInput) []analysis.Diagnostic {
+			return commentedcode.Check(in.fset, in.path, in.f, in.src)
 		}},
 		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
 			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)
