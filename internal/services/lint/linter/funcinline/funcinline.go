@@ -7,9 +7,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// FindCandidates walks the AST and returns all function
-// declarations and function literals whose body can be
-// inlined to a single line.
+// FindCandidates returns functions whose body fits on one line.
 func FindCandidates(
 	fset *token.FileSet,
 	f *ast.File,
@@ -57,7 +55,6 @@ func tryInline(
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
-	// Build collapsed form: signature + "{ " + statement + " }"
 	sigEnd := fset.Position(body.Lbrace).Offset
 	signature := string(src[fset.Position(funcPos).Offset:sigEnd])
 
@@ -82,9 +79,6 @@ func tryInline(
 	}, true
 }
 
-// inlineableStmt returns the body's only statement when the body is
-// multi-line, the statement fits on one line, and there are no comments or
-// function literals that would make collapsing unsafe.
 func inlineableStmt(
 	fset *token.FileSet,
 	f *ast.File,
@@ -93,12 +87,10 @@ func inlineableStmt(
 	if body == nil || len(body.List) != 1 {
 		return nil, false
 	}
-	// Already single-line.
 	if fset.Position(body.Lbrace).Line == fset.Position(body.Rbrace).Line {
 		return nil, false
 	}
 	stmt := body.List[0]
-	// Statement spans multiple lines.
 	if fset.Position(stmt.Pos()).Line != fset.Position(stmt.End()).Line {
 		return nil, false
 	}
@@ -109,8 +101,7 @@ func inlineableStmt(
 	return stmt, true
 }
 
-// Check reports diagnostics for function declarations whose body
-// can be inlined.
+// Check reports diagnostics for function declarations whose body can be inlined.
 func Check(
 	fset *token.FileSet,
 	filename string,

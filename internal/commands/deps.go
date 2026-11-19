@@ -8,8 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewDepsCommand returns a cobra command with dependency
-// management subcommands.
+// NewDepsCommand returns a cobra command with dependency management subcommands.
 func NewDepsCommand() *cobra.Command {
 	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{

@@ -12,8 +12,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports diagnostics for error strings passed to errors.New and
-// fmt.Errorf that are capitalized or end with punctuation.
+// Check reports error strings that are capitalized or end with punctuation.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 
@@ -36,8 +35,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// errorStringArg returns the string literal passed as the first argument
-// to errors.New or fmt.Errorf, along with its unquoted, non-empty value.
 func errorStringArg(n ast.Node) (*ast.BasicLit, string, bool) {
 	call, ok := n.(*ast.CallExpr)
 	if !ok || !isErrorCall(call) || len(call.Args) == 0 {
@@ -54,8 +51,6 @@ func errorStringArg(n ast.Node) (*ast.BasicLit, string, bool) {
 	return lit, val, true
 }
 
-// checkErrorString returns a message for each style problem in an error
-// string: a capitalized first word or trailing punctuation.
 func checkErrorString(val string) []string {
 	var msgs []string
 	firstRune, _ := utf8.DecodeRuneInString(val)
@@ -74,7 +69,6 @@ func checkErrorString(val string) []string {
 	return msgs
 }
 
-// isErrorCall checks if a call expression is errors.New or fmt.Errorf.
 func isErrorCall(call *ast.CallExpr) bool {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
@@ -88,8 +82,6 @@ func isErrorCall(call *ast.CallExpr) bool {
 		(ident.Name == "fmt" && sel.Sel.Name == "Errorf")
 }
 
-// isAcronymStart returns true if the string starts with an all-caps word
-// (e.g., "HTTP request failed", "JSON parse error").
 func isAcronymStart(s string) bool {
 	word := firstWord(s)
 	if len(word) < 2 {

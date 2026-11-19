@@ -8,11 +8,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/cmdutil"
 )
+
+// Parallelism returns n when positive, otherwise the number of CPUs.
+func Parallelism(n int) int {
+	if n > 0 {
+		return n
+	}
+	return runtime.NumCPU()
+}
 
 // RelPkg computes a module-relative package path.
 func RelPkg(pkg, module string) string {
@@ -41,10 +50,7 @@ func GoListPackages(pattern string) ([]string, error) {
 	return NonEmptyLines(out), nil
 }
 
-// GoListTestPackages lists packages matching a pattern that
-// contain at least one test file. Packages without tests
-// render as blank lines in the template output and are
-// dropped by NonEmptyLines.
+// GoListTestPackages lists packages matching pattern that contain tests.
 func GoListTestPackages(pattern string) ([]string, error) {
 	out, err := ExecOutput(
 		nil, "go", "list", "-f",
@@ -57,9 +63,7 @@ func GoListTestPackages(pattern string) ([]string, error) {
 	return NonEmptyLines(out), nil
 }
 
-// LookupThreshold reads the coverage threshold from a
-// .covgate file. The second return value is true when an
-// explicit .covgate file exists and parses successfully.
+// LookupThreshold reads the coverage threshold from a .covgate file.
 func LookupThreshold(pkgDir string) (float64, bool) {
 	covFile := filepath.Join(pkgDir, ".covgate")
 	//nolint:gosec // G304: trusted file path
@@ -75,8 +79,7 @@ func LookupThreshold(pkgDir string) (float64, bool) {
 	return val, true
 }
 
-// GetThreshold reads the coverage threshold from a
-// .covgate file, falling back to the default.
+// GetThreshold reads the .covgate threshold, falling back to the default.
 func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
 	if v, ok := LookupThreshold(pkgDir); ok {
 		return v
@@ -84,8 +87,7 @@ func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
 	return defaultThreshold
 }
 
-// ExtractCoverage parses the total coverage percentage
-// from a Go coverage profile.
+// ExtractCoverage parses the total coverage percentage from a Go coverage profile.
 func ExtractCoverage(coverFile string) (float64, error) {
 	if _, err := os.Stat(coverFile); err != nil {
 		return 0, fmt.Errorf("coverage file: %w", err)
@@ -101,8 +103,7 @@ func ExtractCoverage(coverFile string) (float64, error) {
 	return val, nil
 }
 
-// ParseCoverageOutput extracts the total coverage
-// percentage from "go tool cover -func" output.
+// ParseCoverageOutput extracts total coverage from "go tool cover -func" output.
 func ParseCoverageOutput(text string) (float64, error) {
 	scanner := bufio.NewScanner(strings.NewReader(text))
 	for scanner.Scan() {
@@ -123,8 +124,7 @@ func ParseCoverageOutput(text string) (float64, error) {
 	return 0, fmt.Errorf("no total coverage line found in output")
 }
 
-// BuildTestPaths returns the test package paths for a
-// given source package, including any external test dir.
+// BuildTestPaths returns the test package paths for a source package.
 func BuildTestPaths(pkg, relPkg, srcPrefix, testDir string) []string {
 	paths := []string{pkg}
 	if testDir == "" || srcPrefix == "" {
@@ -142,17 +142,12 @@ func BuildTestPaths(pkg, relPkg, srcPrefix, testDir string) []string {
 	return paths
 }
 
-// Measure runs tests for pkg with coverage profiling and
-// returns the coverage percentage and combined test output.
-// Uses a temp file for the coverage profile, cleaned up
-// automatically.
+// Measure runs tests for pkg with coverage and returns the percentage and output.
 func Measure(pkg string, testPaths []string) (float64, []byte, error) {
 	return MeasureWithEnv(pkg, testPaths, nil)
 }
 
-// RunTests runs go test on the given paths without coverage
-// instrumentation. Used for test-only packages that have no
-// source package to attribute coverage to.
+// RunTests runs go test on the given paths without coverage instrumentation.
 func RunTests(paths []string) ([]byte, error) {
 	args := make([]string, 0, 1+len(paths))
 	args = append(args, "test")
@@ -160,12 +155,7 @@ func RunTests(paths []string) ([]byte, error) {
 	return cmdutil.GoCommand(args...).CombinedOutput()
 }
 
-// MeasureWithEnv is like Measure but appends extraEnv to
-// the test subprocess environment when non-empty.
-// Entries in extraEnv override earlier definitions of the
-// same key (os/exec uses last-wins).
-// This lets callers inject variables such as GOMAXPROCS
-// into the child go test invocation.
+// MeasureWithEnv is Measure with extraEnv appended to the test environment.
 func MeasureWithEnv(
 	pkg string, testPaths []string, extraEnv []string,
 ) (float64, []byte, error) {
@@ -197,8 +187,7 @@ func MeasureWithEnv(
 	return coverage, output, nil
 }
 
-// ExecOutput runs a command with GOWORK=off and returns
-// its stdout.
+// ExecOutput runs a command with GOWORK=off and returns its stdout.
 func ExecOutput(errW io.Writer, name string, args ...string) (string, error) {
 	if errW == nil {
 		errW = os.Stderr
@@ -215,8 +204,7 @@ func ExecOutput(errW io.Writer, name string, args ...string) (string, error) {
 	return buf.String(), nil
 }
 
-// NonEmptyLines splits a string into non-empty,
-// trimmed lines.
+// NonEmptyLines splits a string into non-empty, trimmed lines.
 func NonEmptyLines(s string) []string {
 	var lines []string
 	scanner := bufio.NewScanner(strings.NewReader(s))

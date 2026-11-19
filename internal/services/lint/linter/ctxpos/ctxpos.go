@@ -7,8 +7,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports a diagnostic when context.Context is present in a function's
-// parameter list but is not the first parameter.
+// Check reports functions whose context.Context parameter is not first.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	ctxPkg := analysis.ContextPkgName(f)
 	if ctxPkg == "" {
@@ -36,9 +35,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// funcParams returns the parameter list and position of a function
-// declaration or literal. ok is false for other nodes and for functions
-// with a nil parameter list.
 func funcParams(n ast.Node) (*ast.FieldList, token.Pos, bool) {
 	var ft *ast.FuncType
 	switch fn := n.(type) {
@@ -55,8 +51,6 @@ func funcParams(n ast.Node) (*ast.FieldList, token.Pos, bool) {
 	return ft.Params, n.Pos(), true
 }
 
-// ctxParamIndex returns the index of the first context.Context parameter,
-// or -1 if there is none.
 func ctxParamIndex(params *ast.FieldList, ctxPkg string) int {
 	paramIdx := 0
 	for _, field := range params.List {
@@ -72,10 +66,6 @@ func ctxParamIndex(params *ast.FieldList, ctxPkg string) int {
 	return -1
 }
 
-// firstParamIsTesting returns true if the first parameter's type is
-// *testing.T, *testing.B, *testing.F, or *testing.M. These types must
-// be the first parameter by Go convention, so context.Context is
-// allowed in the second position.
 func firstParamIsTesting(params *ast.FieldList) bool {
 	typ := params.List[0].Type
 	star, ok := typ.(*ast.StarExpr)
