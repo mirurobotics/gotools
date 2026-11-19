@@ -436,6 +436,20 @@ func f(run func(func() bool) bool, a, b, c bool) bool {
 			wantLines: []int{8},
 		},
 		{
+			name: "trailing nolint on the start line",
+			src: `package foo
+
+func f(g func(int) bool, ok bool) bool {
+	x := g( //nolint:exprwrap
+		1,
+	) ||
+		ok
+	return x
+}
+`,
+			wantLines: nil,
+		},
+		{
 			name: "nolint on the break line",
 			src: `package foo
 
