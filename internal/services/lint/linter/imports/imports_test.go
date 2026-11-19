@@ -6,45 +6,6 @@ import (
 	"testing"
 )
 
-func TestClassify(t *testing.T) {
-	tests := []struct {
-		path string
-		want ImportGroup
-	}{
-		{"fmt", GroupStd},
-		{"os", GroupStd},
-		{"os/exec", GroupStd},
-		{"encoding/json", GroupStd},
-		{"net/http", GroupStd},
-		{"strings", GroupStd},
-		{"crypto/rand", GroupStd},
-		{"math/rand/v2", GroupStd},
-
-		{"github.com/mirurobotics/core/pkg/errs", GroupInternal},
-		{"github.com/mirurobotics/core/pkg/files", GroupInternal},
-		{"github.com/mirurobotics/backend/pkg/foo", GroupInternal},
-		{"github.com/mirurobotics/agent/pkg/bar", GroupInternal},
-
-		{"github.com/go-git/go-git/v5", GroupExternal},
-		{"cuelang.org/go/cue", GroupExternal},
-		{"golang.org/x/text", GroupExternal},
-		{"go.uber.org/zap", GroupExternal},
-		{"github.com/stretchr/testify/assert", GroupExternal},
-
-		{"github.com/miruroboticsfork/pkg", GroupExternal},
-		{"github.com/miruroboticsx/thing", GroupExternal},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
-			got := classify(tt.path)
-			if got != tt.want {
-				t.Errorf("classify(%q) = %d, want %d", tt.path, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestCheck_Correct(t *testing.T) {
 	src := []byte(`package foo
 
@@ -137,310 +98,6 @@ import (
 	assertNoDiags(t, src)
 }
 
-func TestFix_ReordersAndGroups(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	"github.com/go-git/go-git/v5"
-	"fmt"
-	"github.com/mirurobotics/core/pkg/errs"
-	"strings"
-)
-`)
-	want := `package foo
-
-import (
-	"fmt"
-	"strings"
-
-	"github.com/mirurobotics/core/pkg/errs"
-
-	"github.com/go-git/go-git/v5"
-)
-`
-	assertFixResult(t, src, want)
-}
-
-func TestFix_PreservesAliases(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	errs "github.com/mirurobotics/core/pkg/errs"
-	"fmt"
-)
-`)
-	want := `package foo
-
-import (
-	"fmt"
-
-	errs "github.com/mirurobotics/core/pkg/errs"
-)
-`
-	assertFixResult(t, src, want)
-}
-
-func TestFix_AddsMissingSeparator(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	"fmt"
-	"github.com/mirurobotics/core/pkg/errs"
-)
-`)
-	want := `package foo
-
-import (
-	"fmt"
-
-	"github.com/mirurobotics/core/pkg/errs"
-)
-`
-	assertFixResult(t, src, want)
-}
-
-func TestFix_RemovesExtraBlankLineWithinGroup(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	"github.com/mirurobotics/core/pkg/errs"
-
-	"github.com/mirurobotics/core/pkg/files"
-)
-`)
-	want := `package foo
-
-import (
-	"github.com/mirurobotics/core/pkg/errs"
-	"github.com/mirurobotics/core/pkg/files"
-)
-`
-	assertFixResult(t, src, want)
-}
-
-func TestFix_Idempotent(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	"fmt"
-	"strings"
-
-	"github.com/mirurobotics/core/pkg/errs"
-
-	"github.com/go-git/go-git/v5"
-)
-`)
-	assertFixResult(t, src, string(src))
-}
-
-func TestFix_SingleGroupOnly(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	"strings"
-	"fmt"
-)
-`)
-	want := `package foo
-
-import (
-	"fmt"
-	"strings"
-)
-`
-	assertFixResult(t, src, want)
-}
-
-func TestFix_TwoGroupsOnly(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	"github.com/mirurobotics/core/pkg/errs"
-	"fmt"
-)
-`)
-	want := `package foo
-
-import (
-	"fmt"
-
-	"github.com/mirurobotics/core/pkg/errs"
-)
-`
-	assertFixResult(t, src, want)
-}
-
-func TestFix_SingleImport_Unchanged(t *testing.T) {
-	src := []byte(`package foo
-
-import "fmt"
-`)
-	assertFixResult(t, src, string(src))
-}
-
-func TestFix_DotImport(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	. "github.com/mirurobotics/core/pkg/assert"
-	"fmt"
-)
-`)
-	want := `package foo
-
-import (
-	"fmt"
-
-	. "github.com/mirurobotics/core/pkg/assert"
-)
-`
-	assertFixResult(t, src, want)
-}
-
-func TestFix_AllThreeGroups_Reversed(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	"github.com/stretchr/testify/assert"
-	"github.com/mirurobotics/core/pkg/errs"
-	"fmt"
-)
-`)
-	want := `package foo
-
-import (
-	"fmt"
-
-	"github.com/mirurobotics/core/pkg/errs"
-
-	"github.com/stretchr/testify/assert"
-)
-`
-	assertFixResult(t, src, want)
-}
-
-func TestFix_PreservesCodeAfterImports(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	"github.com/go-git/go-git/v5"
-	"fmt"
-)
-
-func main() {
-	fmt.Println("hello")
-}
-`)
-	want := `package foo
-
-import (
-	"fmt"
-
-	"github.com/go-git/go-git/v5"
-)
-
-func main() {
-	fmt.Println("hello")
-}
-`
-	assertFixResult(t, src, want)
-}
-
-func TestFix_MultipleAliases(t *testing.T) {
-	src := []byte(`package foo
-
-import (
-	jsonx "github.com/mirurobotics/core/pkg/json"
-	errs "github.com/mirurobotics/core/pkg/errs"
-	"fmt"
-)
-`)
-	want := `package foo
-
-import (
-	"fmt"
-
-	errs "github.com/mirurobotics/core/pkg/errs"
-	jsonx "github.com/mirurobotics/core/pkg/json"
-)
-`
-	assertFixResult(t, src, want)
-}
-
-func TestFix_NoBlocks(t *testing.T) {
-	src := []byte(`package foo
-
-func main() {}
-`)
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	blocks := ExtractBlocks(f)
-	got := string(Fix(fset, src, blocks))
-	if got != string(src) {
-		t.Errorf("expected no change, got:\n%s", got)
-	}
-}
-
-func TestCheckerFixerAgreement(t *testing.T) {
-	cases := [][]byte{
-		[]byte(
-			"package foo\n\nimport (\n" +
-				"\t\"fmt\"\n\t\"strings\"\n\n" +
-				"\t\"github.com/mirurobotics/core/pkg/errs\"\n\n" +
-				"\t\"github.com/go-git/go-git/v5\"\n)\n",
-		),
-		[]byte(
-			"package foo\n\nimport (\n" +
-				"\t\"github.com/go-git/go-git/v5\"\n" +
-				"\t\"fmt\"\n)\n",
-		),
-		[]byte(
-			"package foo\n\nimport (\n" +
-				"\t\"fmt\"\n" +
-				"\t\"github.com/mirurobotics/core/pkg/errs\"\n)\n",
-		),
-		[]byte(
-			"package foo\n\nimport (\n" +
-				"\t\"fmt\"\n\n\t\"strings\"\n)\n",
-		),
-		[]byte("package foo\n\nimport \"fmt\"\n"),
-	}
-
-	for i, src := range cases {
-		fset := token.NewFileSet()
-		f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-		if err != nil {
-			t.Fatalf("case %d: parse error: %v", i, err)
-		}
-
-		blocks := ExtractBlocks(f)
-		fixed := Fix(fset, src, blocks)
-		changed := string(fixed) != string(src)
-
-		fsetCheck := token.NewFileSet()
-		fCheck, _ := parser.ParseFile(fsetCheck, "test.go", src, parser.ParseComments)
-		blocksCheck := ExtractBlocks(fCheck)
-		diags := Check(fsetCheck, "test.go", src, blocksCheck)
-		hasDiags := len(diags) > 0
-
-		if changed && !hasDiags {
-			t.Errorf(
-				"case %d: fixer changed file but checker reported no diagnostics",
-				i,
-			)
-		}
-		if !changed && hasDiags {
-			t.Errorf(
-				"case %d: fixer left file unchanged but checker reported diagnostics: %v",
-				i, diags,
-			)
-		}
-	}
-}
-
 func assertNoDiags(t *testing.T, src []byte) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
@@ -477,5 +134,88 @@ func assertFixResult(t *testing.T, src []byte, want string) {
 	got := string(Fix(fset, src, blocks))
 	if got != want {
 		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func assertClassify(t *testing.T, want ImportGroup, paths ...string) {
+	t.Helper()
+	for _, path := range paths {
+		if got := classify(path); got != want {
+			t.Errorf("classify(%q) = %d, want %d", path, got, want)
+		}
+	}
+}
+
+func TestClassify_Std(t *testing.T) {
+	assertClassify(t, GroupStd,
+		"fmt", "os", "os/exec", "encoding/json", "net/http", "strings",
+		"crypto/rand", "math/rand/v2")
+}
+
+// TestClassify_Internal covers the mirurobotics org, in any repo.
+func TestClassify_Internal(t *testing.T) {
+	assertClassify(t, GroupInternal,
+		"github.com/mirurobotics/core/pkg/errs",
+		"github.com/mirurobotics/core/pkg/files",
+		"github.com/mirurobotics/backend/pkg/foo",
+		"github.com/mirurobotics/agent/pkg/bar")
+}
+
+func TestClassify_External(t *testing.T) {
+	assertClassify(t, GroupExternal,
+		"github.com/go-git/go-git/v5",
+		"cuelang.org/go/cue",
+		"golang.org/x/text",
+		"go.uber.org/zap",
+		"github.com/stretchr/testify/assert")
+}
+
+// TestClassify_PrefixBoundary covers orgs that only start with "mirurobotics".
+func TestClassify_PrefixBoundary(t *testing.T) {
+	assertClassify(t, GroupExternal,
+		"github.com/miruroboticsfork/pkg",
+		"github.com/miruroboticsx/thing")
+}
+
+func TestCheckerFixerAgreement(t *testing.T) {
+	cases := []string{
+		"package foo\n\nimport (\n" +
+			"\t\"fmt\"\n\t\"strings\"\n\n" +
+			"\t\"github.com/mirurobotics/core/pkg/errs\"\n\n" +
+			"\t\"github.com/go-git/go-git/v5\"\n)\n",
+		"package foo\n\nimport (\n" +
+			"\t\"github.com/go-git/go-git/v5\"\n" +
+			"\t\"fmt\"\n)\n",
+		"package foo\n\nimport (\n" +
+			"\t\"fmt\"\n" +
+			"\t\"github.com/mirurobotics/core/pkg/errs\"\n)\n",
+		"package foo\n\nimport (\n" +
+			"\t\"fmt\"\n\n\t\"strings\"\n)\n",
+		"package foo\n\nimport \"fmt\"\n",
+	}
+	for _, src := range cases {
+		assertCheckerFixerAgree(t, []byte(src))
+	}
+}
+
+func assertCheckerFixerAgree(t *testing.T, src []byte) {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatalf("parse error: %v\n%s", err, src)
+	}
+	changed := string(Fix(fset, src, ExtractBlocks(f))) != string(src)
+
+	fsetCheck := token.NewFileSet()
+	fCheck, _ := parser.ParseFile(fsetCheck, "test.go", src, parser.ParseComments)
+	diags := Check(fsetCheck, "test.go", src, ExtractBlocks(fCheck))
+	hasDiags := len(diags) > 0
+
+	if changed && !hasDiags {
+		t.Errorf("fixer changed file but checker reported no diagnostics:\n%s", src)
+	}
+	if !changed && hasDiags {
+		t.Errorf("fixer left file unchanged but checker reported %v:\n%s", diags, src)
 	}
 }

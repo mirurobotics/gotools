@@ -3,6 +3,9 @@ package nofmt
 import (
 	"go/ast"
 	"go/token"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
@@ -25,7 +28,7 @@ func builtinBanned() map[string]bool {
 	return map[string]bool{"print": true, "println": true}
 }
 
-// Check reports print and log calls outside main, tests, cmd/, and linter source.
+// Check reports print and log calls outside main, cmd/, linter source, and examples.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	if isExempt(filename, f) {
 		return nil
@@ -34,6 +37,9 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	var diags []analysis.Diagnostic
 
 	ast.Inspect(f, func(n ast.Node) bool {
+		if isExample(filename, n) {
+			return false
+		}
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
@@ -51,7 +57,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			Line: pos.Line,
 			Message: name +
 				" should not be used outside" +
-				" main/test; use structured logging",
+				" main; use structured logging",
 		})
 		return true
 	})
@@ -60,10 +66,23 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 }
 
 func isExempt(filename string, f *ast.File) bool {
-	if f.Name.Name == "main" || analysis.IsTestFile(filename) {
+	if f.Name.Name == "main" {
 		return true
 	}
 	return analysis.IsLintSource(filename) || analysis.IsCmdSource(filename)
+}
+
+func isExample(filename string, n ast.Node) bool {
+	fn, ok := n.(*ast.FuncDecl)
+	if !ok || fn.Recv != nil || !analysis.IsTestFile(filename) {
+		return false
+	}
+	suffix, ok := strings.CutPrefix(fn.Name.Name, "Example")
+	if !ok || suffix == "" {
+		return ok
+	}
+	r, _ := utf8.DecodeRuneInString(suffix)
+	return !unicode.IsLower(r)
 }
 
 func callName(call *ast.CallExpr) string {

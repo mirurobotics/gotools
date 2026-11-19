@@ -9,10 +9,6 @@ import (
 
 // Check reports diagnostics for bare type assertions that don't use the comma-ok idiom.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	if analysis.IsTestFile(filename) {
-		return nil
-	}
-
 	safe := safeAssertions(f)
 
 	var diags []analysis.Diagnostic

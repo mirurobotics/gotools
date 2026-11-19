@@ -6,15 +6,35 @@ import (
 	"testing"
 )
 
-func TestCheck(t *testing.T) {
-	tests := []struct {
-		name      string
-		src       string
-		wantLines []int
-	}{
-		{
-			name: "section banner flagged once per group",
-			src: `package foo
+type checkCase struct {
+	src       string
+	wantLines []int
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diags := Check(fset, "foo.go", f)
+	if len(diags) != len(tt.wantLines) {
+		t.Fatalf(
+			"got %d diagnostics, want %d: %v",
+			len(diags), len(tt.wantLines), diags,
+		)
+	}
+	for i, d := range diags {
+		if d.Line != tt.wantLines[i] || d.Message != message {
+			t.Errorf("diag %d = %v, want line %d", i, d, tt.wantLines[i])
+		}
+	}
+}
+
+func TestCheck_SectionBannerFlaggedOncePerGroup(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // ----------------
 // Helpers
@@ -22,11 +42,13 @@ func TestCheck(t *testing.T) {
 
 func f() {}
 `,
-			wantLines: []int{3},
-		},
-		{
-			name: "loose note in struct and const block flagged",
-			src: `package foo
+		wantLines: []int{3},
+	})
+}
+
+func TestCheck_LooseNoteInStructAndConstBlockFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 type T struct {
 	A int
@@ -44,11 +66,13 @@ const (
 	B = 2
 )
 `,
-			wantLines: []int{6, 14},
-		},
-		{
-			name: "attached comments allowed",
-			src: `// Package foo is a package.
+		wantLines: []int{6, 14},
+	})
+}
+
+func TestCheck_AttachedCommentsAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `// Package foo is a package.
 package foo
 
 import (
@@ -75,21 +99,25 @@ const (
 // F prints.
 func F() { fmt.Println() }
 `,
-			wantLines: nil,
-		},
-		{
-			name: "cgo preamble on a single import allowed",
-			src: `package foo
+		wantLines: nil,
+	})
+}
+
+func TestCheck_CgoPreambleOnASingleImportAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // #include <stdio.h>
 // #include <stdlib.h>
 import "C"
 `,
-			wantLines: nil,
-		},
-		{
-			name: "header, directives, and function comments skipped",
-			src: `// Copyright 2026 Example.
+		wantLines: nil,
+	})
+}
+
+func TestCheck_HeaderDirectivesAndFunctionCommentsSkipped(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `// Copyright 2026 Example.
 
 //go:build linux
 
@@ -101,29 +129,35 @@ func f() {
 	// funccomment handles this
 }
 `,
-			wantLines: nil,
-		},
-		{
-			name: "comment after last declaration flagged",
-			src: `package foo
+		wantLines: nil,
+	})
+}
+
+func TestCheck_CommentAfterLastDeclarationFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {}
 
 // TODO: more
 `,
-			wantLines: []int{5},
-		},
-		{
-			name: "import comment on package clause allowed",
-			src: `package foo // import "example.com/foo"
+		wantLines: []int{5},
+	})
+}
+
+func TestCheck_ImportCommentOnPackageClauseAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo // import "example.com/foo"
 
 func f() {}
 `,
-			wantLines: nil,
-		},
-		{
-			name: "comment in function signature flagged",
-			src: `package foo
+		wantLines: nil,
+	})
+}
+
+func TestCheck_CommentInFunctionSignatureFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f(
 	// a is documented.
@@ -131,28 +165,6 @@ func f(
 ) {
 }
 `,
-			wantLines: []int{4},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
-			if err != nil {
-				t.Fatal(err)
-			}
-			diags := Check(fset, "foo.go", f)
-			if len(diags) != len(tt.wantLines) {
-				t.Fatalf(
-					"got %d diagnostics, want %d: %v",
-					len(diags), len(tt.wantLines), diags,
-				)
-			}
-			for i, d := range diags {
-				if d.Line != tt.wantLines[i] || d.Message != message {
-					t.Errorf("diag %d = %v, want line %d", i, d, tt.wantLines[i])
-				}
-			}
-		})
-	}
+		wantLines: []int{4},
+	})
 }

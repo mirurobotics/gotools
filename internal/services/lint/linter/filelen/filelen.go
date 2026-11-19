@@ -23,9 +23,6 @@ func Check(
 	if maxLen <= 0 {
 		return nil
 	}
-	if analysis.IsTestFile(filename) || analysis.IsTestHelper(filename) {
-		return nil
-	}
 	count := countLines(fset, f, src)
 	if count <= maxLen {
 		return nil

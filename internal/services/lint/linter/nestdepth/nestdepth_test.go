@@ -6,17 +6,32 @@ import (
 	"testing"
 )
 
-func TestCheck(t *testing.T) {
-	tests := []struct {
-		name     string
-		src      string
-		maxDepth int
-		wantN    int
-		wantMsg  string
-	}{
-		{
-			name: "at limit",
-			src: `package foo
+type checkCase struct {
+	src      string
+	maxDepth int
+	wantN    int
+	wantMsg  string
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "test.go", tt.src, parser.ParseComments)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	diags := Check(fset, "test.go", f, tt.maxDepth)
+	if len(diags) != tt.wantN {
+		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
+	}
+	if tt.wantN > 0 && tt.wantMsg != "" && diags[0].Message != tt.wantMsg {
+		t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
+	}
+}
+
+func TestCheck_AtLimit(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 	if true {
@@ -32,13 +47,15 @@ func f() {
 	}
 }
 `,
-			maxDepth: 4,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name: "over limit",
-			src: `package foo
+		maxDepth: 4,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_OverLimit(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 	if true {
@@ -56,14 +73,16 @@ func f() {
 	}
 }
 `,
-			maxDepth: 4,
-			wantN:    1,
-			wantMsg: "nesting depth is 5 (limit 4)" +
-				" — consider early returns or extracting a helper",
-		},
-		{
-			name: "for and if at limit 2",
-			src: `package foo
+		maxDepth: 4,
+		wantN:    1,
+		wantMsg: "nesting depth is 5 (limit 4)" +
+			" — consider early returns or extracting a helper",
+	})
+}
+
+func TestCheck_ForAndIfAtLimit2(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f(xs []int) {
 	for _, x := range xs {
@@ -73,13 +92,15 @@ func f(xs []int) {
 	}
 }
 `,
-			maxDepth: 2,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name: "nested range loops over limit 2",
-			src: `package foo
+		maxDepth: 2,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_NestedRangeLoopsOverLimit2(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f(xss [][]int) {
 	for _, xs := range xss {
@@ -91,14 +112,16 @@ func f(xss [][]int) {
 	}
 }
 `,
-			maxDepth: 2,
-			wantN:    1,
-			wantMsg: "nesting depth is 3 (limit 2)" +
-				" — consider early returns or extracting a helper",
-		},
-		{
-			name: "switch case body no extra depth",
-			src: `package foo
+		maxDepth: 2,
+		wantN:    1,
+		wantMsg: "nesting depth is 3 (limit 2)" +
+			" — consider early returns or extracting a helper",
+	})
+}
+
+func TestCheck_SwitchCaseBodyNoExtraDepth(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 	switch x := 1; {
@@ -110,13 +133,15 @@ func f() {
 	}
 }
 `,
-			maxDepth: 2,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name: "nested if and for",
-			src: `package foo
+		maxDepth: 2,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_NestedIfAndFor(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 	if true {
@@ -129,13 +154,15 @@ func f() {
 	}
 }
 `,
-			maxDepth: 3,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name: "multiple functions independent",
-			src: `package foo
+		maxDepth: 3,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_MultipleFunctionsIndependent(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 	if true {
@@ -151,13 +178,15 @@ func g() {
 	}
 }
 `,
-			maxDepth: 1,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name: "select stmt counts",
-			src: `package foo
+		maxDepth: 1,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_SelectStmtCounts(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 	if true {
@@ -171,13 +200,15 @@ func f() {
 	}
 }
 `,
-			maxDepth: 3,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name: "range stmt counts",
-			src: `package foo
+		maxDepth: 3,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_RangeStmtCounts(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 	for range []int{1} {
@@ -190,15 +221,17 @@ func f() {
 	}
 }
 `,
-			maxDepth: 2,
-			wantN:    1,
-			wantMsg: "nesting depth is 3 (limit 2)" +
-				" — consider early returns" +
-				" or extracting a helper",
-		},
-		{
-			name: "type switch counts",
-			src: `package foo
+		maxDepth: 2,
+		wantN:    1,
+		wantMsg: "nesting depth is 3 (limit 2)" +
+			" — consider early returns" +
+			" or extracting a helper",
+	})
+}
+
+func TestCheck_TypeSwitchCounts(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 	var x interface{} = 1
@@ -212,15 +245,17 @@ func f() {
 	}
 }
 `,
-			maxDepth: 2,
-			wantN:    1,
-			wantMsg: "nesting depth is 3 (limit 2)" +
-				" — consider early returns" +
-				" or extracting a helper",
-		},
-		{
-			name: "comm clause body no extra depth",
-			src: `package foo
+		maxDepth: 2,
+		wantN:    1,
+		wantMsg: "nesting depth is 3 (limit 2)" +
+			" — consider early returns" +
+			" or extracting a helper",
+	})
+}
+
+func TestCheck_CommClauseBodyNoExtraDepth(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 	ch := make(chan int, 1)
@@ -237,13 +272,15 @@ func f() {
 	}
 }
 `,
-			maxDepth: 2,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name: "labeled statement",
-			src: `package foo
+		maxDepth: 2,
+		wantN:    0,
+		wantMsg:  "",
+	})
+}
+
+func TestCheck_LabeledStatement(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 outer:
@@ -255,59 +292,24 @@ outer:
 	}
 }
 `,
-			maxDepth: 2,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name: "func literal nesting",
-			src: `package foo
-
-var f = func() {
-	if true {
-		if true {
-			_ = 1
-		}
-	}
+		maxDepth: 2,
+		wantN:    0,
+		wantMsg:  "",
+	})
 }
-`,
-			maxDepth: 1,
-			wantN:    1,
-			wantMsg: "nesting depth is 2 (limit 1)" +
-				" — consider early returns" +
-				" or extracting a helper",
-		},
-		{
-			name: "nested func literal",
-			src: `package foo
 
-var f = func() {
-	g := func() {
-		if true {
-			if true {
-				_ = 1
-			}
-		}
-	}
-	_ = g
+func TestCheck_DisabledWhenMaxDepthZero(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src:      `package foo; func f() { if true { if true { } } }`,
+		maxDepth: 0,
+		wantN:    0,
+		wantMsg:  "",
+	})
 }
-`,
-			maxDepth: 1,
-			wantN:    1,
-			wantMsg: "nesting depth is 2 (limit 1)" +
-				" — consider early returns" +
-				" or extracting a helper",
-		},
-		{
-			name:     "disabled when maxDepth zero",
-			src:      `package foo; func f() { if true { if true { } } }`,
-			maxDepth: 0,
-			wantN:    0,
-			wantMsg:  "",
-		},
-		{
-			name: "bare block statement",
-			src: `package foo
+
+func TestCheck_BareBlockStatement(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func f() {
 	{
@@ -319,26 +321,8 @@ func f() {
 	}
 }
 `,
-			maxDepth: 2,
-			wantN:    0,
-			wantMsg:  "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, "test.go", tt.src, parser.ParseComments)
-			if err != nil {
-				t.Fatalf("parse: %v", err)
-			}
-			diags := Check(fset, "test.go", f, tt.maxDepth)
-			if len(diags) != tt.wantN {
-				t.Fatalf("got %d diagnostics, want %d: %v", len(diags), tt.wantN, diags)
-			}
-			if tt.wantN > 0 && tt.wantMsg != "" && diags[0].Message != tt.wantMsg {
-				t.Errorf("message = %q, want %q", diags[0].Message, tt.wantMsg)
-			}
-		})
-	}
+		maxDepth: 2,
+		wantN:    0,
+		wantMsg:  "",
+	})
 }

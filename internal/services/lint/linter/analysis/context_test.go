@@ -34,9 +34,9 @@ import "context"
 func f(ctx context.Context) {}
 `
 	f := parseTestFile(t, src)
-	fn := f.Decls[1].(*ast.FuncDecl)
+	param := firstParamType(t, f.Decls[1])
 	pkg := ContextPkgName(f)
-	if !IsContextType(fn.Type.Params.List[0].Type, pkg) {
+	if !IsContextType(param, pkg) {
 		t.Error("expected IsContextType to return true")
 	}
 }
@@ -47,8 +47,8 @@ import "context"
 func f(ctx context.Context) {}
 `
 	f := parseTestFile(t, src)
-	fn := f.Decls[1].(*ast.FuncDecl)
-	if IsContextType(fn.Type.Params.List[0].Type, "") {
+	param := firstParamType(t, f.Decls[1])
+	if IsContextType(param, "") {
 		t.Error("expected false with empty ctxPkg")
 	}
 }
@@ -58,8 +58,8 @@ func TestIsContextType_NonContext(t *testing.T) {
 func f(x int) {}
 `
 	f := parseTestFile(t, src)
-	fn := f.Decls[0].(*ast.FuncDecl)
-	if IsContextType(fn.Type.Params.List[0].Type, "context") {
+	param := firstParamType(t, f.Decls[0])
+	if IsContextType(param, "context") {
 		t.Error("expected false for non-context type")
 	}
 }
@@ -70,7 +70,7 @@ import "go/ast"
 func f(x ast.Expr) {}
 `
 	f := parseTestFile(t, src)
-	fn := f.Decls[1].(*ast.FuncDecl)
+	param := firstParamType(t, f.Decls[1])
 	inner := &ast.SelectorExpr{
 		X:   &ast.SelectorExpr{X: ast.NewIdent("a"), Sel: ast.NewIdent("b")},
 		Sel: ast.NewIdent("Context"),
@@ -78,7 +78,7 @@ func f(x ast.Expr) {}
 	if IsContextType(inner, "context") {
 		t.Error("expected false for nested selector")
 	}
-	if IsContextType(fn.Type.Params.List[0].Type, "context") {
+	if IsContextType(param, "context") {
 		t.Error("expected false for ast.Expr, not context.Context")
 	}
 }
@@ -90,4 +90,13 @@ func parseTestFile(t *testing.T, src string) *ast.File {
 		t.Fatal(err)
 	}
 	return f
+}
+
+func firstParamType(t *testing.T, decl ast.Decl) ast.Expr {
+	t.Helper()
+	fn, ok := decl.(*ast.FuncDecl)
+	if !ok {
+		t.Fatalf("decl is %T, want *ast.FuncDecl", decl)
+	}
+	return fn.Type.Params.List[0].Type
 }

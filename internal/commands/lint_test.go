@@ -1,0 +1,79 @@
+package commands
+
+import (
+	"bytes"
+	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint"
+
+	"github.com/spf13/cobra"
+)
+
+func TestNewLintCommand_Metadata(t *testing.T) {
+	cmd := NewLintCommand()
+
+	if cmd.Use != "lint" {
+		t.Errorf("Use = %q, want %q", cmd.Use, "lint")
+	}
+	if cmd.Short == "" {
+		t.Error("Short description is empty")
+	}
+	if cmd.RunE == nil {
+		t.Error("RunE is nil")
+	}
+}
+
+func TestBindLintFlags_BindsGOOSAndNewFromRev(t *testing.T) {
+	var opts lint.LintOpts
+	//nolint:exhaustruct // cobra uses partial initialization
+	cmd := &cobra.Command{Use: "lint"}
+	bindLintFlags(cmd, &opts)
+	args := []string{"--goos=windows,darwin", "--new-from-rev=main"}
+	if err := cmd.ParseFlags(args); err != nil {
+		t.Fatal(err)
+	}
+	if opts.GOOS != "windows,darwin" {
+		t.Errorf("GOOS = %q, want %q", opts.GOOS, "windows,darwin")
+	}
+	if opts.NewFromRev != "main" {
+		t.Errorf("NewFromRev = %q, want %q", opts.NewFromRev, "main")
+	}
+}
+
+func TestNewLintCommand_Help(t *testing.T) {
+	cmd := NewLintCommand()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	err := cmd.Help()
+	if err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+	if buf.Len() == 0 {
+		t.Error("help output is empty")
+	}
+}
+
+func TestSharedLinterFlags_ConsistentBetweenCheckAndLint(t *testing.T) {
+	check, lint := NewCheckCommand().Flags(), NewLintCommand().Flags()
+	ints := linterIntDefaults()
+	shared := make([]string, 0, len(ints)+2)
+	shared = append(shared, "exclude", "rule")
+	for name := range ints {
+		shared = append(shared, name)
+	}
+	for _, name := range shared {
+		cf, lf := check.Lookup(name), lint.Lookup(name)
+		if cf == nil || lf == nil {
+			t.Errorf("shared flag %q missing: check=%v, lint=%v", name, cf, lf)
+			continue
+		}
+		if cf.DefValue != lf.DefValue {
+			t.Errorf(
+				"flag %q default mismatch: check=%q, lint=%q",
+				name, cf.DefValue, lf.DefValue,
+			)
+		}
+	}
+}

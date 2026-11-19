@@ -29,6 +29,3 @@ func IsLintSource(filename string) bool {
 
 // IsCmdSource returns true if the file lives under a cmd/ directory.
 func IsCmdSource(filename string) bool { return strings.Contains(filename, "cmd/") }
-
-// IsTestHelper returns true if the file lives under a tests/ directory.
-func IsTestHelper(filename string) bool { return strings.Contains(filename, "tests/") }

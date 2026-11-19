@@ -21,9 +21,6 @@ func Check(
 	if maxLen <= 0 {
 		return nil
 	}
-	if analysis.IsTestFile(filename) || analysis.IsTestHelper(filename) {
-		return nil
-	}
 	allLines := bytes.Split(src, []byte("\n"))
 
 	var diags []analysis.Diagnostic

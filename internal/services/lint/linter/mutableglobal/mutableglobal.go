@@ -10,10 +10,6 @@ import (
 
 // Check reports diagnostics for mutable package-level variables.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	if analysis.IsTestFile(filename) {
-		return nil
-	}
-
 	var diags []analysis.Diagnostic
 
 	for _, decl := range f.Decls {

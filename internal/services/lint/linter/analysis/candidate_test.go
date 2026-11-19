@@ -17,6 +17,35 @@ func TestFix_Empty(t *testing.T) {
 	}
 }
 
+func TestCheckCandidates_Empty(t *testing.T) {
+	fset := token.NewFileSet()
+	diags := CheckCandidates(fset, "f.go", nil, "msg")
+	if len(diags) != 0 {
+		t.Errorf("expected 0 diags, got %d", len(diags))
+	}
+}
+
+func parseCalls(t *testing.T, src string) (*token.FileSet, []*ast.CallExpr) {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls []*ast.CallExpr
+	ast.Inspect(f, func(n ast.Node) bool {
+		if c, ok := n.(*ast.CallExpr); ok {
+			calls = append(calls, c)
+		}
+		return true
+	})
+	return fset, calls
+}
+
+func callCandidate(call *ast.CallExpr, collapsed string) Candidate {
+	return Candidate{Pos: call.Fun.Pos(), End: call.Rparen + 1, Collapsed: collapsed}
+}
+
 func TestFix_SingleCandidate(t *testing.T) {
 	src := `package foo
 
@@ -27,23 +56,8 @@ func f() {
 	)
 }
 `
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	call := findFirstCallExpr(f)
-	if call == nil {
-		t.Fatal("no call expression found")
-	}
-
-	candidates := []Candidate{{
-		Pos:       call.Fun.Pos(),
-		End:       call.Rparen + 1,
-		Collapsed: "foo(1, 2)",
-	}}
-
+	fset, calls := parseCalls(t, src)
+	candidates := []Candidate{callCandidate(calls[0], "foo(1, 2)")}
 	got := string(Fix(fset, []byte(src), candidates))
 	want := `package foo
 
@@ -68,36 +82,11 @@ func f() {
 	)
 }
 `
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var calls []*ast.CallExpr
-	ast.Inspect(f, func(n ast.Node) bool {
-		if c, ok := n.(*ast.CallExpr); ok {
-			calls = append(calls, c)
-		}
-		return true
-	})
-	if len(calls) < 2 {
-		t.Fatalf("expected 2 calls, got %d", len(calls))
-	}
-
+	fset, calls := parseCalls(t, src)
 	candidates := []Candidate{
-		{
-			Pos:       calls[0].Fun.Pos(),
-			End:       calls[0].Rparen + 1,
-			Collapsed: "a(1)",
-		},
-		{
-			Pos:       calls[1].Fun.Pos(),
-			End:       calls[1].Rparen + 1,
-			Collapsed: "b(2)",
-		},
+		callCandidate(calls[0], "a(1)"),
+		callCandidate(calls[1], "b(2)"),
 	}
-
 	got := string(Fix(fset, []byte(src), candidates))
 	if !strings.Contains(got, "a(1)") {
 		t.Errorf("Fix did not apply first candidate:\n%s", got)
@@ -107,6 +96,7 @@ func f() {
 	}
 }
 
+// TestFix_OverlappingCandidates keeps the inner of two nested candidates.
 func TestFix_OverlappingCandidates(t *testing.T) {
 	src := `package foo
 
@@ -119,43 +109,13 @@ func f() {
 	)
 }
 `
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var calls []*ast.CallExpr
-	ast.Inspect(f, func(n ast.Node) bool {
-		if c, ok := n.(*ast.CallExpr); ok {
-			calls = append(calls, c)
-		}
-		return true
-	})
-	if len(calls) < 2 {
-		t.Fatalf("expected 2 calls, got %d", len(calls))
-	}
-
+	fset, calls := parseCalls(t, src)
 	outer, inner := calls[0], calls[1]
-	if fset.Position(outer.Pos()).Offset > fset.Position(inner.Pos()).Offset {
-		outer, inner = inner, outer
-	}
-
 	candidates := []Candidate{
-		{
-			Pos:       outer.Fun.Pos(),
-			End:       outer.Rparen + 1,
-			Collapsed: "outer(inner(1, 2))",
-		},
-		{
-			Pos:       inner.Fun.Pos(),
-			End:       inner.Rparen + 1,
-			Collapsed: "inner(1, 2)",
-		},
+		callCandidate(outer, "outer(inner(1, 2))"),
+		callCandidate(inner, "inner(1, 2)"),
 	}
-
 	got := string(Fix(fset, []byte(src), candidates))
-
 	if !strings.Contains(got, "inner(1, 2)") {
 		t.Errorf("expected inner candidate to be applied:\n%s", got)
 	}
@@ -164,41 +124,10 @@ func f() {
 	}
 }
 
-func TestCheckCandidates_Empty(t *testing.T) {
-	fset := token.NewFileSet()
-	diags := CheckCandidates(fset, "f.go", nil, "msg")
-	if len(diags) != 0 {
-		t.Errorf("expected 0 diags, got %d", len(diags))
-	}
-}
-
 func TestCheckCandidates_WithCandidates(t *testing.T) {
-	src := `package foo
-
-func f() {
-	foo(
-		1,
-	)
-}
-`
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	call := findFirstCallExpr(f)
-	if call == nil {
-		t.Fatal("no call found")
-	}
-
-	candidates := []Candidate{{
-		Pos:       call.Fun.Pos(),
-		End:       call.Rparen + 1,
-		Collapsed: "foo(1)",
-	}}
-
+	fset, calls := parseCalls(t, "package foo\n\nfunc f() {\n\tfoo(\n\t\t1,\n\t)\n}\n")
 	msg := "test message"
+	candidates := []Candidate{callCandidate(calls[0], "foo(1)")}
 	diags := CheckCandidates(fset, "test.go", candidates, msg)
 	if len(diags) != 1 {
 		t.Fatalf("expected 1 diag, got %d", len(diags))

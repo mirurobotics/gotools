@@ -70,23 +70,6 @@ func TestIsLintSource(t *testing.T) {
 	}
 }
 
-func TestIsTestHelper(t *testing.T) {
-	tests := []struct {
-		file string
-		want bool
-	}{
-		{"tests/errors/error.go", true},
-		{"pkg/server/handler.go", false},
-	}
-	for _, tc := range tests {
-		t.Run(tc.file, func(t *testing.T) {
-			if got := IsTestHelper(tc.file); got != tc.want {
-				t.Errorf("IsTestHelper(%q) = %v, want %v", tc.file, got, tc.want)
-			}
-		})
-	}
-}
-
 func TestIsCmdSource(t *testing.T) {
 	tests := []struct {
 		file string

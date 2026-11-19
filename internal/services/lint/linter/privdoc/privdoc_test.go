@@ -6,15 +6,35 @@ import (
 	"testing"
 )
 
-func TestCheck(t *testing.T) {
-	tests := []struct {
-		name      string
-		src       string
-		wantLines []int
-	}{
-		{
-			name: "unexported func and method docs flagged",
-			src: `package foo
+type checkCase struct {
+	src       string
+	wantLines []int
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	diags := Check(fset, "foo.go", f)
+	if len(diags) != len(tt.wantLines) {
+		t.Fatalf(
+			"got %d diagnostics, want %d: %v",
+			len(diags), len(tt.wantLines), diags,
+		)
+	}
+	for i, d := range diags {
+		if d.Line != tt.wantLines[i] || d.Message != message {
+			t.Errorf("diag %d = %v, want line %d", i, d, tt.wantLines[i])
+		}
+	}
+}
+
+func TestCheck_UnexportedFuncAndMethodDocsFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // f does a thing.
 func f() {}
@@ -28,11 +48,13 @@ func (*t) M() {}
 // G is generic on an unexported type.
 func (g[K]) G() {}
 `,
-			wantLines: []int{3, 6, 9, 12},
-		},
-		{
-			name: "local declarations left to funccomment",
-			src: `package foo
+		wantLines: []int{3, 6, 9, 12},
+	})
+}
+
+func TestCheck_LocalDeclarationsLeftToFunccomment(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 func F() {
 	// x is local.
@@ -40,11 +62,13 @@ func F() {
 	_ = x(0)
 }
 `,
-			wantLines: nil,
-		},
-		{
-			name: "exported docs allowed",
-			src: `package foo
+		wantLines: nil,
+	})
+}
+
+func TestCheck_ExportedDocsAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // F does a thing.
 func F() {}
@@ -76,6 +100,14 @@ type I interface {
 	// Do does.
 	Do()
 }
+`,
+		wantLines: nil,
+	})
+}
+
+func TestCheck_ExportedValueDocsAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // C is a constant.
 const C = 1
@@ -101,11 +133,13 @@ var State struct {
 // m is a method on an unknown receiver.
 func (*[2]T) M() {}
 `,
-			wantLines: nil,
-		},
-		{
-			name: "unexported types, fields, and values flagged",
-			src: `package foo
+		wantLines: nil,
+	})
+}
+
+func TestCheck_UnexportedTypesAndFieldsFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // t is a type.
 type t struct {
@@ -139,6 +173,14 @@ type T struct {
 		f int // in a chan
 	}
 }
+`,
+		wantLines: []int{3, 5, 10, 11, 15, 19, 23, 26, 29, 32},
+	})
+}
+
+func TestCheck_UnexportedValuesFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 type I interface {
 	// do does.
@@ -155,11 +197,13 @@ var (
 	y = 2 // trailing
 )
 `,
-			wantLines: []int{3, 5, 10, 11, 15, 19, 23, 26, 29, 32, 37, 41, 44, 46, 48},
-		},
-		{
-			name: "prose mixed with directives flagged on the prose line",
-			src: `package foo
+		wantLines: []int{4, 8, 11, 13, 15},
+	})
+}
+
+func TestCheck_ProseMixedWithDirectivesFlaggedOnTheProseLine(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // f does a thing.
 //
@@ -182,11 +226,13 @@ type K map[struct {
 	k int // key field
 }]int
 `,
-			wantLines: []int{3, 9, 13, 17, 21},
-		},
-		{
-			name: "directives and blank lines allowed",
-			src: `package foo
+		wantLines: []int{3, 9, 13, 17, 21},
+	})
+}
+
+func TestCheck_DirectivesAndBlankLinesAllowed(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 //nolint:funclen // reason
 func f() {}
@@ -208,11 +254,13 @@ type t int
 
 var x = 1 //nolint:gochecknoglobals
 `,
-			wantLines: nil,
-		},
-		{
-			name: "grouped imports allowed, params left to straycomment",
-			src: `package foo
+		wantLines: nil,
+	})
+}
+
+func TestCheck_GroupedImportsAllowedParamsLeftToStraycomment(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 import (
 	// fmt is imported.
@@ -241,11 +289,13 @@ type g[
 	K any,
 ] struct{}
 `,
-			wantLines: nil,
-		},
-		{
-			name: "inline constraints follow their type",
-			src: `package foo
+		wantLines: nil,
+	})
+}
+
+func TestCheck_InlineConstraintsFollowTheirType(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 type Set[T interface {
 	// Key returns the key.
@@ -257,37 +307,17 @@ type set[T interface {
 	Key() string
 }] struct{}
 `,
-			wantLines: []int{9},
-		},
-		{
-			name: "imports ignored",
-			src: `package foo
+		wantLines: []int{9},
+	})
+}
+
+func TestCheck_ImportsIgnored(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo
 
 // fmt is imported.
 import "fmt"
 `,
-			wantLines: nil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, "foo.go", tt.src, parser.ParseComments)
-			if err != nil {
-				t.Fatal(err)
-			}
-			diags := Check(fset, "foo.go", f)
-			if len(diags) != len(tt.wantLines) {
-				t.Fatalf(
-					"got %d diagnostics, want %d: %v",
-					len(diags), len(tt.wantLines), diags,
-				)
-			}
-			for i, d := range diags {
-				if d.Line != tt.wantLines[i] || d.Message != message {
-					t.Errorf("diag %d = %v, want line %d", i, d, tt.wantLines[i])
-				}
-			}
-		})
-	}
+		wantLines: nil,
+	})
 }
