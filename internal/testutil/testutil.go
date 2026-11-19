@@ -10,14 +10,7 @@ import (
 // MakePkgDir chdirs into a temp dir and creates rel, returning its path.
 func MakePkgDir(t *testing.T, rel string) string {
 	t.Helper()
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-	dir := filepath.Join(tmp, rel)
-	//nolint:gosec // G301: test directory
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return dir
+	return filepath.Join(MakePkgDirs(t, rel), rel)
 }
 
 // WriteCovgateFile writes a .covgate threshold file in the given directory.
@@ -31,8 +24,8 @@ func WriteCovgateFile(t *testing.T, dir, val string) {
 	}
 }
 
-// MakePkgDirs chdirs into a temp dir and creates each relative package dir.
-func MakePkgDirs(t *testing.T, rels ...string) {
+// MakePkgDirs chdirs into a temp dir, creates each rel in it, and returns the dir.
+func MakePkgDirs(t *testing.T, rels ...string) string {
 	t.Helper()
 	tmp := t.TempDir()
 	t.Chdir(tmp)
@@ -42,6 +35,7 @@ func MakePkgDirs(t *testing.T, rels ...string) {
 			t.Fatal(err)
 		}
 	}
+	return tmp
 }
 
 // AssertInOrder checks that each string appears in out, in the given order.
