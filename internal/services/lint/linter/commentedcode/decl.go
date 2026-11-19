@@ -15,7 +15,7 @@ func plausibleDecl(d ast.Decl) bool {
 		return fd.Body != nil
 	}
 	gd, isGen := d.(*ast.GenDecl)
-	return isGen && (gd.Lparen.IsValid() || allPlausibleSpecs(gd.Specs))
+	return isGen && (len(gd.Specs) > 1 || allPlausibleSpecs(gd.Specs))
 }
 
 func allPlausibleSpecs(specs []ast.Spec) bool {

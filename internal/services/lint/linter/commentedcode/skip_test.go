@@ -37,6 +37,8 @@ package foo
 // var name here
 // const value
 // func helper()
+// type (or nil)
+// var (see below)
 // deprecated
 //
 func F() {}
