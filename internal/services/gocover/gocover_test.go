@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/testutil"
 )
 
 func TestParallelism(t *testing.T) {
@@ -220,24 +222,11 @@ func TestMeasureWithEnv_AppliesExtraEnv(t *testing.T) {
 }
 
 func TestMeasure_TestFailure(t *testing.T) {
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-
-	goMod := "module testmod\n\ngo 1.23\n"
-	//nolint:gosec // G306: test file
-	_ = os.WriteFile(filepath.Join(tmp, "go.mod"), []byte(goMod), 0o644)
-	pkg := filepath.Join(tmp, "mypkg")
-	//nolint:gosec // G301: test directory
-	_ = os.MkdirAll(pkg, 0o755)
-	//nolint:gosec // G306: test file
-	_ = os.WriteFile(filepath.Join(pkg, "lib.go"), []byte("package mypkg\n"), 0o644)
 	testSrc := "package mypkg\n\n" +
 		"import \"testing\"\n\n" +
 		"func TestFail(t *testing.T) " +
 		"{ t.Fatal(\"fail\") }\n"
-	//nolint:gosec // G306: test file
-	_ = os.WriteFile(filepath.Join(pkg, "lib_test.go"), []byte(testSrc), 0o644)
-
+	testutil.WriteTestModule(t, "package mypkg\n", testSrc)
 	_, output, err := Measure("testmod/mypkg", []string{"testmod/mypkg"})
 	if err == nil {
 		t.Fatal("expected error from failing test")
