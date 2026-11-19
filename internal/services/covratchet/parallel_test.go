@@ -29,15 +29,6 @@ func TestRun_Parallelism_DefaultsToNumCPU(t *testing.T) {
 	}
 }
 
-func hasProgressLineWith(out, marker, contains string) bool {
-	for _, line := range strings.Split(out, "\n") {
-		if strings.Contains(line, marker) && strings.Contains(line, contains) {
-			return true
-		}
-	}
-	return false
-}
-
 func runPkgs(t *testing.T, progress bool, parallelism int, rels ...string) string {
 	t.Helper()
 	pkgs := make([]string, 0, len(rels))
@@ -72,7 +63,7 @@ func TestRun_EmitsProgress_WhenAutoParallelism(t *testing.T) {
 	testutil.MakePkgDirs(t, "pkg/a", "pkg/b")
 	out := runPkgs(t, true, 0, "pkg/a", "pkg/b")
 	for _, marker := range []string{"[1/2]", "[2/2]"} {
-		if !hasProgressLineWith(out, marker, "pkg/") {
+		if !testutil.HasLineWith(out, marker, "pkg/") {
 			t.Errorf("expected %s progress line to include the package path:\n%s",
 				marker, out)
 		}

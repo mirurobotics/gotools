@@ -87,3 +87,13 @@ func WriteTestModule(t *testing.T, lib, test string) {
 		}
 	}
 }
+
+// HasLineWith reports whether one line of out contains both marker and contains.
+func HasLineWith(out, marker, contains string) bool {
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, marker) && strings.Contains(line, contains) {
+			return true
+		}
+	}
+	return false
+}

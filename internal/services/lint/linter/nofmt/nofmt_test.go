@@ -223,6 +223,17 @@ func TestCheck_ExampleInTestFileExempt(t *testing.T) {
 	})
 }
 
+func TestCheck_HelperBesideExampleFlagged(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "pkg/foo/bar_test.go",
+		src: `package foo; import "fmt"` +
+			`; func ExampleF() { fmt.Println() }; func helper() { fmt.Println() }`,
+		wantN: 1,
+		wantMsg: "fmt.Println should not be used outside main;" +
+			" use structured logging or t.Log",
+	})
+}
+
 func TestCheck_ExampleOutsideTestFileFlagged(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "pkg/foo/bar.go",
