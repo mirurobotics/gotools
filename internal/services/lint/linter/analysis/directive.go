@@ -14,7 +14,6 @@ func IsDirective(text string) bool {
 	return hasAnyPrefix(body, "nolint", "#nosec", "+build")
 }
 
-// hasAnyPrefix reports whether s starts with any of prefixes.
 func hasAnyPrefix(s string, prefixes ...string) bool {
 	for _, p := range prefixes {
 		if strings.HasPrefix(s, p) {

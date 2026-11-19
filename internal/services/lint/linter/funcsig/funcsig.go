@@ -93,8 +93,6 @@ func tryCollapseSig(
 	}, true
 }
 
-// anyMultiLineField reports whether any list in lists has a field whose
-// type spans multiple lines.
 func anyMultiLineField(fset *token.FileSet, lists []*ast.FieldList) bool {
 	for _, fields := range lists {
 		if hasMultiLineField(fset, fields) {

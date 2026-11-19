@@ -136,8 +136,6 @@ func isStringLiteralLine(trimmed string) bool {
 	return false
 }
 
-// isQuoted reports whether s starts and ends with a double quote, or
-// starts and ends with a backtick.
 func isQuoted(s string) bool { return isWrappedIn(s, `"`) || isWrappedIn(s, "`") }
 
 func isWrappedIn(s, q string) bool {

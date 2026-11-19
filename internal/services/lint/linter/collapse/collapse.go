@@ -234,8 +234,6 @@ func hasRawStringWithNewlines(exprs []ast.Expr) bool {
 	return false
 }
 
-// isMultiLineRawString reports whether lit is a backtick string literal
-// that spans more than one line.
 func isMultiLineRawString(lit *ast.BasicLit) bool {
 	if lit.Kind != token.STRING || !strings.HasPrefix(lit.Value, "`") {
 		return false

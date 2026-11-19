@@ -24,9 +24,10 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 
 	var diags []analysis.Diagnostic
 	for _, cg := range f.Comments {
-		skip := attached[cg] || fset.Position(cg.Pos()).Line <= pkgLine ||
-			analysis.InAnyBody(cg.Pos(), bodies)
-		if skip {
+		if attached[cg] || analysis.InAnyBody(cg.Pos(), bodies) {
+			continue
+		}
+		if fset.Position(cg.Pos()).Line <= pkgLine {
 			continue
 		}
 		for _, c := range cg.List {
