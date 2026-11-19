@@ -79,26 +79,22 @@ func TestSharedLinterFlags_ConsistentBetweenCheckAndLint(t *testing.T) {
 }
 
 func TestNewLintCommand_Flags(t *testing.T) {
-	assertFlagTypes(t, NewLintCommand().Flags(), map[string]string{
-		"paths":              "string",
-		"fix":                "bool",
-		"deadcode":           "bool",
-		"deadcode-exclude":   "string",
-		"no-gofumpt":         "bool",
-		"no-golangci":        "bool",
-		"new-from-rev":       "string",
-		"goos":               "string",
-		"max-line-width":     "int",
-		"tab-width":          "int",
-		"max-func-len":       "int",
-		"max-file-len":       "int",
-		"max-nest-depth":     "int",
-		"max-param-count":    "int",
-		"max-doc-lines":      "int",
-		"max-doc-file-lines": "int",
-		"exclude":            "string",
-		"rule":               "string",
-	})
+	want := map[string]string{
+		"paths":            "string",
+		"fix":              "bool",
+		"deadcode":         "bool",
+		"deadcode-exclude": "string",
+		"no-gofumpt":       "bool",
+		"no-golangci":      "bool",
+		"new-from-rev":     "string",
+		"goos":             "string",
+		"exclude":          "string",
+		"rule":             "string",
+	}
+	for name := range linterIntDefaults() {
+		want[name] = "int"
+	}
+	assertFlagTypes(t, NewLintCommand().Flags(), want)
 }
 
 func TestNewLintCommand_FlagDefaults(t *testing.T) {
