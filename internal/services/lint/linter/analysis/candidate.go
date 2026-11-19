@@ -5,17 +5,14 @@ import (
 	"sort"
 )
 
-// Candidate represents a source range that can be replaced with a collapsed
-// single-line form. Used by collapse, funcsig, and funcinline fixers.
+// Candidate is a source range that can be replaced with a single-line form.
 type Candidate struct {
 	Pos       token.Pos // start position
 	End       token.Pos // end position (exclusive)
 	Collapsed string    // replacement text
 }
 
-// Fix applies candidates to src, replacing each Pos–End span with
-// its Collapsed text. Candidates are applied in reverse byte-offset
-// order so earlier offsets remain valid.
+// Fix applies candidates to src, replacing each Pos–End span with its Collapsed text.
 func Fix(fset *token.FileSet, src []byte, candidates []Candidate) []byte {
 	if len(candidates) == 0 {
 		return src
@@ -27,8 +24,6 @@ func Fix(fset *token.FileSet, src []byte, candidates []Candidate) []byte {
 		return iOff > jOff
 	})
 
-	// Filter overlapping candidates. Inner (higher-offset)
-	// candidates are kept; outer ones that overlap are dropped.
 	candidates = filterOverlapping(fset, candidates)
 
 	for _, c := range candidates {
@@ -45,10 +40,6 @@ func Fix(fset *token.FileSet, src []byte, candidates []Candidate) []byte {
 	return src
 }
 
-// filterOverlapping removes candidates whose byte range overlaps
-// with a previously kept candidate. Since candidates are sorted by
-// descending start offset, inner (nested) candidates are kept and
-// outer candidates that encompass them are dropped.
 func filterOverlapping(fset *token.FileSet, candidates []Candidate) []Candidate {
 	if len(candidates) <= 1 {
 		return candidates
@@ -73,9 +64,7 @@ func filterOverlapping(fset *token.FileSet, candidates []Candidate) []Candidate 
 	return kept
 }
 
-// CheckCandidates converts a slice of candidates into diagnostics,
-// using the provided message for each. This is the shared logic
-// behind collapse.Check, funcsig.Check, and funcinline.Check.
+// CheckCandidates converts candidates into diagnostics with the given message.
 func CheckCandidates(
 	fset *token.FileSet,
 	filename string,

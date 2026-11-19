@@ -8,8 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewTestCommand returns a cobra command that runs Go
-// tests.
+// NewTestCommand returns a cobra command that runs Go tests.
 func NewTestCommand() *cobra.Command {
 	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{

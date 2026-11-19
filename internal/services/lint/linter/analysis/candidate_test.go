@@ -108,10 +108,6 @@ func f() {
 }
 
 func TestFix_OverlappingCandidates(t *testing.T) {
-	// Nested call: outer(inner(1, 2)) where both are
-	// multi-line. The inner candidate (higher offset) should
-	// be applied; the outer should be dropped to avoid
-	// source corruption.
 	src := `package foo
 
 func f() {
@@ -140,7 +136,6 @@ func f() {
 		t.Fatalf("expected 2 calls, got %d", len(calls))
 	}
 
-	// Identify outer and inner by position.
 	outer, inner := calls[0], calls[1]
 	if fset.Position(outer.Pos()).Offset > fset.Position(inner.Pos()).Offset {
 		outer, inner = inner, outer
@@ -161,13 +156,9 @@ func f() {
 
 	got := string(Fix(fset, []byte(src), candidates))
 
-	// Inner should be applied (it's higher offset, processed
-	// first). Outer should be dropped (it overlaps inner).
 	if !strings.Contains(got, "inner(1, 2)") {
 		t.Errorf("expected inner candidate to be applied:\n%s", got)
 	}
-	// The outer call should still be multi-line since its
-	// candidate was dropped.
 	if strings.Contains(got, "outer(inner(1, 2))") {
 		t.Errorf("outer candidate should have been dropped:\n%s", got)
 	}

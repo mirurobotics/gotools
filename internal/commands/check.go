@@ -9,8 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCheckCommand returns a cobra command that runs the
-// custom Go linter.
+// NewCheckCommand returns a cobra command that runs the custom Go linter.
 func NewCheckCommand() *cobra.Command {
 	var opts lint.CheckOpts
 

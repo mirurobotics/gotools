@@ -3,12 +3,10 @@ package nofmt
 import (
 	"go/ast"
 	"go/token"
-	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// banned returns the set of package.Function names that are disallowed.
 func banned() map[string]bool {
 	return map[string]bool{
 		"fmt.Print":   true,
@@ -23,13 +21,11 @@ func banned() map[string]bool {
 	}
 }
 
-// builtinBanned returns the set of bare builtin print functions.
 func builtinBanned() map[string]bool {
 	return map[string]bool{"print": true, "println": true}
 }
 
-// Check reports diagnostics for bare print/log calls outside main, test files,
-// cmd/ directories, and the linter's own source.
+// Check reports print and log calls outside main, tests, cmd/, and linter source.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	if isExempt(filename, f) {
 		return nil
@@ -46,10 +42,10 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		if !banned()[name] && !builtinBanned()[name] {
 			return true
 		}
-		if hasNolint(fset, f, call.Pos()) {
+		pos := fset.Position(call.Pos())
+		if analysis.NolintOnLines(fset, f, "nofmt", pos.Line, pos.Line) {
 			return true
 		}
-		pos := fset.Position(call.Pos())
 		diags = append(diags, analysis.Diagnostic{
 			File: filename,
 			Line: pos.Line,
@@ -63,7 +59,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// isExempt reports whether the file is allowed to use bare print/log calls.
 func isExempt(filename string, f *ast.File) bool {
 	return f.Name.Name == "main" ||
 		analysis.IsTestFile(filename) ||
@@ -71,8 +66,6 @@ func isExempt(filename string, f *ast.File) bool {
 		analysis.IsCmdSource(filename)
 }
 
-// callName returns "pkg.Func" for selector calls, the identifier name for
-// bare calls, and "" for anything else.
 func callName(call *ast.CallExpr) string {
 	switch fn := call.Fun.(type) {
 	case *ast.SelectorExpr:
@@ -85,21 +78,4 @@ func callName(call *ast.CallExpr) string {
 		return fn.Name
 	}
 	return ""
-}
-
-// hasNolint returns true if there is a //nolint:nofmt comment
-// on the same line as pos.
-func hasNolint(fset *token.FileSet, f *ast.File, pos token.Pos) bool {
-	line := fset.Position(pos).Line
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			if fset.Position(c.Pos()).Line != line {
-				continue
-			}
-			if strings.Contains(c.Text, "nolint:nofmt") {
-				return true
-			}
-		}
-	}
-	return false
 }
