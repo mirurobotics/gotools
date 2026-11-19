@@ -285,8 +285,25 @@ func TestCheck_CodeAfterLiteralOnClosingLineCounted(t *testing.T) {
 	})
 }
 
-func TestClosesOnly_LinePastSource(t *testing.T) {
-	if !closesOnly([][]byte{[]byte("x := 1")}, 2) {
-		t.Error("closesOnly counted a line past the end of the source")
-	}
+func TestCheck_PunctuationAfterLiteralNotCounted(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: "package foo\n\nfunc f() {\n" +
+			"\tg(xs, []int{\n\t\t1,\n\t}...) // spread\r\n" +
+			"\th(T{\n\t\tA: 1,\n\t}, // note\n\t)\n}\n",
+		maxLen:  3,
+		wantN:   0,
+		wantMsg: "",
+	})
+}
+
+func TestCheck_LiteralStartingOnClosingLineCounted(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: "package foo\n\nfunc f() {\n" +
+			"\tg(A{\n\t\tX: 1,\n\t}, B{\n\t\tY: 2,\n\t})\n}\n",
+		maxLen:  1,
+		wantN:   1,
+		wantMsg: "function f is 2 lines (limit 1)",
+	})
 }
