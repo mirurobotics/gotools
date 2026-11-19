@@ -40,7 +40,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		}
 		return true
 	})
-	return diagnostics(filename, lines, nolintLines(fset, f))
+	return diagnostics(fset, f, filename, lines)
 }
 
 func breaks(fset *token.FileSet, a, b token.Pos) bool {
@@ -75,10 +75,15 @@ func markStringChain(e *ast.BinaryExpr, concat map[*ast.BinaryExpr]bool) {
 	}
 }
 
-func diagnostics(filename string, lines, nolint map[int]bool) []analysis.Diagnostic {
+func diagnostics(
+	fset *token.FileSet,
+	f *ast.File,
+	filename string,
+	lines map[int]bool,
+) []analysis.Diagnostic {
 	diags := make([]analysis.Diagnostic, 0, len(lines))
 	for line := range lines {
-		if nolint[line] {
+		if analysis.NolintOnLines(fset, f, ruleName, line-1, line) {
 			continue
 		}
 		diag := analysis.Diagnostic{File: filename, Line: line, Message: message}
@@ -86,19 +91,4 @@ func diagnostics(filename string, lines, nolint map[int]bool) []analysis.Diagnos
 	}
 	sort.Slice(diags, func(i, j int) bool { return diags[i].Line < diags[j].Line })
 	return diags
-}
-
-func nolintLines(fset *token.FileSet, f *ast.File) map[int]bool {
-	lines := map[int]bool{}
-	for _, cg := range f.Comments {
-		for _, cm := range cg.List {
-			if !analysis.NolintsRule(cm.Text, ruleName) {
-				continue
-			}
-			line := fset.Position(cm.Pos()).Line
-			lines[line] = true
-			lines[line+1] = true
-		}
-	}
-	return lines
 }
