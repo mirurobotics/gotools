@@ -15,7 +15,7 @@ const (
 
 // Check flags expressions that wrap at a binary operator or selector dot.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	lines := map[int]bool{}
+	lines := map[int]int{}
 	concat := map[*ast.BinaryExpr]bool{}
 	typeParams := map[*ast.FieldList]bool{}
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -31,11 +31,11 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		case *ast.BinaryExpr:
 			markStringChain(x, concat)
 			if !concat[x] && breaks(fset, x.X.End(), x.Y.Pos()) {
-				lines[fset.Position(x.X.End()).Line] = true
+				flag(fset, lines, x.Pos(), x.X.End())
 			}
 		case *ast.SelectorExpr:
 			if breaks(fset, x.X.End(), x.Sel.Pos()) {
-				lines[fset.Position(x.X.End()).Line] = true
+				flag(fset, lines, x.Pos(), x.X.End())
 			}
 		}
 		return true
@@ -75,15 +75,23 @@ func markStringChain(e *ast.BinaryExpr, concat map[*ast.BinaryExpr]bool) {
 	}
 }
 
+func flag(fset *token.FileSet, lines map[int]int, start, brk token.Pos) {
+	line := fset.Position(brk).Line
+	from := fset.Position(start).Line
+	if prev, ok := lines[line]; !ok || from < prev {
+		lines[line] = from
+	}
+}
+
 func diagnostics(
 	fset *token.FileSet,
 	f *ast.File,
 	filename string,
-	lines map[int]bool,
+	lines map[int]int,
 ) []analysis.Diagnostic {
 	diags := make([]analysis.Diagnostic, 0, len(lines))
-	for line := range lines {
-		if analysis.NolintOnLines(fset, f, ruleName, line-1, line) {
+	for line, start := range lines {
+		if analysis.NolintOnLines(fset, f, ruleName, start-1, line) {
 			continue
 		}
 		diag := analysis.Diagnostic{File: filename, Line: line, Message: message}

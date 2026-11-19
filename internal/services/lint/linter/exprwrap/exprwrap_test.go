@@ -394,6 +394,32 @@ func f(a, b bool) bool {
 			wantLines: nil,
 		},
 		{
+			name: "chain with several breaks reports each",
+			src: `package foo
+
+func f(a, b, c bool) bool {
+	return a ||
+		b ||
+		c
+}
+`,
+			wantLines: []int{4, 5},
+		},
+		{
+			name: "nolint above a multi-break chain covers every break",
+			src: `package foo
+
+func f(g func() bool, a, b, c bool) bool {
+	//nolint:exprwrap
+	return a ||
+		b ||
+		g() ||
+		c
+}
+`,
+			wantLines: nil,
+		},
+		{
 			name: "nolint on line above",
 			src: `package foo
 
