@@ -129,16 +129,16 @@ func FilterDeadcodeOutput(raw, excludePattern string) []string {
 		filtered = append(filtered, line)
 	}
 
-	if excludePattern != "" {
-		var kept []string
-		for _, line := range filtered {
-			if !strings.Contains(line, excludePattern) {
-				kept = append(kept, line)
-			}
-		}
-		filtered = kept
+	if excludePattern == "" {
+		return filtered
 	}
-	return filtered
+	var kept []string
+	for _, line := range filtered {
+		if !strings.Contains(line, excludePattern) {
+			kept = append(kept, line)
+		}
+	}
+	return kept
 }
 
 // RunExternal runs a command, writing its stdout and stderr to out and errW.

@@ -81,7 +81,7 @@ func bindLinterConfigFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
 		"maximum file length (non-blank, non-comment)",
 	)
 	fl.IntVar(
-		&flags.MaxNestDepth, "max-nest-depth", 4,
+		&flags.MaxNestDepth, "max-nest-depth", 2,
 		"maximum nesting depth within functions",
 	)
 	fl.IntVar(

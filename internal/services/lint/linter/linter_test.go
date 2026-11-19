@@ -993,25 +993,27 @@ func TestRun_Check_CommentRules(t *testing.T) {
 		dir := t.TempDir()
 		writeFile(t, dir+"/foo.go", tt.src)
 		for _, exclude := range []bool{false, true} {
-			cfg := defaultCfg
-			cfg.Exclude = map[Rule]bool{tt.rule: exclude}
-			cfg.Out = &strings.Builder{}
-			diags, _, err := Run(dir, false, cfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			out := cfg.Out.(*strings.Builder).String()
-			want := 1
-			if exclude {
-				want = 0
-			}
-			if diags != want || strings.Contains(out, tt.want) != !exclude {
-				t.Errorf(
-					"%s exclude=%v: got %d diagnostics:\n%s",
-					tt.rule, exclude, diags, out,
-				)
-			}
+			checkExclude(t, dir, tt.rule, tt.want, exclude)
 		}
+	}
+}
+
+func checkExclude(t *testing.T, dir string, rule Rule, wantMsg string, exclude bool) {
+	t.Helper()
+	cfg := defaultCfg
+	cfg.Exclude = map[Rule]bool{rule: exclude}
+	cfg.Out = &strings.Builder{}
+	diags, _, err := Run(dir, false, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := cfg.Out.(*strings.Builder).String()
+	want := 1
+	if exclude {
+		want = 0
+	}
+	if diags != want || strings.Contains(out, wantMsg) != !exclude {
+		t.Errorf("%s exclude=%v: got %d diagnostics:\n%s", rule, exclude, diags, out)
 	}
 }
 

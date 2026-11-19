@@ -97,3 +97,12 @@ func ProseLines(cg *ast.CommentGroup) int {
 func isBlank(line string) bool {
 	return strings.TrimSpace(strings.TrimPrefix(line, "//")) == ""
 }
+
+// Comments returns every comment in f, flattened across groups, in source order.
+func Comments(f *ast.File) []*ast.Comment {
+	var out []*ast.Comment
+	for _, cg := range f.Comments {
+		out = append(out, cg.List...)
+	}
+	return out
+}

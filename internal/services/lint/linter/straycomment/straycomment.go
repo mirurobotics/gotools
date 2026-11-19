@@ -30,17 +30,22 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		if fset.Position(cg.Pos()).Line <= pkgLine {
 			continue
 		}
-		for _, c := range cg.List {
-			if analysis.IsDirective(c.Text) {
-				continue
-			}
+		if c := firstProse(cg); c != nil {
 			diags = append(diags, analysis.Diagnostic{
 				File:    filename,
 				Line:    fset.Position(c.Pos()).Line,
 				Message: message,
 			})
-			break
 		}
 	}
 	return diags
+}
+
+func firstProse(cg *ast.CommentGroup) *ast.Comment {
+	for _, c := range cg.List {
+		if !analysis.IsDirective(c.Text) {
+			return c
+		}
+	}
+	return nil
 }

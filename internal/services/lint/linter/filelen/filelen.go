@@ -61,16 +61,9 @@ func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
 
 func countLines(fset *token.FileSet, f *ast.File, src []byte) int {
 	code := bytes.Clone(src)
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			start := fset.Position(c.Pos()).Offset
-			end := commentEnd(src, start, c)
-			for i := start; i < end && i < len(code); i++ {
-				if code[i] != '\n' {
-					code[i] = ' '
-				}
-			}
-		}
+	for _, c := range analysis.Comments(f) {
+		start := fset.Position(c.Pos()).Offset
+		blankRange(code, start, commentEnd(src, start, c))
 	}
 	count := 0
 	for _, line := range bytes.Split(code, []byte("\n")) {
@@ -86,4 +79,12 @@ func commentEnd(src []byte, start int, c *ast.Comment) int {
 		return start + len(c.Text)
 	}
 	return start + 2 + bytes.Index(src[start+2:], []byte("*/")) + 2
+}
+
+func blankRange(code []byte, start, end int) {
+	for i := start; i < end && i < len(code); i++ {
+		if code[i] != '\n' {
+			code[i] = ' '
+		}
+	}
 }

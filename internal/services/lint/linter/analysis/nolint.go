@@ -18,12 +18,10 @@ func HasNolint(cg *ast.CommentGroup, rule string) bool {
 
 // NolintOnLines reports whether a nolint naming rule sits on a line in [from, to].
 func NolintOnLines(fset *token.FileSet, f *ast.File, rule string, from, to int) bool {
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			line := fset.Position(c.Pos()).Line
-			if line >= from && line <= to && NolintsRule(c.Text, rule) {
-				return true
-			}
+	for _, c := range Comments(f) {
+		line := fset.Position(c.Pos()).Line
+		if line >= from && line <= to && NolintsRule(c.Text, rule) {
+			return true
 		}
 	}
 	return false

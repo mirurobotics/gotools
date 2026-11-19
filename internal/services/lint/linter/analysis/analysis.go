@@ -71,12 +71,10 @@ func HasCommentsBetween(
 	openOff := fset.Position(open).Offset
 	closeOff := fset.Position(closePos).Offset
 
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			cOff := fset.Position(c.Pos()).Offset
-			if cOff > openOff && cOff < closeOff {
-				return true
-			}
+	for _, c := range Comments(f) {
+		cOff := fset.Position(c.Pos()).Offset
+		if cOff > openOff && cOff < closeOff {
+			return true
 		}
 	}
 	return false

@@ -5,13 +5,13 @@ import "go/ast"
 // ContextPkgName returns the local name of the context import, or "".
 func ContextPkgName(f *ast.File) string {
 	for _, imp := range f.Imports {
-		path := imp.Path.Value
-		if path == `"context"` {
-			if imp.Name != nil {
-				return imp.Name.Name
-			}
-			return "context"
+		if imp.Path.Value != `"context"` {
+			continue
 		}
+		if imp.Name != nil {
+			return imp.Name.Name
+		}
+		return "context"
 	}
 	return ""
 }

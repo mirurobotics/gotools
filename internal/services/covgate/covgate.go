@@ -121,17 +121,7 @@ func (r *runner) findOrphanTests(
 		return nil, nil
 	}
 	testDir := filepath.ToSlash(filepath.Clean(opts.TestDir))
-	claimed := make(map[string]struct{}, len(pkgs))
-	if opts.SrcPrefix != "" {
-		for _, pkg := range pkgs {
-			relPkg := gocover.RelPkg(pkg, module)
-			testSub := strings.TrimPrefix(relPkg, opts.SrcPrefix+"/")
-			if testSub == relPkg {
-				continue
-			}
-			claimed[testDir+"/"+testSub] = struct{}{}
-		}
-	}
+	claimed := claimedTestDirs(pkgs, module, testDir, opts.SrcPrefix)
 	testPkgs, err := r.goListTestPackages("./" + testDir + "/...")
 	if err != nil {
 		return nil, err
@@ -231,4 +221,22 @@ func (r *runner) runPackages(
 	}
 	row := func(res checkResult) string { return res.output }
 	return gocover.RunEach(r.progress, w, len(items), parallelism, run, row)
+}
+
+func claimedTestDirs(
+	pkgs []string, module, testDir, srcPrefix string,
+) map[string]struct{} {
+	claimed := make(map[string]struct{}, len(pkgs))
+	if srcPrefix == "" {
+		return claimed
+	}
+	for _, pkg := range pkgs {
+		relPkg := gocover.RelPkg(pkg, module)
+		testSub := strings.TrimPrefix(relPkg, srcPrefix+"/")
+		if testSub == relPkg {
+			continue
+		}
+		claimed[testDir+"/"+testSub] = struct{}{}
+	}
+	return claimed
 }

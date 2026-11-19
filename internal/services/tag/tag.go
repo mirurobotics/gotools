@@ -2,11 +2,13 @@ package tag
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -29,34 +31,8 @@ func SortVersionTags(tags []string) {
 
 // VersionLess compares two version strings like sort -V.
 func VersionLess(a, b string) bool {
-	pa := SplitVersionParts(a)
-	pb := SplitVersionParts(b)
-
-	minLen := len(pa)
-	if len(pb) < minLen {
-		minLen = len(pb)
-	}
-
-	for k := 0; k < minLen; k++ {
-		ai := pa[k]
-		bi := pb[k]
-
-		aNum, aOK := ParseNum(ai)
-		bNum, bOK := ParseNum(bi)
-
-		if aOK && bOK {
-			if aNum != bNum {
-				return aNum < bNum
-			}
-			continue
-		}
-
-		if ai != bi {
-			return ai < bi
-		}
-	}
-
-	return len(pa) < len(pb)
+	pa, pb := SplitVersionParts(a), SplitVersionParts(b)
+	return slices.CompareFunc(pa, pb, comparePart) < 0
 }
 
 // SplitVersionParts splits a version into numeric and non-numeric segments.
@@ -201,4 +177,13 @@ func GitTags(errW io.Writer) ([]string, error) {
 		}
 	}
 	return tags, nil
+}
+
+func comparePart(a, b string) int {
+	aNum, aOK := ParseNum(a)
+	bNum, bOK := ParseNum(b)
+	if aOK && bOK {
+		return cmp.Compare(aNum, bNum)
+	}
+	return strings.Compare(a, b)
 }

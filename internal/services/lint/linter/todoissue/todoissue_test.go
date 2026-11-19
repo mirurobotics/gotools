@@ -186,6 +186,16 @@ var p = 4
 			wantLines: []int{4, 14},
 		},
 		{
+			name: "miru-prefixed nolint suppresses a group",
+			src: `package foo
+
+// TODO: known gap
+//miru:nolint:todoissue // tracked offline
+var n = 2
+`,
+			wantLines: nil,
+		},
+		{
 			name: "todo with no space after slashes is not a directive",
 			src: `package foo
 

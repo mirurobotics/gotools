@@ -84,14 +84,14 @@ func processFixMode(
 	cfg Config,
 ) (int, bool, error) {
 	fixed := src
-	var err error
 	if cfg.runRule(RuleImports) {
 		fixed = imports.Fix(fset, src, blocks)
-		if string(fixed) != string(src) {
-			fset, f, err = reparse(path, fixed)
-			if err != nil {
-				return 0, false, err
-			}
+	}
+	var err error
+	if string(fixed) != string(src) {
+		fset, f, err = reparse(path, fixed)
+		if err != nil {
+			return 0, false, err
 		}
 	}
 

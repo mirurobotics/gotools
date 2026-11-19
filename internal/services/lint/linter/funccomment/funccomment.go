@@ -19,10 +19,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		if isOutput(cg) && analysis.InAnyBody(cg.Pos(), examples) {
 			continue
 		}
-		for _, c := range cg.List {
-			if analysis.IsDirective(c.Text) || !analysis.InAnyBody(c.Pos(), bodies) {
-				continue
-			}
+		for _, c := range bodyComments(cg, bodies) {
 			diags = append(diags, analysis.Diagnostic{
 				File:    filename,
 				Line:    fset.Position(c.Pos()).Line,
@@ -31,6 +28,16 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		}
 	}
 	return diags
+}
+
+func bodyComments(cg *ast.CommentGroup, bodies []*ast.BlockStmt) []*ast.Comment {
+	var out []*ast.Comment
+	for _, c := range cg.List {
+		if !analysis.IsDirective(c.Text) && analysis.InAnyBody(c.Pos(), bodies) {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func exampleBodies(filename string, f *ast.File) []*ast.BlockStmt {

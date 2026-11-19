@@ -64,30 +64,35 @@ func allowedGroups(f *ast.File) allowed {
 func (ok allowed) genDecl(d *ast.GenDecl) {
 	anyPublic := d.Tok == token.IMPORT
 	for _, spec := range d.Specs {
-		switch s := spec.(type) {
-		case *ast.ImportSpec:
-			ok.add(true, s.Doc, s.Comment)
-		case *ast.TypeSpec:
-			public := s.Name.IsExported()
-			anyPublic = anyPublic || public
-			ok.add(public, s.Doc, s.Comment)
-			if s.TypeParams != nil {
-				ok.walk(s.TypeParams, public)
-			}
-			ok.walk(s.Type, public)
-		case *ast.ValueSpec:
-			public := anyExported(s.Names)
-			anyPublic = anyPublic || public
-			ok.add(public, s.Doc, s.Comment)
-			if s.Type != nil {
-				ok.walk(s.Type, public)
-			}
-			for _, v := range s.Values {
-				ok.walk(v, public)
-			}
-		}
+		anyPublic = ok.spec(spec) || anyPublic
 	}
 	ok.add(anyPublic, d.Doc)
+}
+
+func (ok allowed) spec(spec ast.Spec) bool {
+	switch s := spec.(type) {
+	case *ast.ImportSpec:
+		ok.add(true, s.Doc, s.Comment)
+	case *ast.TypeSpec:
+		public := s.Name.IsExported()
+		ok.add(public, s.Doc, s.Comment)
+		if s.TypeParams != nil {
+			ok.walk(s.TypeParams, public)
+		}
+		ok.walk(s.Type, public)
+		return public
+	case *ast.ValueSpec:
+		public := anyExported(s.Names)
+		ok.add(public, s.Doc, s.Comment)
+		if s.Type != nil {
+			ok.walk(s.Type, public)
+		}
+		for _, v := range s.Values {
+			ok.walk(v, public)
+		}
+		return public
+	}
+	return false
 }
 
 func (ok allowed) walk(n ast.Node, public bool) {

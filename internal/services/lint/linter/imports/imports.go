@@ -45,20 +45,7 @@ func ExtractBlocks(f *ast.File) []ImportBlock {
 			continue
 		}
 
-		block := ImportBlock{
-			Imports:   nil,
-			Pos:       gd.Pos(),
-			End:       gd.End(),
-			IsGrouped: gd.Lparen.IsValid(),
-		}
-
-		for _, spec := range gd.Specs {
-			if is, ok := spec.(*ast.ImportSpec); ok {
-				block.Imports = append(block.Imports, newImport(is))
-			}
-		}
-
-		blocks = append(blocks, block)
+		blocks = append(blocks, newImportBlock(gd))
 	}
 
 	return blocks
@@ -91,4 +78,19 @@ func classify(path string) ImportGroup {
 		return GroupInternal
 	}
 	return GroupExternal
+}
+
+func newImportBlock(gd *ast.GenDecl) ImportBlock {
+	block := ImportBlock{
+		Imports:   nil,
+		Pos:       gd.Pos(),
+		End:       gd.End(),
+		IsGrouped: gd.Lparen.IsValid(),
+	}
+	for _, spec := range gd.Specs {
+		if is, ok := spec.(*ast.ImportSpec); ok {
+			block.Imports = append(block.Imports, newImport(is))
+		}
+	}
+	return block
 }
