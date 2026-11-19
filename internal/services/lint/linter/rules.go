@@ -127,7 +127,6 @@ type ruleEntry struct {
 	check   func(checkInput) []analysis.Diagnostic
 }
 
-//nolint:funclen // dispatch table grows with each new rule
 func ruleCheckers(cfg Config) []ruleEntry {
 	w, tw := cfg.MaxLineWidth, cfg.TabWidth
 	return []ruleEntry{

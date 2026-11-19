@@ -66,7 +66,7 @@ func funcBody(n ast.Node) (*ast.BlockStmt, string, bool) {
 func countLines(fset *token.FileSet, body *ast.BlockStmt, allLines [][]byte) int {
 	startLine := fset.Position(body.Lbrace).Line
 	endLine := min(fset.Position(body.Rbrace).Line, len(allLines)+1)
-	skip := literalTailLines(fset, body)
+	skip := literalTailLines(fset, body, allLines)
 
 	count := 0
 	for lineNum := startLine + 1; lineNum < endLine; lineNum++ {
@@ -82,7 +82,11 @@ func isCodeLine(line []byte) bool {
 	return trimmed != "" && !strings.HasPrefix(trimmed, "//")
 }
 
-func literalTailLines(fset *token.FileSet, body *ast.BlockStmt) map[int]bool {
+func literalTailLines(
+	fset *token.FileSet,
+	body *ast.BlockStmt,
+	allLines [][]byte,
+) map[int]bool {
 	skip := make(map[int]bool)
 	ast.Inspect(body, func(n ast.Node) bool {
 		lit, ok := n.(*ast.CompositeLit)
@@ -91,10 +95,20 @@ func literalTailLines(fset *token.FileSet, body *ast.BlockStmt) map[int]bool {
 		}
 		first := fset.Position(lit.Pos()).Line
 		last := fset.Position(lit.End()).Line
-		for line := first + 1; line <= last; line++ {
+		for line := first + 1; line < last; line++ {
 			skip[line] = true
+		}
+		if last > first && closesOnly(allLines, last) {
+			skip[last] = true
 		}
 		return false
 	})
 	return skip
+}
+
+func closesOnly(allLines [][]byte, line int) bool {
+	if line > len(allLines) {
+		return true
+	}
+	return strings.Trim(string(allLines[line-1]), " \t}]),;") == ""
 }

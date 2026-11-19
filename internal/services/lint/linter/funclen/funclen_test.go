@@ -272,3 +272,21 @@ func TestCheck_FuncLiteralInsideLiteralStillChecked(t *testing.T) {
 		wantMsg: "anonymous function is 4 lines (limit 3)",
 	})
 }
+
+func TestCheck_CodeAfterLiteralOnClosingLineCounted(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: "package foo\n\nfunc f() {\n" +
+			"\tif err := g(T{\n\t\tA: 1,\n\t}); err != nil {\n" +
+			"\t\treturn\n\t}\n}\n",
+		maxLen:  3,
+		wantN:   1,
+		wantMsg: "function f is 4 lines (limit 3)",
+	})
+}
+
+func TestClosesOnly_LinePastSource(t *testing.T) {
+	if !closesOnly([][]byte{[]byte("x := 1")}, 2) {
+		t.Error("closesOnly counted a line past the end of the source")
+	}
+}
