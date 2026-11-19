@@ -1,6 +1,9 @@
 package analysis
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"testing"
 )
 
@@ -9,23 +12,54 @@ func TestNolintsRule(t *testing.T) {
 		text string
 		want bool
 	}{
-		{"//nolint:filelen", true},
-		{"//nolint:filelen // reason", true},
-		{"//nolint:gosec,filelen // reason", true},
-		{"//miru:nolint:filelen", true},
-		{"//nolint:filelenx", false},
-		{"//nolint:funclen", false},
-		{"//nolint:gosec, filelen // reason", true},
-		{"//nolint:filelen,gosec // reason", true},
-		{"//nolint:filelen , gosec", true},
-		{"//nolint:filelen// reason", true},
-		{"// nolint:filelen", true},
-		{"// remove nolint:filelen once split", false},
-		{"// filelen", false},
+		{"//nolint:privdoc // reason", true},
+		{"//nolint:funclen, privdoc // reason", true},
+		{"// nolint:privdoc", true},
+		{"//nolint:privdocs // reason", false},
+		{"//nolint:privdoc reason without slashes", true},
+		{"//nolint:funclen,", false},
+		{"//nolint:funclen // privdoc", false},
+		{"// a privdoc note", false},
+		{"//miru:nolint:privdoc", true},
+		{"//nolint:gosec,privdoc // reason", true},
+		{"//nolint:privdoc , gosec", true},
+		{"//nolint:privdoc// reason", true},
+		{"// remove nolint:privdoc once split", false},
 	}
 	for _, tt := range tests {
-		if got := NolintsRule(tt.text, "filelen"); got != tt.want {
+		if got := NolintsRule(tt.text, "privdoc"); got != tt.want {
 			t.Errorf("NolintsRule(%q) = %v, want %v", tt.text, got, tt.want)
 		}
+	}
+}
+
+func TestHasNolint(t *testing.T) {
+	cg := &ast.CommentGroup{List: []*ast.Comment{
+		{Slash: 0, Text: "// note"},
+		{Slash: 0, Text: "//nolint:privdoc // reason"},
+	}}
+	if !HasNolint(cg, "privdoc") {
+		t.Error("HasNolint missed a directive in the group")
+	}
+	if HasNolint(cg, "funclen") {
+		t.Error("HasNolint matched an unnamed linter")
+	}
+}
+
+func TestNolintOnLines(t *testing.T) {
+	src := "package p\n\n//nolint:funclen // reason\nvar x = 1 //nolint:other\n"
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !NolintOnLines(fset, f, "funclen", 3, 4) {
+		t.Error("directive on line 3 not found in [3, 4]")
+	}
+	if !NolintOnLines(fset, f, "funclen", 3, 3) {
+		t.Error("directive on line 3 not found in [3, 3]")
+	}
+	if NolintOnLines(fset, f, "funclen", 4, 4) {
+		t.Error("directive on line 3 found in [4, 4]")
 	}
 }

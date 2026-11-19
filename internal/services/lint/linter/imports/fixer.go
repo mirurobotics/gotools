@@ -7,8 +7,7 @@ import (
 	"strings"
 )
 
-// Fix applies canonical import ordering to the source. Blocks are processed
-// in reverse order so earlier byte offsets remain valid.
+// Fix applies canonical import ordering to the source.
 func Fix(fset *token.FileSet, src []byte, blocks []ImportBlock) []byte {
 	if len(blocks) == 0 {
 		return src
@@ -33,8 +32,6 @@ func Fix(fset *token.FileSet, src []byte, blocks []ImportBlock) []byte {
 	return src
 }
 
-// rebuildBlock produces the canonical form of an import block.
-// Used by both the checker (to compare) and the fixer (to replace).
 func rebuildBlock(block ImportBlock) string {
 	groups := make(map[ImportGroup][]Import)
 	for _, imp := range block.Imports {
@@ -66,7 +63,6 @@ func rebuildBlock(block ImportBlock) string {
 	return b.String()
 }
 
-// writeImports writes one line per import, with its alias if present.
 func writeImports(b *strings.Builder, imps []Import) {
 	for _, imp := range imps {
 		if imp.Name != "" {

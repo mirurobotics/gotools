@@ -10,8 +10,10 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/bgctx"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/collapse"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/ctxpos"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/doclen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/errfmt"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/filelen"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/funccomment"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcinline"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funclen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcsig"
@@ -22,7 +24,9 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/nofmt"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/paramcount"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/pkgname"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/privdoc"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/rcvrname"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/straycomment"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/tempdir"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/todoissue"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/typeassert"
@@ -52,6 +56,10 @@ const (
 	RuleBgCtx         Rule = "bgctx"
 	RuleTempDir       Rule = "tempdir"
 	RuleTodoIssue     Rule = "todoissue"
+	RuleFuncComment   Rule = "funccomment"
+	RuleDocLen        Rule = "doclen"
+	RuleStrayComment  Rule = "straycomment"
+	RulePrivDoc       Rule = "privdoc"
 )
 
 // AllRules returns every valid rule name.
@@ -62,21 +70,24 @@ func AllRules() []Rule {
 		RuleTypeAssert, RuleParamCount,
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
 		RuleTodoIssue,
+		RuleFuncComment, RuleDocLen, RuleStrayComment, RulePrivDoc,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
 	}
 }
 
 // Config holds linter configuration.
 type Config struct {
-	MaxLineWidth  int
-	TabWidth      int
-	MaxFuncLen    int
-	MaxFileLen    int
-	MaxNestDepth  int
-	MaxParamCount int
-	Exclude       map[Rule]bool
-	Out           io.Writer
-	Err           io.Writer
+	MaxLineWidth    int
+	TabWidth        int
+	MaxFuncLen      int
+	MaxFileLen      int
+	MaxNestDepth    int
+	MaxParamCount   int
+	MaxDocLines     int
+	MaxDocFileLines int
+	Exclude         map[Rule]bool
+	Out             io.Writer
+	Err             io.Writer
 }
 
 func (c Config) runRule(r Rule) bool { return !c.Exclude[r] }
@@ -109,9 +120,6 @@ type ruleEntry struct {
 	check   func(checkInput) []analysis.Diagnostic
 }
 
-// ruleCheckers returns the dispatch table for all rules except
-// imports (which requires import blocks, handled separately).
-//
 //nolint:funclen // dispatch table grows with each new rule
 func ruleCheckers(cfg Config) []ruleEntry {
 	w, tw := cfg.MaxLineWidth, cfg.TabWidth
@@ -164,6 +172,19 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		{RuleTodoIssue, false, func(in checkInput) []analysis.Diagnostic {
 			return todoissue.Check(in.fset, in.path, in.f)
 		}},
+		{RuleFuncComment, false, func(in checkInput) []analysis.Diagnostic {
+			return funccomment.Check(in.fset, in.path, in.f)
+		}},
+		{RuleDocLen, false, func(in checkInput) []analysis.Diagnostic {
+			lim := doclen.Limits{Doc: cfg.MaxDocLines, DocGoPkg: cfg.MaxDocFileLines}
+			return doclen.Check(in.fset, in.path, in.f, lim)
+		}},
+		{RuleStrayComment, false, func(in checkInput) []analysis.Diagnostic {
+			return straycomment.Check(in.fset, in.path, in.f)
+		}},
+		{RulePrivDoc, false, func(in checkInput) []analysis.Diagnostic {
+			return privdoc.Check(in.fset, in.path, in.f)
+		}},
 		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
 			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)
 		}},
@@ -176,8 +197,6 @@ func ruleCheckers(cfg Config) []ruleEntry {
 	}
 }
 
-// runChecks dispatches all rules in the table. When
-// includeFixable is false, fixable rules are skipped.
 func runChecks(in checkInput, cfg Config, includeFixable bool) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 	for _, rc := range ruleCheckers(cfg) {

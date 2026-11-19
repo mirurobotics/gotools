@@ -6,14 +6,11 @@ import (
 	"testing"
 )
 
-// --- classifier tests ---
-
 func TestClassify(t *testing.T) {
 	tests := []struct {
 		path string
 		want ImportGroup
 	}{
-		// Standard library
 		{"fmt", GroupStd},
 		{"os", GroupStd},
 		{"os/exec", GroupStd},
@@ -23,20 +20,17 @@ func TestClassify(t *testing.T) {
 		{"crypto/rand", GroupStd},
 		{"math/rand/v2", GroupStd},
 
-		// Internal (mirurobotics org — any repo)
 		{"github.com/mirurobotics/core/pkg/errs", GroupInternal},
 		{"github.com/mirurobotics/core/pkg/files", GroupInternal},
 		{"github.com/mirurobotics/backend/pkg/foo", GroupInternal},
 		{"github.com/mirurobotics/agent/pkg/bar", GroupInternal},
 
-		// External
 		{"github.com/go-git/go-git/v5", GroupExternal},
 		{"cuelang.org/go/cue", GroupExternal},
 		{"golang.org/x/text", GroupExternal},
 		{"go.uber.org/zap", GroupExternal},
 		{"github.com/stretchr/testify/assert", GroupExternal},
 
-		// Prefix boundary: must NOT match orgs that start with "mirurobotics"
 		{"github.com/miruroboticsfork/pkg", GroupExternal},
 		{"github.com/miruroboticsx/thing", GroupExternal},
 	}
@@ -50,8 +44,6 @@ func TestClassify(t *testing.T) {
 		})
 	}
 }
-
-// --- checker tests ---
 
 func TestCheck_Correct(t *testing.T) {
 	src := []byte(`package foo
@@ -144,8 +136,6 @@ import (
 `)
 	assertNoDiags(t, src)
 }
-
-// --- fixer tests ---
 
 func TestFix_ReordersAndGroups(t *testing.T) {
 	src := []byte(`package foo
@@ -394,8 +384,6 @@ func main() {}
 	}
 }
 
-// --- checker/fixer agreement ---
-
 func TestCheckerFixerAgreement(t *testing.T) {
 	cases := [][]byte{
 		[]byte(
@@ -452,8 +440,6 @@ func TestCheckerFixerAgreement(t *testing.T) {
 		}
 	}
 }
-
-// --- helpers ---
 
 func assertNoDiags(t *testing.T, src []byte) {
 	fset := token.NewFileSet()

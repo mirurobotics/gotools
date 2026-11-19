@@ -17,8 +17,7 @@ func (d Diagnostic) String() string {
 	return fmt.Sprintf("%s:%d: %s", d.File, d.Line, d.Message)
 }
 
-// LineStartOffset returns the byte offset of the beginning of the line
-// containing the given offset.
+// LineStartOffset returns the offset of the start of off's line.
 func LineStartOffset(src []byte, off int) int {
 	for i := off - 1; i >= 0; i-- {
 		if src[i] == '\n' {
@@ -28,8 +27,7 @@ func LineStartOffset(src []byte, off int) int {
 	return 0
 }
 
-// LineEndOffset returns the byte offset of the newline (or EOF) ending
-// the line containing the given offset.
+// LineEndOffset returns the offset of the newline or EOF ending off's line.
 func LineEndOffset(src []byte, off int) int {
 	for i := off; i < len(src); i++ {
 		if src[i] == '\n' {
@@ -52,9 +50,7 @@ func VisualWidth(s string, tabWidth int) int {
 	return w
 }
 
-// CollapsedLineWidth computes the total visual width of a line
-// after collapsing an expression, including leading indent, the
-// collapsed text, and any trailing content after endOff.
+// CollapsedLineWidth returns the visual width of the line after collapsing.
 func CollapsedLineWidth(
 	src []byte, startOff, endOff, tabWidth int, collapsed string,
 ) int {
@@ -65,8 +61,7 @@ func CollapsedLineWidth(
 	return indent + VisualWidth(collapsed, tabWidth) + trailing
 }
 
-// HasCommentsBetween returns true if there are any comments
-// between the open and close positions.
+// HasCommentsBetween reports whether any comment lies between open and closePos.
 func HasCommentsBetween(
 	fset *token.FileSet,
 	f *ast.File,

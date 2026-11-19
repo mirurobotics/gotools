@@ -8,13 +8,11 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// Check reports diagnostics for receiver names that are longer than 2
-// characters or inconsistent across methods of the same type within a file.
+// Check reports receiver names that are over 2 chars or inconsistent per type.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 
-	// Track first receiver name seen per type for consistency checks.
-	firstRecv := map[string]string{} // typeName → first receiver name
+	firstRecv := map[string]string{}
 
 	for _, decl := range f.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
@@ -47,9 +45,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// checkRecvName returns a message for each problem with a receiver name:
-// longer than 2 characters, or different from prev (the first name used
-// for the same type in this file; empty if this is the first).
 func checkRecvName(recvName, typeName, prev string) []string {
 	var msgs []string
 	if len(recvName) > 2 {
@@ -67,24 +62,9 @@ func checkRecvName(recvName, typeName, prev string) []string {
 	return msgs
 }
 
-// receiverTypeName extracts the type name from a receiver's type expression,
-// handling both value receivers (T) and pointer receivers (*T).
 func receiverTypeName(expr ast.Expr) string {
-	switch t := expr.(type) {
-	case *ast.StarExpr:
-		if ident, ok := t.X.(*ast.Ident); ok {
-			return ident.Name
-		}
-	case *ast.Ident:
-		return t.Name
-	case *ast.IndexExpr:
-		if ident, ok := t.X.(*ast.Ident); ok {
-			return ident.Name
-		}
-	case *ast.IndexListExpr:
-		if ident, ok := t.X.(*ast.Ident); ok {
-			return ident.Name
-		}
+	if id := analysis.BaseIdent(expr); id != nil {
+		return id.Name
 	}
 	return ""
 }

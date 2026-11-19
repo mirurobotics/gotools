@@ -5,10 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mirurobotics/gotools/internal/services/gocover"
@@ -17,9 +14,7 @@ import (
 // Opts holds the options for the covgate service.
 type Opts struct {
 	Packages string
-	// Exclude is a comma-separated list of Go list patterns whose
-	// matched import paths are removed from the measurement set
-	// before tests run. Empty means no exclusion.
+	// Exclude lists comma-separated go list patterns to drop before tests run.
 	Exclude            string
 	SrcPrefix          string
 	TestDir            string
@@ -36,38 +31,24 @@ type runner struct {
 	goListTestPackages func(string) ([]string, error)
 	measure            func(pkg string, testPaths []string) (float64, []byte, error)
 	runTests           func(paths []string) ([]byte, error)
-	parallelism        int
-	emitProgress       bool
+	progress           gocover.Progress
 }
 
-// workItem is a single scheduled measurement. testOnly marks a
-// package under --test-dir that no source package claims via the
-// src-prefix mapping: it is run without coverage instrumentation,
-// since there is no source package to attribute coverage to.
 type workItem struct {
 	pkg      string
 	testOnly bool
 }
 
-// effectiveParallelism is intentionally duplicated in covratchet;
-// keep them in sync.
-func effectiveParallelism(opts Opts) int {
-	if opts.Parallelism > 0 {
-		return opts.Parallelism
-	}
-	return runtime.NumCPU()
-}
-
 // Run checks per-package coverage against thresholds.
 func Run(opts Opts) error {
+	progress := gocover.Progress{Enabled: opts.Parallelism == 0, Table: table()}
 	r := runner{
 		goModule:           gocover.GoModule,
 		goListPackages:     gocover.GoListPackages,
 		goListTestPackages: gocover.GoListTestPackages,
 		measure:            gocover.Measure,
 		runTests:           gocover.RunTests,
-		parallelism:        effectiveParallelism(opts),
-		emitProgress:       opts.Parallelism == 0,
+		progress:           progress,
 	}
 	return r.run(opts)
 }
@@ -78,10 +59,7 @@ func (r *runner) run(opts Opts) error {
 	}
 	w := opts.Out
 
-	parallelism := r.parallelism
-	if parallelism <= 0 {
-		parallelism = effectiveParallelism(opts)
-	}
+	parallelism := gocover.Parallelism(opts.Parallelism)
 
 	_, _ = fmt.Fprintf(
 		w, "Checking per-package coverage "+
@@ -94,7 +72,7 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
-	r.writeRunHeader(w, len(items), parallelism)
+	r.progress.WriteHeader(w, len(items), parallelism)
 
 	ctx := checkPackageCtx{
 		module:             module,
@@ -111,9 +89,6 @@ func (r *runner) run(opts Opts) error {
 	return r.printResults(w, results, excluded, module, wallTime)
 }
 
-// discover resolves the module, lists source and orphan test packages,
-// and returns the work items left after --exclude along with the
-// excluded packages.
 func (r *runner) discover(
 	opts Opts, w io.Writer,
 ) (module string, items []workItem, excluded []string, err error) {
@@ -139,14 +114,6 @@ func (r *runner) discover(
 	return module, items, excluded, nil
 }
 
-// findOrphanTests returns test-bearing packages under --test-dir
-// that no source package claims through the src-prefix mapping.
-// Without this, a test directory whose source counterpart is not
-// a Go package (e.g. a parent directory holding only subpackages)
-// is silently never run. The claimed set is computed from the
-// full pre-exclude source list so that an excluded source
-// package's external tests stay excluded rather than resurfacing
-// as orphans.
 func (r *runner) findOrphanTests(
 	pkgs []string, module string, opts Opts,
 ) ([]string, error) {
@@ -169,31 +136,6 @@ func (r *runner) findOrphanTests(
 	return orphans, nil
 }
 
-// claimedTestDirs returns the set of test directories claimed by source
-// packages through the src-prefix mapping. Packages outside srcPrefix
-// claim nothing, and an empty srcPrefix claims nothing at all.
-func claimedTestDirs(
-	pkgs []string, module, testDir, srcPrefix string,
-) map[string]struct{} {
-	claimed := make(map[string]struct{}, len(pkgs))
-	if srcPrefix == "" {
-		return claimed
-	}
-	for _, pkg := range pkgs {
-		relPkg := gocover.RelPkg(pkg, module)
-		testSub := strings.TrimPrefix(relPkg, srcPrefix+"/")
-		if testSub == relPkg {
-			continue
-		}
-		claimed[testDir+"/"+testSub] = struct{}{}
-	}
-	return claimed
-}
-
-// buildWorkItems merges source packages and orphan test packages
-// into one work list, applying --exclude across both so that
-// exclude patterns (e.g. preflight skip lists) can drop orphan
-// suites the same way they drop source packages.
 func (r *runner) buildWorkItems(
 	pkgs, orphans []string, exclude string, w io.Writer,
 ) ([]workItem, []string, error) {
@@ -216,8 +158,6 @@ func (r *runner) buildWorkItems(
 	return items, excluded, nil
 }
 
-// resolveExcludes expands each comma-separated exclude pattern with go
-// list and returns the set of matched packages.
 func (r *runner) resolveExcludes(exclude string) (map[string]struct{}, error) {
 	excludedSet := make(map[string]struct{})
 	for _, raw := range strings.Split(exclude, ",") {
@@ -236,12 +176,6 @@ func (r *runner) resolveExcludes(exclude string) (map[string]struct{}, error) {
 	return excludedSet, nil
 }
 
-// applyExclude removes packages matched by the comma-separated
-// exclude patterns from pkgs. It preserves the original order of
-// pkgs in both returned slices and prints a one-line notice to w
-// when any package is actually removed. An empty (or
-// whitespace-only) exclude string returns pkgs unchanged, a nil
-// excluded slice, and no output.
 func (r *runner) applyExclude(
 	pkgs []string, exclude string, w io.Writer,
 ) (kept []string, excluded []string, err error) {
@@ -276,32 +210,15 @@ func (r *runner) applyExclude(
 func (r *runner) runPackages(
 	items []workItem, ctx checkPackageCtx, parallelism int, w io.Writer,
 ) []checkResult {
-	total := len(items)
-	results := make([]checkResult, total)
-	sem := make(chan struct{}, parallelism)
-	var wg sync.WaitGroup
-	var progressMu sync.Mutex
-	countWidth := len(strconv.Itoa(total))
-	colWidth := progressColWidth(total)
-
-	for i, item := range items {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(idx int, it workItem) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			results[idx] = r.checkItem(it, ctx)
-			if r.emitProgress {
-				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, total)
-				progressMu.Lock()
-				_, _ = fmt.Fprintf(
-					w, "%-*s  %s",
-					colWidth, label, firstLine(results[idx].output),
-				)
-				progressMu.Unlock()
-			}
-		}(i, item)
+	run := func(i int) checkResult {
+		var res checkResult
+		if items[i].testOnly {
+			res = r.checkTestOnly(items[i].pkg, ctx)
+		} else {
+			res = r.checkPackage(items[i].pkg, ctx)
+		}
+		return res
 	}
-	wg.Wait()
-	return results
+	row := func(res checkResult) string { return res.output }
+	return gocover.RunEach(r.progress, w, len(items), parallelism, run, row)
 }

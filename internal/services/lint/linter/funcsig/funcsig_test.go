@@ -8,8 +8,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// --- basic collapsing tests ---
-
 func TestFuncsig_SingleParam(t *testing.T) {
 	src := `package foo
 
@@ -222,10 +220,7 @@ func Get() string {
 	assertFixResult(t, src, want)
 }
 
-// --- width boundary tests ---
-
 func TestFuncsig_ExactlyAtLimit(t *testing.T) {
-	// "func Get(key string) string {" = 29 chars
 	src := `package foo
 
 func Get(
@@ -266,8 +261,6 @@ func Get(
 		t.Fatalf("expected 0 candidates past limit, got %d", len(candidates))
 	}
 }
-
-// --- exclusion tests ---
 
 func TestFuncsig_SkipAlreadySingleLine(t *testing.T) {
 	src := `package foo
@@ -325,7 +318,6 @@ func VeryLongFunctionName(
 	return parameter
 }
 `
-	// Collapsed: "func VeryLongFunctionName(parameter string) string {" = 52 chars
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -347,9 +339,6 @@ func VeryLongFunctionName(
 	return parameter
 }
 `
-	// Collapsed: "func VeryLongFunctionName(parameter string) string {"
-	// = 52 chars + trailing " // inline comment" = 18 chars → total 70.
-	// Set limit to 69 so trailing comment pushes it over.
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -374,7 +363,6 @@ func VeryLongFunctionName(
 	return parameter
 }
 `
-	// total = 70 (see above), set limit to 70.
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -386,8 +374,6 @@ func VeryLongFunctionName(
 		t.Fatalf("expected 1 candidate (within limit), got %d", len(candidates))
 	}
 }
-
-// --- idempotency ---
 
 func TestFuncsig_Idempotent(t *testing.T) {
 	src := `package foo
@@ -413,8 +399,6 @@ func Get(key string) string {
 		t.Errorf("second fix not idempotent: got:\n%s\nwant:\n%s", result2, want)
 	}
 }
-
-// --- checker/fixer agreement ---
 
 func TestFuncsig_CheckerFixerAgreement(t *testing.T) {
 	cases := []struct {
@@ -496,8 +480,6 @@ func Asm()
 	}
 }
 
-// --- multiple functions ---
-
 func TestFuncsig_MultipleFunctions(t *testing.T) {
 	src := `package foo
 
@@ -567,8 +549,6 @@ func AlsoSimple(y string) string {
 `
 	assertFixResult(t, src, want)
 }
-
-// --- helpers ---
 
 func assertFixResult(t *testing.T, src, want string) {
 	got := fixSource(t, src)

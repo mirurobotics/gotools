@@ -69,12 +69,10 @@ func TestRunUpdate_MiddleStepFails(t *testing.T) {
 		t.Fatal("expected error")
 	}
 
-	// First step should have run and printed its label.
 	if !strings.Contains(out.String(), "Updating dependencies...") {
 		t.Errorf("first step label missing from output: %s", out.String())
 	}
 
-	// Error should reference the second step label.
 	if !strings.Contains(err.Error(), "Tidying up dependencies...") {
 		t.Errorf("error should contain second step label: %v", err)
 	}
@@ -82,7 +80,6 @@ func TestRunUpdate_MiddleStepFails(t *testing.T) {
 		t.Errorf("error should wrap cause: %v", err)
 	}
 
-	// Third step should not have run.
 	if strings.Contains(out.String(), "Verifying dependencies...") {
 		t.Error("third step should not have run")
 	}
@@ -91,7 +88,6 @@ func TestRunUpdate_MiddleStepFails(t *testing.T) {
 func TestRunUpdate_NilWriters(t *testing.T) {
 	r := runner{exec: fakeExec(nil)}
 
-	// Should not panic with nil writers.
 	err := r.runUpdate(nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

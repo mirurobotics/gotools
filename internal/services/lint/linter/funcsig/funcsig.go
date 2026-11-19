@@ -8,9 +8,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// FindCandidates walks the AST and returns all multi-line
-// function signatures that can safely be collapsed to a
-// single line.
+// FindCandidates returns multi-line function signatures that fit on one line.
 func FindCandidates(
 	fset *token.FileSet,
 	f *ast.File,
@@ -59,22 +57,18 @@ func tryCollapseSig(
 	src []byte,
 	maxLineWidth, tabWidth int,
 ) (analysis.Candidate, bool) {
-	// No body (external/assembly declaration).
 	if body == nil {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
-	// Already single-line.
 	if fset.Position(funcPos).Line == fset.Position(body.Lbrace).Line {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
-	// Comments between func keyword and opening brace.
 	if analysis.HasCommentsBetween(fset, f, funcPos, body.Lbrace) {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
-	// Any field in recv/type-params/params/results spans multiple lines.
 	if hasMultiLineField(fset, recv) ||
 		hasMultiLineField(fset, funcType.TypeParams) ||
 		hasMultiLineField(fset, funcType.Params) ||
@@ -140,8 +134,6 @@ func buildCollapsed(
 	return b.String()
 }
 
-// writeFuncName writes "func", plus the receiver and name for declarations.
-// Function literals have an empty name.
 func writeFuncName(
 	b *strings.Builder,
 	fset *token.FileSet,
@@ -162,8 +154,6 @@ func writeFuncName(
 	b.WriteString(name)
 }
 
-// writeResults writes the result list, keeping parentheses only when the
-// source had them.
 func writeResults(
 	b *strings.Builder,
 	fset *token.FileSet,
@@ -208,8 +198,7 @@ func fieldText(fset *token.FileSet, field *ast.Field, src []byte) string {
 	return strings.Join(names, ", ") + " " + typeText
 }
 
-// Check reports diagnostics for multi-line function signatures
-// that could be collapsed.
+// Check reports diagnostics for multi-line function signatures that could be collapsed.
 func Check(
 	fset *token.FileSet,
 	filename string,

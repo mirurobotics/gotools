@@ -9,8 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewTagCommand returns a cobra command with git tag
-// utility subcommands.
+// NewTagCommand returns a cobra command with git tag utility subcommands.
 func NewTagCommand() *cobra.Command {
 	//nolint:exhaustruct // cobra uses partial initialization
 	cmd := &cobra.Command{

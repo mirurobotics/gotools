@@ -8,8 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCoverageCommand returns a cobra command that
-// generates coverage reports.
+// NewCoverageCommand returns a cobra command that generates coverage reports.
 func NewCoverageCommand() *cobra.Command {
 	var opts coverage.Opts
 

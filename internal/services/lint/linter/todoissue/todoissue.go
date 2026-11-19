@@ -13,7 +13,6 @@ import (
 const message = "TODO comment must include an issue link (an http or https URL) " +
 	"in the same comment"
 
-// linkPattern matches an http(s) URL whose host has at least one dot.
 const linkPattern = `(?i)https?://[\w-]+(\.[\w-]+)+`
 
 type line struct {
@@ -26,7 +25,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	link := regexp.MustCompile(linkPattern)
 	var diags []analysis.Diagnostic
 	for _, cg := range f.Comments {
-		if hasNolint(cg) {
+		if analysis.HasNolint(cg, "todoissue") {
 			continue
 		}
 		for _, n := range unlinkedTODOs(groupLines(fset, cg), link) {
@@ -55,7 +54,6 @@ func groupLines(fset *token.FileSet, cg *ast.CommentGroup) []line {
 	return lines
 }
 
-// checkedText returns the text to check; for a directive, only its free-text note.
 func checkedText(text string) (string, bool) {
 	if !analysis.IsDirective(text) {
 		return text, true
@@ -88,16 +86,6 @@ func stripMarkers(text string) string {
 	text = strings.TrimSpace(text)
 	text = strings.TrimSpace(strings.TrimPrefix(text, "*"))
 	return strings.TrimSpace(strings.TrimPrefix(text, "- "))
-}
-
-// hasNolint reports a //nolint directive naming todoissue in the comment group.
-func hasNolint(cg *ast.CommentGroup) bool {
-	for _, c := range cg.List {
-		if analysis.NolintsRule(c.Text, "todoissue") {
-			return true
-		}
-	}
-	return false
 }
 
 func unlinkedTODOs(lines []line, link *regexp.Regexp) []int {

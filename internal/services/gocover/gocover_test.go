@@ -5,9 +5,21 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+func TestParallelism(t *testing.T) {
+	if got := Parallelism(3); got != 3 {
+		t.Errorf("Parallelism(3) = %d, want 3", got)
+	}
+	for _, n := range []int{0, -1} {
+		if got := Parallelism(n); got != runtime.NumCPU() {
+			t.Errorf("Parallelism(%d) = %d, want %d", n, got, runtime.NumCPU())
+		}
+	}
+}
 
 func TestGetThreshold(t *testing.T) {
 	dir := t.TempDir()
@@ -247,7 +259,6 @@ func TestGoListPackages(t *testing.T) {
 func TestExtractCoverage(t *testing.T) {
 	makeGoProject(t)
 
-	// Generate a real coverage profile.
 	tmp := t.TempDir()
 	covFile := filepath.Join(tmp, "cover.out")
 	//nolint:gosec // G204: test subprocess
@@ -358,7 +369,6 @@ func TestNonEmptyLines(t *testing.T) {
 func TestGoListTestPackages(t *testing.T) {
 	makeGoProject(t)
 
-	// a package without test files must not be listed
 	notest := filepath.Join(".", "notest")
 	//nolint:gosec // G301: test directory
 	_ = os.MkdirAll(notest, 0o755)

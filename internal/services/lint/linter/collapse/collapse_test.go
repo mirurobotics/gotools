@@ -8,8 +8,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// --- basic collapsing tests ---
-
 func TestCollapse_SingleArg(t *testing.T) {
 	src := `package foo
 
@@ -120,8 +118,6 @@ func f() {
 	assertFixResult(t, src, want)
 }
 
-// --- width boundary tests ---
-
 func TestCollapse_ExactlyAtLimit(t *testing.T) {
 	src := `package foo
 
@@ -164,8 +160,6 @@ func f() {
 	}
 }
 
-// --- indentation tests ---
-
 func TestCollapse_DeeplyIndented(t *testing.T) {
 	src := `package foo
 
@@ -197,8 +191,6 @@ func f() {
 		t.Fatalf("expected 0 candidates with tight width, got %d", len(candidates2))
 	}
 }
-
-// --- exclusion tests ---
 
 func TestCollapse_SkipCommentInsideArgs(t *testing.T) {
 	src := `package foo
@@ -275,8 +267,6 @@ func TestCollapse_SkipRawStringWithNewlines(t *testing.T) {
 	assertFixResult(t, src, src)
 }
 
-// --- idempotency tests ---
-
 func TestCollapse_Idempotent(t *testing.T) {
 	src := `package foo
 
@@ -315,8 +305,6 @@ func f() {
 		t.Errorf("second fix was not idempotent.\ngot:\n%s\nwant:\n%s", result2, want)
 	}
 }
-
-// --- checker/fixer agreement tests ---
 
 func TestCollapse_CheckerFixerAgreement(t *testing.T) {
 	cases := []struct {
@@ -404,8 +392,6 @@ func f() {
 		})
 	}
 }
-
-// --- variadic calls ---
 
 func TestCollapse_VariadicCall(t *testing.T) {
 	src := `package foo
@@ -504,8 +490,6 @@ func f() {
 	assertFixResult(t, src, want)
 }
 
-// --- utility function tests ---
-
 func TestVisualWidth(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -554,8 +538,6 @@ func TestLineStartOffset(t *testing.T) {
 		})
 	}
 }
-
-// --- typeless composite literal ---
 
 func TestCollapse_TypelessCompositeLit(t *testing.T) {
 	src := `package foo
@@ -609,8 +591,6 @@ func TestCollapse_RawStringInCompositeLit(t *testing.T) {
 	assertFixResult(t, src, src)
 }
 
-// --- empty items on multi-line delimiters ---
-
 func TestCollapse_EmptyArgs_MultiLine_NoCollapse(t *testing.T) {
 	src := `package foo
 
@@ -633,8 +613,6 @@ func f() {
 `
 	assertFixResult(t, src, src)
 }
-
-// --- string literals in args ---
 
 func TestCollapse_RegularStringInArgs(t *testing.T) {
 	src := `package foo
@@ -661,13 +639,7 @@ func TestCollapse_BacktickStringWithoutNewlines(t *testing.T) {
 	assertFixResult(t, src, want)
 }
 
-// --- gofmt alignment tests ---
-
 func TestCollapse_AlignDelta_ExceedsLimit(t *testing.T) {
-	// indent: 2 tabs (8) + "B: " (3) = 11.
-	// alignDelta: LongName(8) - B(1) = 7.
-	// collapsed: "fn(arg)" = 7. trailing: "," = 1.
-	// Total = 11 + 7 + 7 + 1 = 26. Set limit to 25.
 	src := `package foo
 
 type S struct {
@@ -724,7 +696,6 @@ func f() {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Total with alignment = 26, so limit 26 should allow collapse.
 	candidates := FindCandidates(fset, f, srcBytes, 26, 4)
 	found := false
 	for _, c := range candidates {
@@ -741,8 +712,6 @@ func f() {
 }
 
 func TestCollapse_AlignDelta_MapLit_ExceedsLimit(t *testing.T) {
-	// Map literal with call expression keys of different lengths.
-	// Simulates the deployment_config_instance.go bug.
 	src := `package foo
 
 func f() {
@@ -754,16 +723,6 @@ func f() {
 	}
 }
 `
-	// collapsed = "fn2(arg)" = 8 chars.
-	// current indent: 2 tabs (8) + "longerkey(): " (13) = 21.
-	// alignDelta: 0 (longerkey is already the longest
-	// single-line sibling key is "short()" = 7 vs
-	// "longerkey()" = 11; current is longest).
-	// Wait, "short()" value is single-line so
-	// short key width = 7. longerkey key width = 11.
-	// Current key IS the longest → delta = 0.
-	// trailing = "," = 1. Total = 21 + 0 + 8 + 1 = 30.
-	// Set limit to 29.
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -782,8 +741,6 @@ func f() {
 }
 
 func TestCollapse_AlignDelta_UnaryExpr(t *testing.T) {
-	// Value is &Struct{...} — the & wraps the composite lit.
-	// The alignment delta should still be computed.
 	src := `package foo
 
 type S struct{ A int }
@@ -801,11 +758,6 @@ func f() {
 	}
 }
 `
-	// collapsed = "S{A: 1}" = 7 chars.
-	// current indent: 2 tabs (8) + "B: &" (4) = 12.
-	// alignDelta: LongField(9) - B(1) = 8.
-	// trailing = "," = 1. Total = 12 + 8 + 7 + 1 = 28.
-	// Set limit to 27. Should NOT collapse.
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -824,8 +776,6 @@ func f() {
 }
 
 func TestCollapse_AlignDelta_MultiLineSiblingValue(t *testing.T) {
-	// Sibling "VeryLongFieldName" has a multi-line value. gofmt still
-	// aligns keys, so the delta must include it.
 	src := `package foo
 
 type Other struct{ X int }
@@ -845,11 +795,6 @@ func f() {
 	}
 }
 `
-	// collapsed = "fn(arg)" = 7 chars.
-	// indent: 2 tabs (8) + "B: " (3) = 11.
-	// alignDelta: VeryLongFieldName(17) - B(1) = 16.
-	// trailing: "," = 1. Total = 11 + 16 + 7 + 1 = 35.
-	// Set limit to 34 so alignment pushes it over.
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -867,13 +812,7 @@ func f() {
 	}
 }
 
-// --- trailing text tests ---
-
 func TestCollapse_TrailingCloseParen_ExceedsLimit(t *testing.T) {
-	// Inner composite lit as argument — trailing ")" from outer call.
-	// Line after collapse: "\tfoo([]int{1, 2, 3})"
-	// indent=4, "foo("=4, "[]int{1, 2, 3}"=14, ")"=1 → total=23
-	// Set limit to 22 so trailing ) pushes it over.
 	src := `package foo
 
 func f() {
@@ -914,11 +853,6 @@ func g() {
 	}).Build()
 }
 `
-	// Collapsed form of S{A: 1} = "S{A: 1}" (7 chars)
-	// On the line: "	f().Method(S{A: 1}).Build()"
-	// indent = 4, "f().Method(" = 11, "S{A: 1}" = 7, ").Build()" = 9
-	// total = 4 + 11 + 7 + 9 = 31
-	// Set limit to 30 so trailing .Build() pushes it over.
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -947,11 +881,6 @@ func f() {
 	})
 }
 `
-	// Collapsed: "S{A: 1}" (7 chars)
-	// Line: "\tfoo(S{A: 1})"
-	// indent = 4, "foo(" = 4, "S{A: 1}" = 7, ")" = 1
-	// total = 4 + 4 + 7 + 1 = 16
-	// Set limit to 15 so trailing ) pushes it over.
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -970,7 +899,6 @@ func f() {
 }
 
 func TestCollapse_TrailingCloseParen_WithinLimit(t *testing.T) {
-	// Same setup as ExceedsLimit but limit is 23, so it fits.
 	src := `package foo
 
 func f() {
@@ -1012,7 +940,6 @@ func g() {
 	}).Build()
 }
 `
-	// total = 31 (see ExceedsLimit test), set limit to 31.
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
@@ -1033,8 +960,6 @@ func g() {
 		)
 	}
 }
-
-// --- helpers ---
 
 func assertFixResult(t *testing.T, src, want string) {
 	got := fixSource(t, src)

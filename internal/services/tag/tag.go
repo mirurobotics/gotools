@@ -23,8 +23,7 @@ func FilterTags(tags []string, pattern *regexp.Regexp) []string {
 	return matched
 }
 
-// SortVersionTags sorts tags using the same logic as
-// sort -V.
+// SortVersionTags sorts tags using the same logic as sort -V.
 func SortVersionTags(tags []string) {
 	sort.SliceStable(tags, func(i, j int) bool { return VersionLess(tags[i], tags[j]) })
 }
@@ -48,19 +47,7 @@ func VersionLess(a, b string) bool {
 	return len(pa) < len(pb)
 }
 
-// comparePart compares one version segment, numerically when both
-// segments are numbers and lexically otherwise.
-func comparePart(a, b string) int {
-	aNum, aOK := ParseNum(a)
-	bNum, bOK := ParseNum(b)
-	if aOK && bOK {
-		return cmp.Compare(aNum, bNum)
-	}
-	return strings.Compare(a, b)
-}
-
-// SplitVersionParts splits a version string into
-// alternating numeric and non-numeric segments.
+// SplitVersionParts splits a version into numeric and non-numeric segments.
 func SplitVersionParts(s string) []string {
 	var parts []string
 	cur := ""
@@ -86,8 +73,7 @@ func SplitVersionParts(s string) []string {
 	return parts
 }
 
-// ParseNum returns the integer value of s if it contains
-// only digits, or false otherwise.
+// ParseNum returns the integer value of s if it is all digits.
 func ParseNum(s string) (int, bool) {
 	n := 0
 	for _, c := range s {
@@ -107,8 +93,7 @@ type runner struct {
 	currentTag func(errW io.Writer) (string, error)
 }
 
-// Previous finds the most recent semver tag matching
-// <prefix>X.Y.Z with no pre-release suffix.
+// Previous finds the latest <prefix>X.Y.Z tag without a pre-release suffix.
 func Previous(prefix string, errW io.Writer) (string, error) {
 	//nolint:exhaustruct // only gitTags needed
 	r := runner{gitTags: GitTags}
@@ -134,8 +119,7 @@ func (r *runner) previous(prefix string, errW io.Writer) (string, error) {
 	return matched[len(matched)-1], nil
 }
 
-// Latest finds the latest tag matching <prefix>X.Y.Z
-// with optional pre-release suffix.
+// Latest finds the latest tag matching <prefix>X.Y.Z with optional pre-release suffix.
 func Latest(prefix string, errW io.Writer) (string, error) {
 	//nolint:exhaustruct // only gitTags needed
 	r := runner{gitTags: GitTags}

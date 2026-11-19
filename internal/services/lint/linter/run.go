@@ -46,7 +46,6 @@ func Run(path string, doFix bool, cfg Config) (int, int, error) {
 }
 
 // ProcessFile lints or fixes a single file.
-// Returns (diagnosticCount, wasFixed, error).
 func ProcessFile(path string, doFix bool, cfg Config) (int, bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -137,16 +136,13 @@ func processCheckMode(
 	return len(diags), false, nil
 }
 
-// reparse creates a fresh FileSet and re-parses src. Used after each fixer
-// to keep the AST in sync with the modified source bytes.
 func reparse(path string, src []byte) (*token.FileSet, *ast.File, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, path, src, parser.ParseComments)
 	return fset, f, err
 }
 
-// FindGoFiles walks a directory tree and returns all .go files,
-// skipping hidden directories, vendor, and testdata.
+// FindGoFiles returns .go files under root, skipping hidden, vendor, and testdata.
 func FindGoFiles(root string) ([]string, error) {
 	var files []string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {

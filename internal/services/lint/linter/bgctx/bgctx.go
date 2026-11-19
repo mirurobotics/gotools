@@ -3,17 +3,11 @@ package bgctx
 import (
 	"go/ast"
 	"go/token"
-	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
 // Check reports diagnostics for calls to context.Background().
-// Use mctx package functions to create contexts instead.
-//
-// Exemptions:
-//   - Test files are exempt.
-//   - A call with a //nolint:bgctx comment on the same line is exempt.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	if analysis.IsTestFile(filename) {
 		return nil
@@ -33,7 +27,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		}
 
 		pos := fset.Position(call.Pos())
-		if hasNolint(fset, f, pos.Line) {
+		if analysis.NolintOnLines(fset, f, "bgctx", pos.Line, pos.Line) {
 			return true
 		}
 
@@ -50,7 +44,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-// isBackgroundCall reports whether call is ctxPkg.Background().
 func isBackgroundCall(call *ast.CallExpr, ctxPkg string) bool {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
@@ -61,15 +54,4 @@ func isBackgroundCall(call *ast.CallExpr, ctxPkg string) bool {
 		return false
 	}
 	return ident.Name == ctxPkg && sel.Sel.Name == "Background"
-}
-
-// hasNolint returns true if there is a //nolint:bgctx comment on the given line.
-func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
-	for _, c := range analysis.Comments(f) {
-		if fset.Position(c.Pos()).Line == line &&
-			strings.Contains(c.Text, "nolint:bgctx") {
-			return true
-		}
-	}
-	return false
 }

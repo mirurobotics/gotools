@@ -10,10 +10,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-const nolintDirective = "nolint:funclen"
-
-// Check reports a diagnostic for each function whose body exceeds maxLen
-// non-blank, non-comment lines. Both FuncDecl and FuncLit are checked.
+// Check reports functions whose body exceeds maxLen non-blank, non-comment lines.
 func Check(
 	fset *token.FileSet,
 	filename string,
@@ -40,7 +37,7 @@ func Check(
 			return true
 		}
 		pos := fset.Position(n.Pos())
-		if hasNolint(fset, f, pos.Line) {
+		if analysis.NolintOnLines(fset, f, "funclen", pos.Line-1, pos.Line) {
 			return true
 		}
 		diags = append(diags, analysis.Diagnostic{
@@ -53,9 +50,6 @@ func Check(
 	return diags
 }
 
-// funcBody returns the body of a function declaration or literal and a
-// label for diagnostics. ok is false for other nodes and bodiless
-// declarations.
 func funcBody(n ast.Node) (*ast.BlockStmt, string, bool) {
 	switch fn := n.(type) {
 	case *ast.FuncDecl:
@@ -72,28 +66,13 @@ func funcBody(n ast.Node) (*ast.BlockStmt, string, bool) {
 	return nil, "", false
 }
 
-// hasNolint returns true if there is a //nolint:funclen comment on the
-// given line or the line immediately before it.
-func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
-	for _, c := range analysis.Comments(f) {
-		cLine := fset.Position(c.Pos()).Line
-		if cLine >= line-1 && cLine <= line &&
-			strings.Contains(c.Text, nolintDirective) {
-			return true
-		}
-	}
-	return false
-}
-
-// countLines counts non-blank, non-comment-only lines inside a block
-// statement (between opening and closing braces, exclusive).
 func countLines(fset *token.FileSet, body *ast.BlockStmt, allLines [][]byte) int {
-	startLine := fset.Position(body.Lbrace).Line // 1-based
-	endLine := fset.Position(body.Rbrace).Line   // 1-based
+	startLine := fset.Position(body.Lbrace).Line
+	endLine := fset.Position(body.Rbrace).Line
 
 	count := 0
 	for lineNum := startLine + 1; lineNum < endLine; lineNum++ {
-		idx := lineNum - 1 // 0-based index
+		idx := lineNum - 1
 		if idx >= len(allLines) {
 			break
 		}
