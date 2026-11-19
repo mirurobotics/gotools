@@ -66,7 +66,7 @@ func TestSharedLinterFlags_ConsistentBetweenCheckAndLint(t *testing.T) {
 	for _, name := range shared {
 		cf, lf := check.Lookup(name), lint.Lookup(name)
 		if cf == nil || lf == nil {
-			t.Errorf("shared flag %q missing: check=%v, lint=%v", name, cf, lf)
+			t.Errorf("flag %q missing in check=%v, lint=%v", name, cf == nil, lf == nil)
 			continue
 		}
 		if cf.DefValue != lf.DefValue {
