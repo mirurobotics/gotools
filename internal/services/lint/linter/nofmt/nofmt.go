@@ -7,6 +7,8 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
+const messageSuffix = " should not be used outside main; use structured logging or t.Log"
+
 func banned() map[string]bool {
 	return map[string]bool{
 		"fmt.Print":   true,
@@ -50,11 +52,9 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			return true
 		}
 		diags = append(diags, analysis.Diagnostic{
-			File: filename,
-			Line: pos.Line,
-			Message: name +
-				" should not be used outside" +
-				" main; use structured logging or t.Log",
+			File:    filename,
+			Line:    pos.Line,
+			Message: name + messageSuffix,
 		})
 		return true
 	})

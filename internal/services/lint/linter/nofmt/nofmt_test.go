@@ -35,10 +35,8 @@ func TestCheck_FmtPrintlnInLibrary(t *testing.T) {
 		filename: "pkg/foo/bar.go",
 		src: `package foo; import "fmt"` +
 			`; func f() { fmt.Println("hi") }`,
-		wantN: 1,
-		wantMsg: "fmt.Println should not be used" +
-			" outside main;" +
-			" use structured logging or t.Log",
+		wantN:   1,
+		wantMsg: "fmt.Println" + messageSuffix,
 	})
 }
 
@@ -47,10 +45,8 @@ func TestCheck_FmtPrintfInLibrary(t *testing.T) {
 		filename: "pkg/foo/bar.go",
 		src: `package foo; import "fmt"` +
 			`; func f() { fmt.Printf("%s", "hi") }`,
-		wantN: 1,
-		wantMsg: "fmt.Printf should not be used" +
-			" outside main;" +
-			" use structured logging or t.Log",
+		wantN:   1,
+		wantMsg: "fmt.Printf" + messageSuffix,
 	})
 }
 
@@ -69,10 +65,8 @@ func TestCheck_PrintlnBuiltinInLibrary(t *testing.T) {
 		filename: "pkg/foo/bar.go",
 		src: `package foo` +
 			`; func f() { println("hi") }`,
-		wantN: 1,
-		wantMsg: "println should not be used" +
-			" outside main;" +
-			" use structured logging or t.Log",
+		wantN:   1,
+		wantMsg: "println" + messageSuffix,
 	})
 }
 
@@ -81,10 +75,8 @@ func TestCheck_PrintBuiltinInLibrary(t *testing.T) {
 		filename: "pkg/foo/bar.go",
 		src: `package foo` +
 			`; func f() { print("hi") }`,
-		wantN: 1,
-		wantMsg: "print should not be used" +
-			" outside main;" +
-			" use structured logging or t.Log",
+		wantN:   1,
+		wantMsg: "print" + messageSuffix,
 	})
 }
 
@@ -93,10 +85,8 @@ func TestCheck_LogPrintfInLibrary(t *testing.T) {
 		filename: "pkg/foo/bar.go",
 		src: `package foo; import "log"` +
 			`; func f() { log.Printf("hi") }`,
-		wantN: 1,
-		wantMsg: "log.Printf should not be used" +
-			" outside main;" +
-			" use structured logging or t.Log",
+		wantN:   1,
+		wantMsg: "log.Printf" + messageSuffix,
 	})
 }
 
@@ -105,10 +95,8 @@ func TestCheck_LogFatalInLibrary(t *testing.T) {
 		filename: "pkg/foo/bar.go",
 		src: `package foo; import "log"` +
 			`; func f() { log.Fatal("hi") }`,
-		wantN: 1,
-		wantMsg: "log.Fatal should not be used" +
-			" outside main;" +
-			" use structured logging or t.Log",
+		wantN:   1,
+		wantMsg: "log.Fatal" + messageSuffix,
 	})
 }
 
@@ -117,9 +105,8 @@ func TestCheck_TestFileNotExempt(t *testing.T) {
 		filename: "pkg/foo/bar_test.go",
 		src: `package foo; import "fmt"` +
 			`; func f() { fmt.Println("hi") }`,
-		wantN: 1,
-		wantMsg: "fmt.Println should not be used outside main;" +
-			" use structured logging or t.Log",
+		wantN:   1,
+		wantMsg: "fmt.Println" + messageSuffix,
 	})
 }
 
@@ -179,10 +166,8 @@ func TestCheck_NolintOnDifferentLineDoesNotExempt(t *testing.T) {
 		src: "package foo\nimport \"fmt\"\n" +
 			"//nolint:nofmt\n" +
 			"func f() { fmt.Println(\"hi\") }",
-		wantN: 1,
-		wantMsg: "fmt.Println should not be used" +
-			" outside main;" +
-			" use structured logging or t.Log",
+		wantN:   1,
+		wantMsg: "fmt.Println" + messageSuffix,
 	})
 }
 
@@ -228,9 +213,8 @@ func TestCheck_HelperBesideExampleFlagged(t *testing.T) {
 		filename: "pkg/foo/bar_test.go",
 		src: `package foo; import "fmt"` +
 			`; func ExampleF() { fmt.Println() }; func helper() { fmt.Println() }`,
-		wantN: 1,
-		wantMsg: "fmt.Println should not be used outside main;" +
-			" use structured logging or t.Log",
+		wantN:   1,
+		wantMsg: "fmt.Println" + messageSuffix,
 	})
 }
 
@@ -239,8 +223,7 @@ func TestCheck_ExampleOutsideTestFileFlagged(t *testing.T) {
 		filename: "pkg/foo/bar.go",
 		src:      `package foo; import "fmt"; func ExampleF() { fmt.Println("hi") }`,
 		wantN:    1,
-		wantMsg: "fmt.Println should not be used outside main;" +
-			" use structured logging or t.Log",
+		wantMsg:  "fmt.Println" + messageSuffix,
 	})
 }
 
@@ -250,8 +233,7 @@ func TestCheck_ExampleLookalikesInTestFileFlagged(t *testing.T) {
 		src: `package foo; import "fmt"; type s struct{}` +
 			`; func (s) ExampleM() { fmt.Println("hi") }` +
 			`; func Examplehelper() { fmt.Println("hi") }`,
-		wantN: 2,
-		wantMsg: "fmt.Println should not be used outside main;" +
-			" use structured logging or t.Log",
+		wantN:   2,
+		wantMsg: "fmt.Println" + messageSuffix,
 	})
 }
