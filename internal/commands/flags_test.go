@@ -118,3 +118,15 @@ func TestNewLintCommand_FlagDefaults(t *testing.T) {
 	})
 	assertIntDefaults(t, fl, linterIntDefaults())
 }
+
+func assertFloatDefaults(t *testing.T, fl *pflag.FlagSet, want map[string]float64) {
+	t.Helper()
+	for name, w := range want {
+		got, err := fl.GetFloat64(name)
+		if err != nil {
+			t.Errorf("flag %q: %v", name, err)
+		} else if got != w {
+			t.Errorf("flag %q default = %v, want %v", name, got, w)
+		}
+	}
+}

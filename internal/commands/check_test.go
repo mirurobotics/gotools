@@ -20,37 +20,12 @@ func TestNewCheckCommand_Metadata(t *testing.T) {
 }
 
 func TestNewCheckCommand_Flags(t *testing.T) {
-	cmd := NewCheckCommand()
-	fl := cmd.Flags()
-
-	tests := []struct {
-		name     string
-		wantType string
-	}{
-		{"path", "string"},
-		{"fix", "bool"},
-		{"max-line-width", "int"},
-		{"tab-width", "int"},
-		{"max-func-len", "int"},
-		{"max-file-len", "int"},
-		{"max-nest-depth", "int"},
-		{"max-param-count", "int"},
-		{"max-doc-lines", "int"},
-		{"max-doc-file-lines", "int"},
-		{"exclude", "string"},
-		{"rule", "string"},
+	want := map[string]string{"path": "string", "fix": "bool"}
+	for name := range linterIntDefaults() {
+		want[name] = "int"
 	}
-
-	for _, tc := range tests {
-		f := fl.Lookup(tc.name)
-		if f == nil {
-			t.Errorf("flag %q not registered", tc.name)
-			continue
-		}
-		if f.Value.Type() != tc.wantType {
-			t.Errorf("flag %q type = %q, want %q", tc.name, f.Value.Type(), tc.wantType)
-		}
-	}
+	want["exclude"], want["rule"] = "string", "string"
+	assertFlagTypes(t, NewCheckCommand().Flags(), want)
 }
 
 func TestNewCheckCommand_Help(t *testing.T) {

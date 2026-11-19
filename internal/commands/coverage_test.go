@@ -20,52 +20,16 @@ func TestNewCoverageCommand_Metadata(t *testing.T) {
 }
 
 func TestNewCoverageCommand_Flags(t *testing.T) {
-	cmd := NewCoverageCommand()
-	fl := cmd.Flags()
-
-	tests := []struct {
-		name     string
-		wantType string
-	}{
-		{"src-prefix", "string"},
-		{"test-prefix", "string"},
-		{"no-html", "bool"},
-	}
-
-	for _, tc := range tests {
-		f := fl.Lookup(tc.name)
-		if f == nil {
-			t.Errorf("flag %q not registered", tc.name)
-			continue
-		}
-		if f.Value.Type() != tc.wantType {
-			t.Errorf("flag %q type = %q, want %q", tc.name, f.Value.Type(), tc.wantType)
-		}
-	}
+	assertFlagTypes(t, NewCoverageCommand().Flags(), map[string]string{
+		"src-prefix": "string", "test-prefix": "string", "no-html": "bool",
+	})
 }
 
 func TestNewCoverageCommand_FlagDefaults(t *testing.T) {
-	cmd := NewCoverageCommand()
-	fl := cmd.Flags()
-
-	stringDefaults := map[string]string{"src-prefix": "pkg", "test-prefix": "tests"}
-	for name, want := range stringDefaults {
-		got, err := fl.GetString(name)
-		if err != nil {
-			t.Errorf("flag %q: %v", name, err)
-			continue
-		}
-		if got != want {
-			t.Errorf("flag %q default = %q, want %q", name, got, want)
-		}
-	}
-
-	got, err := fl.GetBool("no-html")
-	if err != nil {
-		t.Errorf("flag no-html: %v", err)
-	} else if got != false {
-		t.Errorf("flag no-html default = %v, want false", got)
-	}
+	fl := NewCoverageCommand().Flags()
+	assertStringDefaults(t, fl,
+		map[string]string{"src-prefix": "pkg", "test-prefix": "tests"})
+	assertBoolDefaults(t, fl, map[string]bool{"no-html": false})
 }
 
 func TestNewCoverageCommand_AcceptsMaxOneArg(t *testing.T) {

@@ -85,8 +85,8 @@ func TestCheck_GroupedParamsCountedCorrectly(t *testing.T) {
 func TestCheck_MainExempt(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename:  "",
-		src:       `package foo; func main() {}`,
-		maxParams: 0,
+		src:       `package foo; func main(a, b, c, d, e, f int) {}`,
+		maxParams: 5,
 		wantN:     0,
 		wantMsg:   "",
 	})

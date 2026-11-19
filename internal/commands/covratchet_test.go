@@ -20,57 +20,20 @@ func TestNewCovratchetCommand_Metadata(t *testing.T) {
 }
 
 func TestNewCovratchetCommand_Flags(t *testing.T) {
-	cmd := NewCovratchetCommand()
-	fl := cmd.Flags()
-
-	tests := []struct {
-		name     string
-		wantType string
-	}{
-		{"packages", "string"},
-		{"src-prefix", "string"},
-		{"test-dir", "string"},
-		{"parallelism", "int"},
-	}
-
-	for _, tc := range tests {
-		f := fl.Lookup(tc.name)
-		if f == nil {
-			t.Errorf("flag %q not registered", tc.name)
-			continue
-		}
-		if f.Value.Type() != tc.wantType {
-			t.Errorf("flag %q type = %q, want %q", tc.name, f.Value.Type(), tc.wantType)
-		}
-	}
+	assertFlagTypes(t, NewCovratchetCommand().Flags(), map[string]string{
+		"packages":    "string",
+		"src-prefix":  "string",
+		"test-dir":    "string",
+		"parallelism": "int",
+	})
 }
 
 func TestNewCovratchetCommand_FlagDefaults(t *testing.T) {
-	cmd := NewCovratchetCommand()
-	fl := cmd.Flags()
-
-	stringDefaults := map[string]string{
-		"packages":   "./...",
-		"src-prefix": "pkg",
-		"test-dir":   "",
-	}
-	for name, want := range stringDefaults {
-		got, err := fl.GetString(name)
-		if err != nil {
-			t.Errorf("flag %q: %v", name, err)
-			continue
-		}
-		if got != want {
-			t.Errorf("flag %q default = %q, want %q", name, got, want)
-		}
-	}
-
-	gotP, errP := fl.GetInt("parallelism")
-	if errP != nil {
-		t.Errorf("flag parallelism: %v", errP)
-	} else if gotP != 0 {
-		t.Errorf("flag parallelism default = %d, want 0", gotP)
-	}
+	fl := NewCovratchetCommand().Flags()
+	assertStringDefaults(t, fl, map[string]string{
+		"packages": "./...", "src-prefix": "pkg", "test-dir": "",
+	})
+	assertIntDefaults(t, fl, map[string]int{"parallelism": 0})
 }
 
 func TestNewCovratchetCommand_NoDefaultThreshold(t *testing.T) {

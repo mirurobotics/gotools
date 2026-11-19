@@ -68,13 +68,8 @@ func AssertRowsOnce(t *testing.T, out string, pkgs ...string) {
 // WriteTestModule chdirs into a temp module whose mypkg holds lib and test.
 func WriteTestModule(t *testing.T, lib, test string) {
 	t.Helper()
-	tmp := t.TempDir()
-	t.Chdir(tmp)
+	tmp := MakePkgDirs(t, "mypkg")
 	pkg := filepath.Join(tmp, "mypkg")
-	//nolint:gosec // G301: test directory
-	if err := os.MkdirAll(pkg, 0o755); err != nil {
-		t.Fatal(err)
-	}
 	files := map[string]string{
 		filepath.Join(tmp, "go.mod"):      "module testmod\n\ngo 1.23\n",
 		filepath.Join(pkg, "lib.go"):      lib,
