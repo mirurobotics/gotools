@@ -6,8 +6,10 @@
 //     entry points down through their helpers;
 //   - an exported entry point (a function nothing in the file calls), main or
 //     init sits above unexported functions that nothing in the file calls;
-//   - a type's methods sit together directly below the type, ordered by the
-//     same rules; Fix moves the type down to its methods.
+//   - a type's methods sit together below the type, ordered by the same rules;
+//     a type declared on its own sits directly above its methods, and Fix
+//     moves the type, with any declarations right after it, to its first
+//     method.
 //
 // Calls are matched by name, and methods only through their receiver, so
 // calls across files or through other values are not constrained. Recursion

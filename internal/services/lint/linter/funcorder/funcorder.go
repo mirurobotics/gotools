@@ -37,9 +37,7 @@ func Fix(fset *token.FileSet, f *ast.File, src []byte) []byte {
 }
 
 func (m *model) violations(x *fn) []string {
-	checks := []func(*fn) string{
-		m.stepdown, m.rankOrder, m.belowType, m.grouped, m.typeAbove,
-	}
+	checks := []func(*fn) string{m.stepdown, m.rankOrder, m.belowType, m.grouped}
 	if x.exempt {
 		checks = checks[2:]
 	}
@@ -86,24 +84,19 @@ func (m *model) grouped(x *fn) string {
 			prev = y.idx
 		}
 	}
-	if prev < 0 || prev == x.idx-1 {
-		return ""
+	if prev >= 0 && prev != x.idx-1 {
+		return fmt.Sprintf(
+			"method %q should be grouped with the other methods of %q", x.name, x.recv,
+		)
 	}
-	return fmt.Sprintf(
-		"method %q should be grouped with the other methods of %q", x.name, x.recv,
-	)
-}
-
-func (m *model) typeAbove(x *fn) string {
 	t, ok := m.soloType[x.recv]
-	earlier := func(y *fn) bool { return y.recv == x.recv && y.idx < x.idx }
-	if !ok || t > x.idx || slices.ContainsFunc(m.funcs(), earlier) {
+	if prev >= 0 || !ok || t > x.idx {
 		return ""
 	}
-	if head := m.typeHead(t, m.gluedTypes()); head[len(head)-1] == x.idx-1 {
-		return ""
+	if head := m.typeHead(t, m.gluedTypes()); head[len(head)-1] != x.idx-1 {
+		return fmt.Sprintf("type %q should be directly above its methods", x.recv)
 	}
-	return fmt.Sprintf("type %q should be directly above its methods", x.recv)
+	return ""
 }
 
 func (m *model) order() []int {
