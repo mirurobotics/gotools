@@ -9,7 +9,7 @@ import (
 
 // Check reports t.TempDir references; use test_dirs.CreateTemp instead.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	pkg := testingPkgName(f)
+	pkg := analysis.PkgImportName(f, "testing")
 	if pkg == "" {
 		return nil
 	}
@@ -43,19 +43,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	})
 
 	return diags
-}
-
-func testingPkgName(f *ast.File) string {
-	for _, imp := range f.Imports {
-		if imp.Path.Value != `"testing"` {
-			continue
-		}
-		if imp.Name != nil {
-			return imp.Name.Name
-		}
-		return "testing"
-	}
-	return ""
 }
 
 func handleNames(f *ast.File, pkg string) map[string]bool {
