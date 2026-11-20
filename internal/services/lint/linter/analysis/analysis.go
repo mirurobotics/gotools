@@ -17,6 +17,17 @@ func (d Diagnostic) String() string {
 	return fmt.Sprintf("%s:%d: %s", d.File, d.Line, d.Message)
 }
 
+// CollapsedLineWidth returns the visual width of the line after collapsing.
+func CollapsedLineWidth(
+	src []byte, startOff, endOff, tabWidth int, collapsed string,
+) int {
+	lineStart := LineStartOffset(src, startOff)
+	indent := VisualWidth(string(src[lineStart:startOff]), tabWidth)
+	lineEnd := LineEndOffset(src, endOff)
+	trailing := VisualWidth(string(src[endOff:lineEnd]), tabWidth)
+	return indent + VisualWidth(collapsed, tabWidth) + trailing
+}
+
 // LineStartOffset returns the offset of the start of off's line.
 func LineStartOffset(src []byte, off int) int {
 	for i := off - 1; i >= 0; i-- {
@@ -48,17 +59,6 @@ func VisualWidth(s string, tabWidth int) int {
 		}
 	}
 	return w
-}
-
-// CollapsedLineWidth returns the visual width of the line after collapsing.
-func CollapsedLineWidth(
-	src []byte, startOff, endOff, tabWidth int, collapsed string,
-) int {
-	lineStart := LineStartOffset(src, startOff)
-	indent := VisualWidth(string(src[lineStart:startOff]), tabWidth)
-	lineEnd := LineEndOffset(src, endOff)
-	trailing := VisualWidth(string(src[endOff:lineEnd]), tabWidth)
-	return indent + VisualWidth(collapsed, tabWidth) + trailing
 }
 
 // HasCommentsBetween reports whether any comment lies between open and closePos.

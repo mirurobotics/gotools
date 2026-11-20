@@ -12,41 +12,6 @@ import (
 	"time"
 )
 
-func writeScript(t *testing.T, name, body string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), name)
-	//nolint:gosec // G306: test executable
-	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
-func fakeGolangci(t *testing.T, exitCode int) string {
-	t.Helper()
-	body := "echo \"GOOS=$GOOS GOWORK=$GOWORK args=$*\"\n"
-	return writeScript(t, "golangci-lint", body+fmt.Sprintf("exit %d\n", exitCode))
-}
-
-func fakeGoTool(t *testing.T, bin string) {
-	t.Helper()
-	body := "if [ \"$*\" = \"tool -n golangci-lint\" ]; then\n" +
-		"\techo '" + bin + "'\n" +
-		"else\n" +
-		"\techo \"go $*\"\n" +
-		"fi\n"
-	goBin := writeScript(t, "go", body)
-	t.Setenv("PATH", filepath.Dir(goBin))
-}
-
-func timingNames(timings []stepTiming) []string {
-	names := make([]string, 0, len(timings))
-	for _, timing := range timings {
-		names = append(names, timing.name)
-	}
-	return names
-}
-
 func TestBuildLinterConfig_InvalidExclude(t *testing.T) {
 	//nolint:exhaustruct // only testing exclude
 	_, err := BuildLinterConfig(LinterFlags{Exclude: "nonexistent-rule"})
@@ -280,4 +245,39 @@ func TestPrintTimings(t *testing.T) {
 			t.Errorf("expected %q in output, got %q", want, s)
 		}
 	}
+}
+
+func fakeGolangci(t *testing.T, exitCode int) string {
+	t.Helper()
+	body := "echo \"GOOS=$GOOS GOWORK=$GOWORK args=$*\"\n"
+	return writeScript(t, "golangci-lint", body+fmt.Sprintf("exit %d\n", exitCode))
+}
+
+func writeScript(t *testing.T, name, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	//nolint:gosec // G306: test executable
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func fakeGoTool(t *testing.T, bin string) {
+	t.Helper()
+	body := "if [ \"$*\" = \"tool -n golangci-lint\" ]; then\n" +
+		"\techo '" + bin + "'\n" +
+		"else\n" +
+		"\techo \"go $*\"\n" +
+		"fi\n"
+	goBin := writeScript(t, "go", body)
+	t.Setenv("PATH", filepath.Dir(goBin))
+}
+
+func timingNames(timings []stepTiming) []string {
+	names := make([]string, 0, len(timings))
+	for _, timing := range timings {
+		names = append(names, timing.name)
+	}
+	return names
 }

@@ -5,20 +5,6 @@ import (
 	"testing"
 )
 
-func runDocCheck(t *testing.T, dir string, docLines, docFileLines int) (int, string) {
-	t.Helper()
-	var out strings.Builder
-	cfg := defaultCfg()
-	cfg.MaxDocLines = docLines
-	cfg.MaxDocFileLines = docFileLines
-	cfg.Out = &out
-	diags, _, err := Run(dir, false, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return diags, out.String()
-}
-
 func TestRun_Check_DocLimits(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir+"/doc.go", `// Package foo does things.
@@ -51,29 +37,6 @@ package foo
 	}
 }
 
-func assertCommentRule(t *testing.T, rule Rule, src, want string) {
-	t.Helper()
-	dir := t.TempDir()
-	writeFile(t, dir+"/foo.go", src)
-	for _, exclude := range []bool{false, true} {
-		var out strings.Builder
-		cfg := defaultCfg()
-		cfg.Exclude = map[Rule]bool{rule: exclude}
-		cfg.Out = &out
-		diags, _, err := Run(dir, false, cfg)
-		if err != nil {
-			t.Fatal(err)
-		}
-		wantDiags := 1
-		if exclude {
-			wantDiags = 0
-		}
-		if diags != wantDiags || strings.Contains(out.String(), want) == exclude {
-			t.Errorf("%s exclude=%v: %d diagnostics:\n%s", rule, exclude, diags, &out)
-		}
-	}
-}
-
 func TestRun_Check_FuncCommentRule(t *testing.T) {
 	src := "package foo\n\nfunc F() {\n\t// note\n}\n"
 	assertCommentRule(t, RuleFuncComment, src, "foo.go:4: comments")
@@ -97,4 +60,41 @@ func TestRun_Check_DocRestateRule(t *testing.T) {
 func TestRun_Check_CommentedCodeRule(t *testing.T) {
 	src := "package foo\n\n// x := 1\nconst X = 1\n"
 	assertCommentRule(t, RuleCommentedCode, src, "foo.go:3: commented-out code")
+}
+
+func runDocCheck(t *testing.T, dir string, docLines, docFileLines int) (int, string) {
+	t.Helper()
+	var out strings.Builder
+	cfg := defaultCfg()
+	cfg.MaxDocLines = docLines
+	cfg.MaxDocFileLines = docFileLines
+	cfg.Out = &out
+	diags, _, err := Run(dir, false, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return diags, out.String()
+}
+
+func assertCommentRule(t *testing.T, rule Rule, src, want string) {
+	t.Helper()
+	dir := t.TempDir()
+	writeFile(t, dir+"/foo.go", src)
+	for _, exclude := range []bool{false, true} {
+		var out strings.Builder
+		cfg := defaultCfg()
+		cfg.Exclude = map[Rule]bool{rule: exclude}
+		cfg.Out = &out
+		diags, _, err := Run(dir, false, cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantDiags := 1
+		if exclude {
+			wantDiags = 0
+		}
+		if diags != wantDiags || strings.Contains(out.String(), want) == exclude {
+			t.Errorf("%s exclude=%v: %d diagnostics:\n%s", rule, exclude, diags, &out)
+		}
+	}
 }

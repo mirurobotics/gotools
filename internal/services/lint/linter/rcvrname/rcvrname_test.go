@@ -13,12 +13,6 @@ type checkCase struct {
 	wantMsg string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_ShortReceiverR(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src:     "package foo\n\ntype Repo struct{}\n\nfunc (r Repo) Get() {}\n",
@@ -155,4 +149,10 @@ func TestReceiverTypeName_Unnamed(t *testing.T) {
 	if got := receiverTypeName(arr); got != "" {
 		t.Errorf("receiverTypeName([]T) = %q, want empty", got)
 	}
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "test.go", tt.src)
+	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
 }

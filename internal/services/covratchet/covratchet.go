@@ -90,12 +90,6 @@ func (r *runner) summarize(w io.Writer, results []ratchetResult) error {
 	return nil
 }
 
-type ratchetCtx struct {
-	module    string
-	srcPrefix string
-	testDir   string
-}
-
 func (r *runner) runPackages(
 	pkgs []string, ctx ratchetCtx, parallelism int, w io.Writer,
 ) []ratchetResult {
@@ -104,21 +98,6 @@ func (r *runner) runPackages(
 	}
 	row := func(res ratchetResult) string { return res.output }
 	return gocover.RunEach(r.progress, w, len(pkgs), parallelism, run, row)
-}
-
-func table() gocover.Table {
-	return gocover.Table{
-		Format: "%-6s  %8s  %8s  %s\n",
-		Names:  []string{"STATUS", "PREVIOUS", "CURRENT", "PACKAGE"},
-		Dashes: []string{"------", "--------", "-------", "-------"},
-	}
-}
-
-type ratchetResult struct {
-	output    string
-	updated   int
-	unchanged int
-	failed    int
 }
 
 func (r *runner) ratchetPackage(pkg, module, srcPrefix, testDir string) ratchetResult {
@@ -139,6 +118,27 @@ func (r *runner) ratchetPackage(pkg, module, srcPrefix, testDir string) ratchetR
 	}
 
 	return ratchetExisting(covgateFile, current, actual, relPkg)
+}
+
+type ratchetCtx struct {
+	module    string
+	srcPrefix string
+	testDir   string
+}
+
+func table() gocover.Table {
+	return gocover.Table{
+		Format: "%-6s  %8s  %8s  %s\n",
+		Names:  []string{"STATUS", "PREVIOUS", "CURRENT", "PACKAGE"},
+		Dashes: []string{"------", "--------", "-------", "-------"},
+	}
+}
+
+type ratchetResult struct {
+	output    string
+	updated   int
+	unchanged int
+	failed    int
 }
 
 func ratchetExisting(

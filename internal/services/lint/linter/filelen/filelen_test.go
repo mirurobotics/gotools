@@ -7,8 +7,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
 
-func body(n int) string { return strings.Repeat("var _ = 1\n", n) }
-
 type checkCase struct {
 	filename string
 	src      string
@@ -16,20 +14,6 @@ type checkCase struct {
 	wantN    int
 	wantLine int
 	wantMsg  string
-}
-
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	filename := tt.filename
-	if filename == "" {
-		filename = "test.go"
-	}
-	fset, f := linttest.Parse(t, filename, tt.src)
-	diags := Check(fset, filename, f, []byte(tt.src), tt.maxLen)
-	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
-	if tt.wantN > 0 && diags[0].Line != tt.wantLine {
-		t.Errorf("line = %d, want %d", diags[0].Line, tt.wantLine)
-	}
 }
 
 func TestCheck_DisabledWhenLimitZero(t *testing.T) {
@@ -245,4 +229,20 @@ func TestCheck_NolintOtherRuleDoesNotExempt(t *testing.T) {
 		wantLine: 2,
 		wantMsg:  "file is 101 lines (limit 5)",
 	})
+}
+
+func body(n int) string { return strings.Repeat("var _ = 1\n", n) }
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	filename := tt.filename
+	if filename == "" {
+		filename = "test.go"
+	}
+	fset, f := linttest.Parse(t, filename, tt.src)
+	diags := Check(fset, filename, f, []byte(tt.src), tt.maxLen)
+	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
+	if tt.wantN > 0 && diags[0].Line != tt.wantLine {
+		t.Errorf("line = %d, want %d", diags[0].Line, tt.wantLine)
+	}
 }

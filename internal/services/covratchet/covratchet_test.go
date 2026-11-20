@@ -91,10 +91,6 @@ const (
 	pkgRel  = "internal/foo"
 )
 
-func fakeMeasure(cov float64) func(string, []string) (float64, []byte, error) {
-	return func(string, []string) (float64, []byte, error) { return cov, nil, nil }
-}
-
 func TestRatchetPackage_MeasureError(t *testing.T) {
 	testutil.MakePkgDir(t, pkgRel)
 
@@ -277,4 +273,8 @@ func TestRatchetPackage_Ok(t *testing.T) {
 	if !strings.Contains(res.output, "OK") {
 		t.Errorf("missing OK: %s", res.output)
 	}
+}
+
+func fakeMeasure(cov float64) func(string, []string) (float64, []byte, error) {
+	return func(string, []string) (float64, []byte, error) { return cov, nil, nil }
 }

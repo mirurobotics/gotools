@@ -63,13 +63,6 @@ func mutableNames(vs *ast.ValueSpec) []*ast.Ident {
 
 func isInterfaceCheck(name *ast.Ident) bool { return name.Name == "_" }
 
-func isErrVarName(name string) bool {
-	if len(name) < 3 {
-		return false
-	}
-	return strings.HasPrefix(name, "Err") || strings.HasPrefix(name, "err")
-}
-
 func isErrorSentinel(varName *ast.Ident, expr ast.Expr) bool {
 	if !isErrVarName(varName.Name) {
 		return false
@@ -79,6 +72,13 @@ func isErrorSentinel(varName *ast.Ident, expr ast.Expr) bool {
 		return false
 	}
 	return isErrorConstructor(call)
+}
+
+func isErrVarName(name string) bool {
+	if len(name) < 3 {
+		return false
+	}
+	return strings.HasPrefix(name, "Err") || strings.HasPrefix(name, "err")
 }
 
 func isErrorConstructor(call *ast.CallExpr) bool {

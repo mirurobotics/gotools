@@ -7,14 +7,6 @@ import (
 	"testing"
 )
 
-func assertTestArgs(t *testing.T, subPkg, testPrefix string, want ...string) {
-	t.Helper()
-	got := buildTestArgs(subPkg, "pkg", testPrefix, "cov.out")
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("buildTestArgs() = %v, want %v", got, want)
-	}
-}
-
 func TestBuildTestArgs_EmptySubPkg(t *testing.T) {
 	assertTestArgs(t, "", "tests",
 		"test", "-coverprofile=cov.out", "-coverpkg=./pkg/...",
@@ -33,4 +25,12 @@ func TestBuildTestArgs_SubPkgWithExtDir(t *testing.T) {
 	assertTestArgs(t, "bar", dir,
 		"test", "-coverprofile=cov.out", "-coverpkg=./pkg/bar", "./pkg/bar",
 		"./"+dir+"/bar")
+}
+
+func assertTestArgs(t *testing.T, subPkg, testPrefix string, want ...string) {
+	t.Helper()
+	got := buildTestArgs(subPkg, "pkg", testPrefix, "cov.out")
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("buildTestArgs() = %v, want %v", got, want)
+	}
 }

@@ -13,12 +13,6 @@ type checkCase struct {
 	wantMsg  string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, tt.filename, tt.src)
-	linttest.AssertCount(t, Check(fset, tt.filename, f), tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_ConstIsAllowed(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
@@ -224,4 +218,10 @@ func f() {
 		wantN:   0,
 		wantMsg: "",
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, tt.filename, tt.src)
+	linttest.AssertCount(t, Check(fset, tt.filename, f), tt.wantN, tt.wantMsg)
 }

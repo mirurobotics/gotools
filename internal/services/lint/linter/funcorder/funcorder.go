@@ -1,0 +1,227 @@
+package funcorder
+
+import (
+	"bytes"
+	"fmt"
+	"go/ast"
+	"go/token"
+	"slices"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
+)
+
+// Check reports functions that are out of control-flow order.
+func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
+	m := build(f)
+	var diags []analysis.Diagnostic
+	for _, x := range m.funcs() {
+		line := fset.Position(x.decl.Pos()).Line
+		for _, msg := range m.violations(x) {
+			diags = append(diags, analysis.Diagnostic{
+				File:    filename,
+				Line:    line,
+				Message: msg,
+			})
+		}
+	}
+	return diags
+}
+
+// Fix returns src with its declarations reordered, or nil when already ordered.
+func Fix(fset *token.FileSet, f *ast.File, src []byte) []byte {
+	order := build(f).order()
+	if slices.IsSorted(order) {
+		return nil
+	}
+	return render(fset, f, src, order)
+}
+
+func (m *model) violations(x *fn) []string {
+	checks := []func(*fn) string{m.stepdown, m.rankOrder, m.belowType, m.grouped}
+	if x.exempt {
+		checks = checks[2:]
+	}
+	var msgs []string
+	for _, check := range checks {
+		if msg := check(x); msg != "" {
+			msgs = append(msgs, msg)
+		}
+	}
+	return msgs
+}
+
+func (m *model) stepdown(x *fn) string {
+	if len(x.callers) == 0 || slices.Min(x.callers) < x.idx {
+		return ""
+	}
+	first := m.fns[slices.Min(x.callers)].name
+	return fmt.Sprintf("%q should be below its first caller %q", x.name, first)
+}
+
+func (m *model) rankOrder(x *fn) string {
+	if x.rank != 0 {
+		return ""
+	}
+	for _, y := range m.funcs() {
+		if y.idx < x.idx && mustPrecede(x, y) {
+			return fmt.Sprintf("%q should be above unexported %q", x.name, y.name)
+		}
+	}
+	return ""
+}
+
+func (m *model) belowType(x *fn) string {
+	if t, ok := m.typeDecl[x.recv]; !ok || t < x.idx {
+		return ""
+	}
+	return fmt.Sprintf("method %q should be below type %q", x.name, x.recv)
+}
+
+func (m *model) grouped(x *fn) string {
+	prev := -1
+	for _, y := range m.funcs() {
+		if y.idx < x.idx && x.recv != "" && y.recv == x.recv {
+			prev = y.idx
+		}
+	}
+	if prev < 0 || prev == x.idx-1 {
+		return ""
+	}
+	return fmt.Sprintf(
+		"method %q should be grouped with the other methods of %q", x.name, x.recv,
+	)
+}
+
+func (m *model) order() []int {
+	done := map[int]bool{}
+	var out []int
+	mark := func(i int) {
+		done[i] = true
+		out = append(out, i)
+	}
+	unitReady := func(u []int) bool { return m.unitReady(u, done) }
+	fnReady := func(i int) bool { return m.ready(m.fns[i], done) }
+	emitUnit := func(u []int) { kahn(u, fnReady, mark) }
+	kahn(m.units(), unitReady, emitUnit)
+	return out
+}
+
+func (m *model) units() [][]int {
+	var units [][]int
+	group := map[string]int{}
+	for i, x := range m.fns {
+		if x == nil || x.recv == "" {
+			units = append(units, []int{i})
+			continue
+		}
+		if u, ok := group[x.recv]; ok {
+			units[u] = append(units[u], i)
+			continue
+		}
+		group[x.recv] = len(units)
+		units = append(units, []int{i})
+	}
+	return units
+}
+
+func (m *model) unitReady(u []int, done map[int]bool) bool {
+	x := m.fns[u[0]]
+	if x == nil || x.recv == "" {
+		return m.ready(x, done)
+	}
+	if t, ok := m.typeDecl[x.recv]; ok && !done[t] {
+		return false
+	}
+	inGroup := func(i int) bool { return done[i] || slices.Contains(u, i) }
+	for _, i := range u {
+		if !m.ranked(m.fns[i], inGroup) {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *model) ready(x *fn, done map[int]bool) bool {
+	if x == nil || x.exempt {
+		return true
+	}
+	isDone := func(i int) bool { return done[i] }
+	if len(x.callers) > 0 && !slices.ContainsFunc(x.callers, isDone) {
+		return false
+	}
+	return m.ranked(x, isDone)
+}
+
+func (m *model) ranked(y *fn, isDone func(int) bool) bool {
+	for _, x := range m.funcs() {
+		if mustPrecede(x, y) && !isDone(x.idx) {
+			return false
+		}
+	}
+	return true
+}
+
+func mustPrecede(x, y *fn) bool {
+	if x.rank != 0 || x.exempt || y.exempt {
+		return false
+	}
+	if x.recv == "" && y.recv != "" {
+		return !ast.IsExported(y.recv)
+	}
+	return y.recv == x.recv && y.rank == 1
+}
+
+func kahn[T any](items []T, ready func(T) bool, emit func(T)) {
+	left := slices.Clone(items)
+	for len(left) > 0 {
+		k := max(slices.IndexFunc(left, ready), 0)
+		emit(left[k])
+		left = slices.Delete(left, k, k+1)
+	}
+}
+
+func render(fset *token.FileSet, f *ast.File, src []byte, order []int) []byte {
+	tf := fset.File(f.Pos())
+	start := boundary(tf, f, src, f.Name.End(), 0)
+	out := slices.Clone(src[:start])
+	chunks := make([][]byte, len(f.Decls))
+	for i, d := range f.Decls {
+		end := boundary(tf, f, src, d.End(), i+1)
+		chunks[i] = trimChunk(src[start:end])
+		start = end
+	}
+	for _, i := range order {
+		out = append(out, '\n')
+		out = append(out, chunks[i]...)
+	}
+	return append(out, src[start:]...)
+}
+
+func boundary(tf *token.File, f *ast.File, src []byte, end token.Pos, next int) int {
+	end = extendEnd(tf, f, end)
+	if next < len(f.Decls) && tf.Line(f.Decls[next].Pos()) == tf.Line(end) {
+		return tf.Offset(end)
+	}
+	return lineAfter(src, tf.Offset(end))
+}
+
+func extendEnd(tf *token.File, f *ast.File, end token.Pos) token.Pos {
+	for _, cg := range f.Comments {
+		if cg.Pos() >= end && tf.Line(cg.Pos()) == tf.Line(end) {
+			end = cg.End()
+		}
+	}
+	return end
+}
+
+func lineAfter(src []byte, off int) int {
+	return min(analysis.LineEndOffset(src, off)+1, len(src))
+}
+
+func trimChunk(chunk []byte) []byte {
+	chunk = bytes.TrimLeft(chunk, " \t\r\n;")
+	if len(chunk) == 0 || chunk[len(chunk)-1] != '\n' {
+		chunk = append(slices.Clip(chunk), '\n')
+	}
+	return chunk
+}

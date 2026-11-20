@@ -98,54 +98,6 @@ import (
 	assertNoDiags(t, src)
 }
 
-func assertNoDiags(t *testing.T, src []byte) {
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	blocks := ExtractBlocks(f)
-	diags := Check(fset, "test.go", src, blocks)
-	if len(diags) != 0 {
-		t.Errorf("expected no diagnostics, got %d: %v", len(diags), diags)
-	}
-}
-
-func assertHasDiags(t *testing.T, src []byte) {
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	blocks := ExtractBlocks(f)
-	diags := Check(fset, "test.go", src, blocks)
-	if len(diags) == 0 {
-		t.Error("expected diagnostics, got none")
-	}
-}
-
-func assertFixResult(t *testing.T, src []byte, want string) {
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	blocks := ExtractBlocks(f)
-	got := string(Fix(fset, src, blocks))
-	if got != want {
-		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", got, want)
-	}
-}
-
-func assertClassify(t *testing.T, want ImportGroup, paths ...string) {
-	t.Helper()
-	for _, path := range paths {
-		if got := classify(path); got != want {
-			t.Errorf("classify(%q) = %d, want %d", path, got, want)
-		}
-	}
-}
-
 func TestClassify_Std(t *testing.T) {
 	assertClassify(t, GroupStd,
 		"fmt", "os", "os/exec", "encoding/json", "net/http", "strings",
@@ -195,6 +147,54 @@ func TestCheckerFixerAgreement(t *testing.T) {
 	}
 	for _, src := range cases {
 		assertCheckerFixerAgree(t, []byte(src))
+	}
+}
+
+func assertNoDiags(t *testing.T, src []byte) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocks := ExtractBlocks(f)
+	diags := Check(fset, "test.go", src, blocks)
+	if len(diags) != 0 {
+		t.Errorf("expected no diagnostics, got %d: %v", len(diags), diags)
+	}
+}
+
+func assertHasDiags(t *testing.T, src []byte) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocks := ExtractBlocks(f)
+	diags := Check(fset, "test.go", src, blocks)
+	if len(diags) == 0 {
+		t.Error("expected diagnostics, got none")
+	}
+}
+
+func assertFixResult(t *testing.T, src []byte, want string) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocks := ExtractBlocks(f)
+	got := string(Fix(fset, src, blocks))
+	if got != want {
+		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func assertClassify(t *testing.T, want ImportGroup, paths ...string) {
+	t.Helper()
+	for _, path := range paths {
+		if got := classify(path); got != want {
+			t.Errorf("classify(%q) = %d, want %d", path, got, want)
+		}
 	}
 }
 

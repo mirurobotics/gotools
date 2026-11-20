@@ -11,12 +11,6 @@ type checkCase struct {
 	wantLines []int
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "foo.go", tt.src)
-	linttest.AssertLines(t, Check(fset, "foo.go", f), tt.wantLines, message)
-}
-
 func TestCheck_SectionBannerFlaggedOncePerGroup(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
@@ -152,4 +146,10 @@ func f(
 `,
 		wantLines: []int{4},
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "foo.go", tt.src)
+	linttest.AssertLines(t, Check(fset, "foo.go", f), tt.wantLines, message)
 }

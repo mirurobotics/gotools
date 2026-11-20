@@ -9,24 +9,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/testutil"
 )
 
-func orphanRunner(runTests func([]string) ([]byte, error)) (*runner, *[]string) {
-	var listedPatterns []string
-	//nolint:exhaustruct // test uses partial initialization
-	r := &runner{
-		goModule: func() (string, error) { return modName, nil },
-		goListPackages: func(string) ([]string, error) {
-			return []string{modName + "/internal/foo", modName + "/cmd/tool"}, nil
-		},
-		goListTestPackages: func(pattern string) ([]string, error) {
-			listedPatterns = append(listedPatterns, pattern)
-			return []string{modName + "/tests/foo", modName + "/tests/bar"}, nil
-		},
-		measure:  fakeMeasure(90.0),
-		runTests: runTests,
-	}
-	return r, &listedPatterns
-}
-
 func TestRun_OrphanTests_RunsUnclaimedPackage(t *testing.T) {
 	testutil.MakePkgDir(t, "internal/foo")
 
@@ -213,4 +195,22 @@ func TestRun_OrphanTests_ListError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when the test-dir listing fails")
 	}
+}
+
+func orphanRunner(runTests func([]string) ([]byte, error)) (*runner, *[]string) {
+	var listedPatterns []string
+	//nolint:exhaustruct // test uses partial initialization
+	r := &runner{
+		goModule: func() (string, error) { return modName, nil },
+		goListPackages: func(string) ([]string, error) {
+			return []string{modName + "/internal/foo", modName + "/cmd/tool"}, nil
+		},
+		goListTestPackages: func(pattern string) ([]string, error) {
+			listedPatterns = append(listedPatterns, pattern)
+			return []string{modName + "/tests/foo", modName + "/tests/bar"}, nil
+		},
+		measure:  fakeMeasure(90.0),
+		runTests: runTests,
+	}
+	return r, &listedPatterns
 }

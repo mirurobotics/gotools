@@ -19,6 +19,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funccomment"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcinline"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funclen"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcorder"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcsig"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/importalias"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/linelen"
@@ -66,21 +67,8 @@ const (
 	RuleExprWrap      Rule = "exprwrap"
 	RuleDocRestate    Rule = "docrestate"
 	RuleCommentedCode Rule = "commentedcode"
+	RuleFuncOrder     Rule = "funcorder"
 )
-
-// AllRules returns every valid rule name.
-func AllRules() []Rule {
-	return []Rule{
-		RulePkgName, RuleLineLen, RuleFuncLen, RuleFileLen, RuleNestDepth,
-		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
-		RuleTypeAssert, RuleParamCount,
-		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
-		RuleTodoIssue, RuleExprWrap,
-		RuleFuncComment, RuleDocLen, RuleStrayComment, RulePrivDoc,
-		RuleDocRestate, RuleCommentedCode,
-		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline,
-	}
-}
 
 // Config holds linter configuration.
 type Config struct {
@@ -114,6 +102,20 @@ func ValidateExclusions(exclude map[Rule]bool) error {
 	return nil
 }
 
+// AllRules returns every valid rule name.
+func AllRules() []Rule {
+	return []Rule{
+		RulePkgName, RuleLineLen, RuleFuncLen, RuleFileLen, RuleNestDepth,
+		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
+		RuleTypeAssert, RuleParamCount,
+		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
+		RuleTodoIssue, RuleExprWrap,
+		RuleFuncComment, RuleDocLen, RuleStrayComment, RulePrivDoc,
+		RuleDocRestate, RuleCommentedCode,
+		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline, RuleFuncOrder,
+	}
+}
+
 type checkInput struct {
 	fset *token.FileSet
 	path string
@@ -125,6 +127,20 @@ type ruleEntry struct {
 	rule    Rule
 	fixable bool
 	check   func(checkInput) []analysis.Diagnostic
+}
+
+func runChecks(in checkInput, cfg Config, includeFixable bool) []analysis.Diagnostic {
+	var diags []analysis.Diagnostic
+	for _, rc := range ruleCheckers(cfg) {
+		if !includeFixable && rc.fixable {
+			continue
+		}
+		if !cfg.runRule(rc.rule) {
+			continue
+		}
+		diags = append(diags, rc.check(in)...)
+	}
+	return diags
 }
 
 func ruleCheckers(cfg Config) []ruleEntry {
@@ -209,21 +225,10 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		{RuleFuncInline, true, func(in checkInput) []analysis.Diagnostic {
 			return funcinline.Check(in.fset, in.path, in.f, in.src, w, tw)
 		}},
+		{RuleFuncOrder, true, func(in checkInput) []analysis.Diagnostic {
+			return funcorder.Check(in.fset, in.path, in.f)
+		}},
 	}
-}
-
-func runChecks(in checkInput, cfg Config, includeFixable bool) []analysis.Diagnostic {
-	var diags []analysis.Diagnostic
-	for _, rc := range ruleCheckers(cfg) {
-		if !includeFixable && rc.fixable {
-			continue
-		}
-		if !cfg.runRule(rc.rule) {
-			continue
-		}
-		diags = append(diags, rc.check(in)...)
-	}
-	return diags
 }
 
 func applyCandidateFixers(
@@ -257,4 +262,25 @@ func applyCandidateFixers(
 		}
 	}
 	return src, fset, f, nil
+}
+
+func applyOrderFixer(
+	path string,
+	src []byte,
+	fset *token.FileSet,
+	f *ast.File,
+	cfg Config,
+) ([]byte, *token.FileSet, *ast.File) {
+	if !cfg.runRule(RuleFuncOrder) {
+		return src, fset, f
+	}
+	fixed := funcorder.Fix(fset, f, src)
+	if fixed == nil {
+		return src, fset, f
+	}
+	newFset, newF, err := reparse(path, fixed)
+	if err != nil {
+		return src, fset, f
+	}
+	return fixed, newFset, newF
 }

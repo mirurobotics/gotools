@@ -12,6 +12,16 @@ type NamedDoc struct {
 	Doc  *ast.CommentGroup
 }
 
+// DocGroups returns the doc comment groups outside function bodies.
+func DocGroups(f *ast.File) []*ast.CommentGroup {
+	named := NamedDocs(f)
+	docs := make([]*ast.CommentGroup, len(named))
+	for i, d := range named {
+		docs[i] = d.Doc
+	}
+	return docs
+}
+
 // NamedDocs pairs doc groups outside function bodies with their single name, if any.
 func NamedDocs(f *ast.File) []NamedDoc {
 	var docs []NamedDoc
@@ -35,36 +45,6 @@ func NamedDocs(f *ast.File) []NamedDoc {
 		return true
 	})
 	return docs
-}
-
-// DocGroups returns the doc comment groups outside function bodies.
-func DocGroups(f *ast.File) []*ast.CommentGroup {
-	named := NamedDocs(f)
-	docs := make([]*ast.CommentGroup, len(named))
-	for i, d := range named {
-		docs[i] = d.Doc
-	}
-	return docs
-}
-
-func genDeclName(d *ast.GenDecl) *ast.Ident {
-	if d.Lparen != token.NoPos || len(d.Specs) != 1 {
-		return nil
-	}
-	switch s := d.Specs[0].(type) {
-	case *ast.TypeSpec:
-		return s.Name
-	case *ast.ValueSpec:
-		return soleName(s.Names)
-	}
-	return nil
-}
-
-func soleName(names []*ast.Ident) *ast.Ident {
-	if len(names) != 1 {
-		return nil
-	}
-	return names[0]
 }
 
 // LineComments returns trailing comments of specs and fields outside function bodies.
@@ -115,6 +95,18 @@ func InAnyBody(pos token.Pos, bodies []*ast.BlockStmt) bool {
 	return false
 }
 
+// ProseLineCount counts cg lines, ignoring directives and leading/trailing blanks.
+func ProseLineCount(cg *ast.CommentGroup) int {
+	lines := ProseLines(cg)
+	for len(lines) > 0 && isBlank(lines[len(lines)-1]) {
+		lines = lines[:len(lines)-1]
+	}
+	for len(lines) > 0 && isBlank(lines[0]) {
+		lines = lines[1:]
+	}
+	return len(lines)
+}
+
 // ProseLines returns the prose lines of cg's non-directive comments, without markers.
 func ProseLines(cg *ast.CommentGroup) []string {
 	var lines []string
@@ -131,6 +123,35 @@ func ProseLines(cg *ast.CommentGroup) []string {
 	return lines
 }
 
+// Comments returns every comment in f, flattened across groups, in source order.
+func Comments(f *ast.File) []*ast.Comment {
+	var out []*ast.Comment
+	for _, cg := range f.Comments {
+		out = append(out, cg.List...)
+	}
+	return out
+}
+
+func genDeclName(d *ast.GenDecl) *ast.Ident {
+	if d.Lparen != token.NoPos || len(d.Specs) != 1 {
+		return nil
+	}
+	switch s := d.Specs[0].(type) {
+	case *ast.TypeSpec:
+		return s.Name
+	case *ast.ValueSpec:
+		return soleName(s.Names)
+	}
+	return nil
+}
+
+func soleName(names []*ast.Ident) *ast.Ident {
+	if len(names) != 1 {
+		return nil
+	}
+	return names[0]
+}
+
 func blockLines(text string) []string {
 	text = strings.TrimSuffix(strings.TrimPrefix(text, "/*"), "*/")
 	lines := strings.Split(text, "\n")
@@ -142,25 +163,4 @@ func blockLines(text string) []string {
 	return lines
 }
 
-// ProseLineCount counts cg lines, ignoring directives and leading/trailing blanks.
-func ProseLineCount(cg *ast.CommentGroup) int {
-	lines := ProseLines(cg)
-	for len(lines) > 0 && isBlank(lines[len(lines)-1]) {
-		lines = lines[:len(lines)-1]
-	}
-	for len(lines) > 0 && isBlank(lines[0]) {
-		lines = lines[1:]
-	}
-	return len(lines)
-}
-
 func isBlank(line string) bool { return strings.TrimSpace(line) == "" }
-
-// Comments returns every comment in f, flattened across groups, in source order.
-func Comments(f *ast.File) []*ast.Comment {
-	var out []*ast.Comment
-	for _, cg := range f.Comments {
-		out = append(out, cg.List...)
-	}
-	return out
-}

@@ -16,10 +16,6 @@ const (
 	pkgRel  = "internal/foo"
 )
 
-func fakeMeasure(cov float64) func(string, []string) (float64, []byte, error) {
-	return func(string, []string) (float64, []byte, error) { return cov, nil, nil }
-}
-
 func TestCheckPackage_Pass(t *testing.T) {
 	dir := testutil.MakePkgDir(t, pkgRel)
 	testutil.WriteCovgateFile(t, dir, "75.0\n")
@@ -224,20 +220,6 @@ func TestRun_GoListError(t *testing.T) {
 	}
 }
 
-func assertOutput(t *testing.T, out string, want, unwanted []string) {
-	t.Helper()
-	for _, w := range want {
-		if !strings.Contains(out, w) {
-			t.Errorf("output missing %q:\n%s", w, out)
-		}
-	}
-	for _, u := range unwanted {
-		if strings.Contains(out, u) {
-			t.Errorf("output unexpectedly contains %q:\n%s", u, out)
-		}
-	}
-}
-
 func TestMeasure_Pass(t *testing.T) {
 	testutil.WriteTestModule(t,
 		"package mypkg\n\nfunc Add(a, b int) int { return a + b }\n",
@@ -263,5 +245,23 @@ func TestMeasure_TestFailure(t *testing.T) {
 	}
 	if len(output) == 0 {
 		t.Error("expected non-empty output")
+	}
+}
+
+func fakeMeasure(cov float64) func(string, []string) (float64, []byte, error) {
+	return func(string, []string) (float64, []byte, error) { return cov, nil, nil }
+}
+
+func assertOutput(t *testing.T, out string, want, unwanted []string) {
+	t.Helper()
+	for _, w := range want {
+		if !strings.Contains(out, w) {
+			t.Errorf("output missing %q:\n%s", w, out)
+		}
+	}
+	for _, u := range unwanted {
+		if strings.Contains(out, u) {
+			t.Errorf("output unexpectedly contains %q:\n%s", u, out)
+		}
 	}
 }

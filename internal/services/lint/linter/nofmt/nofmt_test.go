@@ -15,12 +15,6 @@ type checkCase struct {
 	wantMsg  string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, tt.filename, tt.src)
-	linttest.AssertCount(t, Check(fset, tt.filename, f), tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_FmtPrintlnInLibrary(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "pkg/foo/bar.go",
@@ -227,4 +221,10 @@ func TestCheck_ExampleLookalikesInTestFileFlagged(t *testing.T) {
 		wantN:   2,
 		wantMsg: "fmt.Println" + messageSuffix,
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, tt.filename, tt.src)
+	linttest.AssertCount(t, Check(fset, tt.filename, f), tt.wantN, tt.wantMsg)
 }

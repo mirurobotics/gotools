@@ -11,17 +11,17 @@ type runner struct {
 	exec func(out io.Writer, errW io.Writer, args ...string) error
 }
 
+// RunUpdate updates all Go dependencies.
+func RunUpdate(out io.Writer, errW io.Writer) error {
+	r := runner{exec: defaultExec}
+	return r.runUpdate(out, errW)
+}
+
 func defaultExec(out io.Writer, errW io.Writer, args ...string) error {
 	cmd := cmdutil.GoCommand(args...)
 	cmd.Stdout = out
 	cmd.Stderr = errW
 	return cmd.Run()
-}
-
-// RunUpdate updates all Go dependencies.
-func RunUpdate(out io.Writer, errW io.Writer) error {
-	r := runner{exec: defaultExec}
-	return r.runUpdate(out, errW)
 }
 
 func (r *runner) runUpdate(out io.Writer, errW io.Writer) error {

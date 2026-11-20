@@ -57,6 +57,25 @@ func (r *runner) checkPackage(pkg string, ctx checkPackageCtx) checkResult {
 	return checkResult{row("PASS", ""), true, elapsed}
 }
 
+func (r *runner) checkTestOnly(pkg string, ctx checkPackageCtx) checkResult {
+	relPkg := gocover.RelPkg(pkg, ctx.module)
+
+	start := time.Now()
+	output, testErr := r.runTests([]string{"./" + relPkg})
+	elapsed := time.Since(start)
+
+	if testErr != nil {
+		return testsFailedResult(relPkg, output, elapsed)
+	}
+
+	var b strings.Builder
+	_, _ = fmt.Fprintf(
+		&b, "%-7s  %8s  %8s  %8s  %s\n",
+		"PASS", "---", "---", fmtDuration(elapsed), relPkg,
+	)
+	return checkResult{b.String(), true, elapsed}
+}
+
 func packageThreshold(relPkg string, def float64) (threshold float64, explicit bool) {
 	if v, ok := gocover.LookupThreshold("./" + relPkg); ok {
 		return v, true
@@ -77,23 +96,4 @@ func testsFailedResult(
 	_, _ = fmt.Fprint(&b, string(output))
 	_, _ = fmt.Fprintln(&b)
 	return checkResult{b.String(), false, elapsed}
-}
-
-func (r *runner) checkTestOnly(pkg string, ctx checkPackageCtx) checkResult {
-	relPkg := gocover.RelPkg(pkg, ctx.module)
-
-	start := time.Now()
-	output, testErr := r.runTests([]string{"./" + relPkg})
-	elapsed := time.Since(start)
-
-	if testErr != nil {
-		return testsFailedResult(relPkg, output, elapsed)
-	}
-
-	var b strings.Builder
-	_, _ = fmt.Fprintf(
-		&b, "%-7s  %8s  %8s  %8s  %s\n",
-		"PASS", "---", "---", fmtDuration(elapsed), relPkg,
-	)
-	return checkResult{b.String(), true, elapsed}
 }

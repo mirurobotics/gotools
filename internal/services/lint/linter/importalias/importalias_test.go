@@ -13,16 +13,6 @@ type checkCase struct {
 	wantMsg  string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	filename := tt.filename
-	if filename == "" {
-		filename = "test.go"
-	}
-	fset, f := linttest.Parse(t, filename, tt.src)
-	linttest.AssertCount(t, Check(fset, filename, f), tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_NoAlias(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "",
@@ -157,4 +147,14 @@ var x_y = my_fmt.Sprint()`,
 		wantN:   1,
 		wantMsg: `import alias "my_fmt" contains underscore; use camelCase instead`,
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	filename := tt.filename
+	if filename == "" {
+		filename = "test.go"
+	}
+	fset, f := linttest.Parse(t, filename, tt.src)
+	linttest.AssertCount(t, Check(fset, filename, f), tt.wantN, tt.wantMsg)
 }

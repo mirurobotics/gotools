@@ -105,17 +105,17 @@ func isStructTagLine(trimmed string) bool {
 	return false
 }
 
-func paramlessFuncSigRe() *regexp.Regexp {
-	return sync.OnceValue(func() *regexp.Regexp {
-		return regexp.MustCompile(`^func\s+(?:\([^)]*\)\s+)?\w+\(\)`)
-	})()
-}
-
 func isParamlessFuncSig(trimmed string) bool {
 	if !paramlessFuncSigRe().MatchString(trimmed) {
 		return false
 	}
 	return strings.Count(trimmed, "{") != strings.Count(trimmed, "}")
+}
+
+func paramlessFuncSigRe() *regexp.Regexp {
+	return sync.OnceValue(func() *regexp.Regexp {
+		return regexp.MustCompile(`^func\s+(?:\([^)]*\)\s+)?\w+\(\)`)
+	})()
 }
 
 func isStringLiteralLine(trimmed string) bool {

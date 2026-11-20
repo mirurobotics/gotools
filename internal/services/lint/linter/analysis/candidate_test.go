@@ -25,27 +25,6 @@ func TestCheckCandidates_Empty(t *testing.T) {
 	}
 }
 
-func parseCalls(t *testing.T, src string) (*token.FileSet, []*ast.CallExpr) {
-	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var calls []*ast.CallExpr
-	ast.Inspect(f, func(n ast.Node) bool {
-		if c, ok := n.(*ast.CallExpr); ok {
-			calls = append(calls, c)
-		}
-		return true
-	})
-	return fset, calls
-}
-
-func callCandidate(call *ast.CallExpr, collapsed string) Candidate {
-	return Candidate{Pos: call.Fun.Pos(), End: call.Rparen + 1, Collapsed: collapsed}
-}
-
 func TestFix_SingleCandidate(t *testing.T) {
 	src := `package foo
 
@@ -138,4 +117,25 @@ func TestCheckCandidates_WithCandidates(t *testing.T) {
 	if diags[0].File != "test.go" {
 		t.Errorf("file = %q, want %q", diags[0].File, "test.go")
 	}
+}
+
+func parseCalls(t *testing.T, src string) (*token.FileSet, []*ast.CallExpr) {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls []*ast.CallExpr
+	ast.Inspect(f, func(n ast.Node) bool {
+		if c, ok := n.(*ast.CallExpr); ok {
+			calls = append(calls, c)
+		}
+		return true
+	})
+	return fset, calls
+}
+
+func callCandidate(call *ast.CallExpr, collapsed string) Candidate {
+	return Candidate{Pos: call.Fun.Pos(), End: call.Rparen + 1, Collapsed: collapsed}
 }

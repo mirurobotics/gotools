@@ -10,31 +10,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-func defaultCfg() Config {
-	return Config{
-		MaxLineWidth:    88,
-		TabWidth:        4,
-		MaxFuncLen:      0,
-		MaxFileLen:      0,
-		MaxNestDepth:    0,
-		MaxParamCount:   0,
-		MaxDocLines:     0,
-		MaxDocFileLines: 0,
-		Exclude:         nil,
-		Out:             io.Discard,
-		Err:             io.Discard,
-	}
-}
-
-func cfgExcluding(rules ...Rule) Config {
-	cfg := defaultCfg()
-	cfg.Exclude = make(map[Rule]bool, len(rules))
-	for _, r := range rules {
-		cfg.Exclude[r] = true
-	}
-	return cfg
-}
-
 func TestDiagnostic_String(t *testing.T) {
 	d := analysis.Diagnostic{File: "foo.go", Line: 42, Message: "bad imports"}
 	want := "foo.go:42: bad imports"
@@ -217,16 +192,6 @@ func TestRun_SelfLint(t *testing.T) {
 	}
 }
 
-func writeFile(t *testing.T, path, content string) {
-	dir := path[:len(path)-len(path[strings.LastIndex(path, "/")+1:])]
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestProcessFile_FileLen(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "big.go")
@@ -245,6 +210,64 @@ func TestProcessFile_FileLen(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "file is 4 lines (limit 3)") {
 		t.Errorf("unexpected output: %s", out.String())
+	}
+}
+
+type fixResult struct {
+	diags int
+	fixed int
+	src   string
+}
+
+func TestFindGoFiles(t *testing.T) {
+	dir := t.TempDir()
+	for _, rel := range []string{
+		"a.go", "b.txt", "sub/c.go", ".hidden/d.go", "vendor/e.go", "testdata/f.go",
+	} {
+		writeFile(t, filepath.Join(dir, rel), "package p")
+	}
+	files, err := FindGoFiles(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{dir + "/a.go", dir + "/sub/c.go"}
+	if strings.Join(files, ",") != strings.Join(want, ",") {
+		t.Errorf("got %v, want %v", files, want)
+	}
+}
+
+func defaultCfg() Config {
+	return Config{
+		MaxLineWidth:    88,
+		TabWidth:        4,
+		MaxFuncLen:      0,
+		MaxFileLen:      0,
+		MaxNestDepth:    0,
+		MaxParamCount:   0,
+		MaxDocLines:     0,
+		MaxDocFileLines: 0,
+		Exclude:         nil,
+		Out:             io.Discard,
+		Err:             io.Discard,
+	}
+}
+
+func cfgExcluding(rules ...Rule) Config {
+	cfg := defaultCfg()
+	cfg.Exclude = make(map[Rule]bool, len(rules))
+	for _, r := range rules {
+		cfg.Exclude[r] = true
+	}
+	return cfg
+}
+
+func writeFile(t *testing.T, path, content string) {
+	dir := path[:len(path)-len(path[strings.LastIndex(path, "/")+1:])]
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -275,28 +298,5 @@ func assertFixed(t *testing.T, diags, fixed int, got string, want fixResult) {
 	}
 	if got != want.src {
 		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", got, want.src)
-	}
-}
-
-type fixResult struct {
-	diags int
-	fixed int
-	src   string
-}
-
-func TestFindGoFiles(t *testing.T) {
-	dir := t.TempDir()
-	for _, rel := range []string{
-		"a.go", "b.txt", "sub/c.go", ".hidden/d.go", "vendor/e.go", "testdata/f.go",
-	} {
-		writeFile(t, filepath.Join(dir, rel), "package p")
-	}
-	files, err := FindGoFiles(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{dir + "/a.go", dir + "/sub/c.go"}
-	if strings.Join(files, ",") != strings.Join(want, ",") {
-		t.Errorf("got %v, want %v", files, want)
 	}
 }

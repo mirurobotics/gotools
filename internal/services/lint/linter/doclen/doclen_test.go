@@ -14,13 +14,6 @@ type checkCase struct {
 	wantMsg   string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, tt.filename, tt.src)
-	diags := Check(fset, tt.filename, f, tt.lim)
-	linttest.AssertLines(t, diags, tt.wantLines, tt.wantMsg)
-}
-
 func TestCheck_MultiLineFuncDocFlagged(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
@@ -283,4 +276,11 @@ func F() {
 		wantLines: nil,
 		wantMsg:   "",
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, tt.filename, tt.src)
+	diags := Check(fset, tt.filename, f, tt.lim)
+	linttest.AssertLines(t, diags, tt.wantLines, tt.wantMsg)
 }

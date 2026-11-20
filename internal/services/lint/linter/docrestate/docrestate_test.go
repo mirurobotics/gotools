@@ -9,12 +9,6 @@ import (
 const restateMsg = "doc comment for Run only restates its name; " +
 	"say what it does or remove it"
 
-func assertCheck(t *testing.T, src, wantMsg string, wantLines ...int) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "foo.go", src)
-	linttest.AssertLines(t, Check(fset, "foo.go", f), wantLines, wantMsg)
-}
-
 func TestCheck_FuncDocRestatesName(t *testing.T) {
 	src := "package foo\n\n// Run runs.\nfunc Run() {}\n"
 	assertCheck(t, src, restateMsg, 3)
@@ -219,4 +213,10 @@ func TestCheck_ShortNameWordTakesNoIngForm(t *testing.T) {
 func TestCheck_StarredBlockCommentFlagged(t *testing.T) {
 	src := "package foo\n\n/*\n * Run runs.\n */\nfunc Run() {}\n"
 	assertCheck(t, src, restateMsg, 3)
+}
+
+func assertCheck(t *testing.T, src, wantMsg string, wantLines ...int) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "foo.go", src)
+	linttest.AssertLines(t, Check(fset, "foo.go", f), wantLines, wantMsg)
 }

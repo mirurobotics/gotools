@@ -14,12 +14,6 @@ type checkCase struct {
 	wantMsg string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_ContextFirstParam(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo; import "context"` +
@@ -229,4 +223,10 @@ func TestCtxParamIndex(t *testing.T) {
 			}
 		})
 	}
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "test.go", tt.src)
+	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
 }

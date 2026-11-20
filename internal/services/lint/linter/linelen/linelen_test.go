@@ -13,13 +13,6 @@ type checkCase struct {
 	wantMsg string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	diags := Check(fset, "test.go", f, []byte(tt.src), 88, 8)
-	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_ShortLine(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src:     "package foo\n\nfunc main() {}\n",
@@ -260,4 +253,11 @@ func TestCheck_ParameterlessFuncReturningStructExempt(t *testing.T) {
 		wantN:   0,
 		wantMsg: "",
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "test.go", tt.src)
+	diags := Check(fset, "test.go", f, []byte(tt.src), 88, 8)
+	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
 }

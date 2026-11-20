@@ -18,17 +18,6 @@ type checkCase struct {
 	wantMsg  string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	filename := tt.filename
-	if filename == "" {
-		filename = "test.go"
-	}
-	fset, f := linttest.Parse(t, filename, tt.src)
-	diags := Check(fset, filename, f, []byte(tt.src), tt.maxLen)
-	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_DisabledWhenLimitZero(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "",
@@ -317,4 +306,15 @@ func TestCheck_TrailingCommentOnVarLiteralNotCounted(t *testing.T) {
 		wantN:   0,
 		wantMsg: "",
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	filename := tt.filename
+	if filename == "" {
+		filename = "test.go"
+	}
+	fset, f := linttest.Parse(t, filename, tt.src)
+	diags := Check(fset, filename, f, []byte(tt.src), tt.maxLen)
+	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
 }

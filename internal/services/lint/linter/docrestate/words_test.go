@@ -5,13 +5,6 @@ import (
 	"testing"
 )
 
-func assertSplit(t *testing.T, name string, want ...string) {
-	t.Helper()
-	if got := splitName(name); !reflect.DeepEqual(got, want) {
-		t.Errorf("splitName(%q) = %v, want %v", name, got, want)
-	}
-}
-
 func TestSplitName_Words(t *testing.T) {
 	assertSplit(t, "Run", "run")
 	assertSplit(t, "NewClient", "new", "client")
@@ -26,15 +19,6 @@ func TestSplitName_Acronyms(t *testing.T) {
 	assertSplit(t, "URLs", "urls")
 	assertSplit(t, "IDsFor", "ids", "for")
 	assertSplit(t, "CPUUsage", "cpu", "usage")
-}
-
-func assertInflects(t *testing.T, want bool, pairs ...[2]string) {
-	t.Helper()
-	for _, p := range pairs {
-		if got := inflects(p[0], p[1]); got != want {
-			t.Errorf("inflects(%q, %q) = %v, want %v", p[0], p[1], got, want)
-		}
-	}
 }
 
 func TestInflects_Matches(t *testing.T) {
@@ -58,6 +42,27 @@ func TestInflects_NonMatches(t *testing.T) {
 	)
 }
 
+func TestHasSingleQuoted(t *testing.T) {
+	assertSingleQuoted(t, true, "is 'a'", "is 'max size'", "is {'a'}", "it's 'a'")
+	assertSingleQuoted(t, false, "it's Bob's", "is '' empty", "is 'open")
+}
+
+func assertSplit(t *testing.T, name string, want ...string) {
+	t.Helper()
+	if got := splitName(name); !reflect.DeepEqual(got, want) {
+		t.Errorf("splitName(%q) = %v, want %v", name, got, want)
+	}
+}
+
+func assertInflects(t *testing.T, want bool, pairs ...[2]string) {
+	t.Helper()
+	for _, p := range pairs {
+		if got := inflects(p[0], p[1]); got != want {
+			t.Errorf("inflects(%q, %q) = %v, want %v", p[0], p[1], got, want)
+		}
+	}
+}
+
 func assertSingleQuoted(t *testing.T, want bool, texts ...string) {
 	t.Helper()
 	for _, text := range texts {
@@ -65,9 +70,4 @@ func assertSingleQuoted(t *testing.T, want bool, texts ...string) {
 			t.Errorf("hasSingleQuoted(%q) = %v, want %v", text, got, want)
 		}
 	}
-}
-
-func TestHasSingleQuoted(t *testing.T) {
-	assertSingleQuoted(t, true, "is 'a'", "is 'max size'", "is {'a'}", "it's 'a'")
-	assertSingleQuoted(t, false, "it's Bob's", "is '' empty", "is 'open")
 }

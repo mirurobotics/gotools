@@ -74,6 +74,27 @@ func ProcessFile(path string, doFix bool, cfg Config) (int, bool, error) {
 	return processCheckMode(path, src, fset, f, blocks, cfg)
 }
 
+// FindGoFiles returns .go files under root, skipping hidden, vendor, testdata, codegen.
+func FindGoFiles(root string) ([]string, error) {
+	var files []string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if skipDir(info.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(path) == ".go" {
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files, err
+}
+
 func processFixMode(
 	path string,
 	src []byte,
@@ -99,6 +120,7 @@ func processFixMode(
 	if err != nil {
 		return 0, false, err
 	}
+	fixed, fset, f = applyOrderFixer(path, fixed, fset, f, cfg)
 
 	didFix := string(fixed) != string(src)
 	if didFix {
@@ -148,25 +170,4 @@ func skipDir(name string) bool {
 		return true
 	}
 	return strings.HasPrefix(name, ".")
-}
-
-// FindGoFiles returns .go files under root, skipping hidden, vendor, testdata, codegen.
-func FindGoFiles(root string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			if skipDir(info.Name()) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if filepath.Ext(path) == ".go" {
-			files = append(files, path)
-		}
-		return nil
-	})
-	return files, err
 }

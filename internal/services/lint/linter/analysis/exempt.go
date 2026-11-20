@@ -8,9 +8,6 @@ import (
 	"unicode/utf8"
 )
 
-// IsTestFile returns true if the filename ends with _test.go.
-func IsTestFile(filename string) bool { return strings.HasSuffix(filename, "_test.go") }
-
 // IsGeneratedFile reports whether a Code generated marker precedes the package line.
 func IsGeneratedFile(src []byte) bool {
 	for _, line := range bytes.Split(src, []byte("\n")) {
@@ -45,3 +42,6 @@ func IsExampleFunc(filename string, fn *ast.FuncDecl) bool {
 	r, _ := utf8.DecodeRuneInString(suffix)
 	return !unicode.IsLower(r)
 }
+
+// IsTestFile returns true if the filename ends with _test.go.
+func IsTestFile(filename string) bool { return strings.HasSuffix(filename, "_test.go") }

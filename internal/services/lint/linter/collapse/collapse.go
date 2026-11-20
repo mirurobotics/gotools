@@ -18,6 +18,21 @@ type collapseInput struct {
 	ellipsis  bool
 }
 
+// Check reports diagnostics for multi-line expressions that could be collapsed.
+func Check(
+	fset *token.FileSet,
+	filename string,
+	f *ast.File,
+	src []byte,
+	maxLineWidth, tabWidth int,
+) []analysis.Diagnostic {
+	candidates := FindCandidates(fset, f, src, maxLineWidth, tabWidth)
+	return analysis.CheckCandidates(
+		fset, filename, candidates,
+		"multi-line expression can be collapsed to single line",
+	)
+}
+
 // FindCandidates returns multi-line calls and literals that fit on one line.
 func FindCandidates(
 	fset *token.FileSet,
@@ -239,19 +254,4 @@ func isMultiLineRawString(lit *ast.BasicLit) bool {
 		return false
 	}
 	return strings.Contains(lit.Value, "\n")
-}
-
-// Check reports diagnostics for multi-line expressions that could be collapsed.
-func Check(
-	fset *token.FileSet,
-	filename string,
-	f *ast.File,
-	src []byte,
-	maxLineWidth, tabWidth int,
-) []analysis.Diagnostic {
-	candidates := FindCandidates(fset, f, src, maxLineWidth, tabWidth)
-	return analysis.CheckCandidates(
-		fset, filename, candidates,
-		"multi-line expression can be collapsed to single line",
-	)
 }

@@ -12,12 +12,6 @@ type checkCase struct {
 	wantMsg string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_CleanName(t *testing.T) {
 	runCheckCase(t, checkCase{src: `package foo`, wantN: 0, wantMsg: ""})
 }
@@ -54,4 +48,10 @@ func TestCheck_MultipleUnderscoresRejected(t *testing.T) {
 		wantMsg: "package name \"my_cool_package\" contains" +
 			" underscore; use camelCase instead",
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "test.go", tt.src)
+	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
 }

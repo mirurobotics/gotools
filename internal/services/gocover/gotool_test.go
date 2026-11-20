@@ -9,16 +9,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/testutil"
 )
 
-func makeGoProject(t *testing.T) {
-	t.Helper()
-	lib := "package mypkg\n\nfunc Add(a, b int) int { return a + b }\n"
-	testSrc := "package mypkg\n\n" +
-		"import \"testing\"\n\n" +
-		"func TestAdd(t *testing.T) {\n" +
-		"\tif Add(1,2) != 3 { t.Fatal() }\n}\n"
-	testutil.WriteTestModule(t, lib, testSrc)
-}
-
 func TestGoModule(t *testing.T) {
 	makeGoProject(t)
 
@@ -107,4 +97,14 @@ func TestRunTests_Failure(t *testing.T) {
 	if !strings.Contains(string(out), "boom") {
 		t.Errorf("output missing failure detail: %s", out)
 	}
+}
+
+func makeGoProject(t *testing.T) {
+	t.Helper()
+	lib := "package mypkg\n\nfunc Add(a, b int) int { return a + b }\n"
+	testSrc := "package mypkg\n\n" +
+		"import \"testing\"\n\n" +
+		"func TestAdd(t *testing.T) {\n" +
+		"\tif Add(1,2) != 3 { t.Fatal() }\n}\n"
+	testutil.WriteTestModule(t, lib, testSrc)
 }

@@ -8,21 +8,6 @@ import (
 	"testing"
 )
 
-func fakeExec(err error) func(io.Writer, io.Writer, ...string) error {
-	return func(io.Writer, io.Writer, ...string) error { return err }
-}
-
-func fakeExecFailAt(n int) func(io.Writer, io.Writer, ...string) error {
-	call := 0
-	return func(io.Writer, io.Writer, ...string) error {
-		call++
-		if call == n {
-			return fmt.Errorf("step %d failed", n)
-		}
-		return nil
-	}
-}
-
 func TestRunUpdate_Success(t *testing.T) {
 	var out, errW bytes.Buffer
 	r := runner{exec: fakeExec(nil)}
@@ -91,5 +76,20 @@ func TestRunUpdate_NilWriters(t *testing.T) {
 	err := r.runUpdate(nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func fakeExec(err error) func(io.Writer, io.Writer, ...string) error {
+	return func(io.Writer, io.Writer, ...string) error { return err }
+}
+
+func fakeExecFailAt(n int) func(io.Writer, io.Writer, ...string) error {
+	call := 0
+	return func(io.Writer, io.Writer, ...string) error {
+		call++
+		if call == n {
+			return fmt.Errorf("step %d failed", n)
+		}
+		return nil
 	}
 }

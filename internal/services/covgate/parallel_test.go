@@ -29,28 +29,6 @@ func TestRun_Parallelism_DefaultsToNumCPU(t *testing.T) {
 	}
 }
 
-func runPkgs(t *testing.T, progress bool, parallelism int, rels ...string) string {
-	t.Helper()
-	pkgs := make([]string, 0, len(rels))
-	for _, rel := range rels {
-		pkgs = append(pkgs, modName+"/"+rel)
-	}
-	var buf bytes.Buffer
-	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
-		goModule:       func() (string, error) { return modName, nil },
-		goListPackages: func(string) ([]string, error) { return pkgs, nil },
-		measure:        fakeMeasure(90.0),
-		progress:       gocover.Progress{Enabled: progress, Table: table()},
-	}
-	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: parallelism})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	return buf.String()
-}
-
 func TestRun_Parallelism(t *testing.T) {
 	testutil.MakePkgDirs(t, "pkg/a", "pkg/b", "pkg/c")
 	out := runPkgs(t, false, 2, "pkg/a", "pkg/b", "pkg/c")
@@ -86,4 +64,26 @@ func TestRun_SuppressesProgress_WhenExplicitParallelism(t *testing.T) {
 		t.Errorf("expected one STATUS header (no progress section); got %d:\n%s",
 			got, out)
 	}
+}
+
+func runPkgs(t *testing.T, progress bool, parallelism int, rels ...string) string {
+	t.Helper()
+	pkgs := make([]string, 0, len(rels))
+	for _, rel := range rels {
+		pkgs = append(pkgs, modName+"/"+rel)
+	}
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	r := runner{
+		goModule:       func() (string, error) { return modName, nil },
+		goListPackages: func(string) ([]string, error) { return pkgs, nil },
+		measure:        fakeMeasure(90.0),
+		progress:       gocover.Progress{Enabled: progress, Table: table()},
+	}
+	//nolint:exhaustruct // test uses partial initialization
+	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: parallelism})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	return buf.String()
 }
