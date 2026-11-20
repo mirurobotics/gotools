@@ -122,7 +122,7 @@ func processFixMode(
 		return 0, false, err
 	}
 	fixed, fset, f, err = applyOrderFixer(path, fixed, fset, f, cfg)
-	warnFixSkipped(cfg.Err, path, err)
+	skipped := warnFixSkipped(cfg.Err, path, err)
 
 	didFix := string(fixed) != string(src)
 	if didFix {
@@ -138,7 +138,7 @@ func processFixMode(
 	for _, d := range diags {
 		_, _ = fmt.Fprintln(cfg.Out, d)
 	}
-	return len(diags), didFix, nil
+	return len(diags) + skipped, didFix, nil
 }
 
 func processCheckMode(
@@ -174,8 +174,11 @@ func skipDir(name string) bool {
 	return strings.HasPrefix(name, ".")
 }
 
-func warnFixSkipped(w io.Writer, path string, err error) {
-	if err != nil {
-		_, _ = fmt.Fprintf(w, "warning: %s: funcorder fix skipped: %v\n", path, err)
+func warnFixSkipped(w io.Writer, path string, err error) int {
+	if err == nil {
+		return 0
 	}
+	const msg = "warning: %s: funcorder fix produced invalid Go: %v\n"
+	_, _ = fmt.Fprintf(w, msg, path, err)
+	return 1
 }

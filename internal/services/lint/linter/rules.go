@@ -275,10 +275,12 @@ func applyOrderFixer(
 		return src, fset, f, nil
 	}
 	in := checkInput{fset, path, f, src}
-	return adoptFix(in, funcorder.Fix(fset, f, src))
+	return adoptOrderFix(in, funcorder.Fix(fset, f, src))
 }
 
-func adoptFix(in checkInput, fixed []byte) ([]byte, *token.FileSet, *ast.File, error) {
+func adoptOrderFix(
+	in checkInput, fixed []byte,
+) ([]byte, *token.FileSet, *ast.File, error) {
 	if fixed == nil {
 		return in.src, in.fset, in.f, nil
 	}
