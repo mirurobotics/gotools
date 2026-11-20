@@ -47,11 +47,36 @@ func (c *checker) isAssertObject(id *ast.Ident) bool {
 	}
 	switch d := id.Obj.Decl.(type) {
 	case *ast.AssignStmt:
-		return len(d.Rhs) == 1 && c.isNewCall(d.Rhs[0])
+		return c.isNewValue(id, d.Lhs, d.Rhs)
 	case *ast.ValueSpec:
-		return len(d.Values) == 1 && c.isNewCall(d.Values[0])
+		return c.isNewValue(id, identExprs(d.Names), d.Values)
+	case *ast.Field:
+		return c.isAssertionsType(d.Type)
 	}
 	return false
+}
+
+func (c *checker) isNewValue(id *ast.Ident, lhs, rhs []ast.Expr) bool {
+	i := 0
+	for ; i < len(lhs); i++ {
+		if l, ok := lhs[i].(*ast.Ident); ok && l.Obj == id.Obj {
+			break
+		}
+	}
+	return len(lhs) == len(rhs) && i < len(rhs) && c.isNewCall(rhs[i])
+}
+
+func (c *checker) isAssertionsType(e ast.Expr) bool {
+	star, ok := e.(*ast.StarExpr)
+	if !ok {
+		return false
+	}
+	sel, ok := star.X.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != "Assertions" {
+		return false
+	}
+	pkg, ok := sel.X.(*ast.Ident)
+	return ok && c.testify[pkg.Name]
 }
 
 func (c *checker) isNewCall(e ast.Expr) bool {
@@ -77,6 +102,14 @@ func (c *checker) isParam(id *ast.Ident) bool {
 
 func (c *checker) isPkg(id *ast.Ident) bool {
 	return id.Obj == nil && c.imports[id.Name]
+}
+
+func identExprs(ids []*ast.Ident) []ast.Expr {
+	exprs := make([]ast.Expr, len(ids))
+	for i, id := range ids {
+		exprs[i] = id
+	}
+	return exprs
 }
 
 func rootIdent(e ast.Expr) *ast.Ident {

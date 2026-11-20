@@ -217,13 +217,32 @@ func TestCheck_VarAssertObjectFlagged(t *testing.T) {
 	_ = c
 }
 
-func helper(a *assert.Assertions) {
+func helper(a *assert.Assertions, r require.Assertions, n *other.Assertions, m *x) {
 	got := build()
 	a.Equal(1, got.A)
 	a.Equal(2, got.B)
 	a.Equal(3, got.C)
+	r.Equal(4, got.D)
+	n.Equal(4, got.D)
+	m.Equal(4, got.D)
 }
-`, 15)
+`, 15, 24)
+}
+
+func TestCheck_MultiAssignAssertObjectFlagged(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestY(t *testing.T) {
+	a, r := assert.New(t), require.New(t)
+	x, y := build(), 2
+	var v, w = 1, require.New(t)
+	got := build()
+	a.Equal(1, got.A)
+	r.Equal(2, got.B)
+	w.Equal(3, got.C)
+	x.Equal(4, got.D)
+	TestY.Equal(4, got.D)
+	_, _ = y, v
+}
+`, 16)
 }
 
 func TestCheck_ClosureLocalDoesNotCloseOuterGroup(t *testing.T) {
