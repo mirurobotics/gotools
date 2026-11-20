@@ -168,3 +168,39 @@ func TestCheck_PackageAndGenericCallRootsHaveNoHelperHint(t *testing.T) {
 		}
 	}
 }
+
+func TestCheck_NestedReassignStartsNewGroup(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	got := build()
+	assert.Equal(t, 1, got.A)
+	if ok {
+		got = build()
+	}
+	assert.Equal(t, 2, got.B)
+	assert.Equal(t, 3, got.C)
+}
+`)
+}
+
+func TestCheck_NamedResultNotAHelperParam(t *testing.T) {
+	assertLines(t, "foo_test.go", `func buildAndCheck(t *testing.T) (got Thing) {
+	got = build()
+	assert.Equal(t, 1, got.A)
+	assert.Equal(t, 2, got.B)
+	assert.Equal(t, 3, got.C)
+	return got
+}
+
+func noResults(t *testing.T) {}
+`, 13)
+}
+
+func TestCheck_LocalShadowingImportIsAValue(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	http := build()
+	assert.Equal(t, 1, http.A)
+	assert.Equal(t, 2, http.B)
+	assert.Equal(t, 3, http.C)
+}
+`, 13)
+}

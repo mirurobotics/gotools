@@ -15,21 +15,19 @@ func closeAssigned(open map[string]*fieldGroup, s ast.Stmt) {
 
 func assignedNames(s ast.Stmt) []string {
 	var names []string
-	switch s := s.(type) {
-	case *ast.AssignStmt:
-		for _, lhs := range s.Lhs {
-			names = append(names, rootName(lhs))
-		}
-	case *ast.IncDecStmt:
-		names = append(names, rootName(s.X))
-	case *ast.DeclStmt:
-		ast.Inspect(s, func(n ast.Node) bool {
-			if vs, ok := n.(*ast.ValueSpec); ok {
-				names = append(names, identNames(vs.Names)...)
+	ast.Inspect(s, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.AssignStmt:
+			for _, lhs := range n.Lhs {
+				names = append(names, rootName(lhs))
 			}
-			return true
-		})
-	}
+		case *ast.IncDecStmt:
+			names = append(names, rootName(n.X))
+		case *ast.ValueSpec:
+			names = append(names, identNames(n.Names)...)
+		}
+		return true
+	})
 	return names
 }
 
@@ -60,6 +58,18 @@ func (c *checker) isNewCall(e ast.Expr) bool {
 	}
 	pkg, ok := sel.X.(*ast.Ident)
 	return ok && c.testify[pkg.Name]
+}
+
+func (c *checker) isParam(id *ast.Ident) bool {
+	if id == nil || id.Obj == nil {
+		return false
+	}
+	field, ok := id.Obj.Decl.(*ast.Field)
+	return ok && !c.results[field]
+}
+
+func (c *checker) isPkg(id *ast.Ident) bool {
+	return id.Obj == nil && c.imports[id.Name]
 }
 
 func rootName(e ast.Expr) string {
@@ -109,12 +119,17 @@ func methodRecv(call *ast.CallExpr) ast.Expr {
 	return fun
 }
 
-func isParam(id *ast.Ident) bool {
-	if id == nil || id.Obj == nil {
-		return false
-	}
-	_, ok := id.Obj.Decl.(*ast.Field)
-	return ok
+func resultFields(f *ast.File) map[*ast.Field]bool {
+	fields := make(map[*ast.Field]bool)
+	ast.Inspect(f, func(n ast.Node) bool {
+		if ft, ok := n.(*ast.FuncType); ok && ft.Results != nil {
+			for _, field := range ft.Results.List {
+				fields[field] = true
+			}
+		}
+		return true
+	})
+	return fields
 }
 
 func identSet(e ast.Expr) map[string]bool {

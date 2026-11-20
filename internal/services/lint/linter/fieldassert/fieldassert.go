@@ -20,6 +20,7 @@ type checker struct {
 	f        *ast.File
 	testify  map[string]bool
 	imports  map[string]bool
+	results  map[*ast.Field]bool
 	diags    []analysis.Diagnostic
 }
 
@@ -46,6 +47,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		f:        f,
 		testify:  testify,
 		imports:  importNames(f),
+		results:  resultFields(f),
 		diags:    nil,
 	}
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -85,7 +87,7 @@ func (c *checker) checkStmts(stmts []ast.Stmt) {
 		g.fields[sel.Sel.Name] = true
 	}
 	for _, g := range groups {
-		if len(g.fields) >= MinFieldAsserts && !isParam(g.root) {
+		if len(g.fields) >= MinFieldAsserts && !c.isParam(g.root) {
 			c.report(g)
 		}
 	}
@@ -163,7 +165,7 @@ func (c *checker) asField(e ast.Expr) *ast.SelectorExpr {
 	if !ok {
 		return nil
 	}
-	if id, ok := sel.X.(*ast.Ident); ok && c.imports[id.Name] {
+	if id, ok := sel.X.(*ast.Ident); ok && c.isPkg(id) {
 		return nil
 	}
 	return sel
@@ -183,7 +185,7 @@ func (c *checker) isConstant(e ast.Expr) bool {
 		return x.Name == "true" || x.Name == "false" || x.Name == "nil"
 	case *ast.SelectorExpr:
 		id, ok := x.X.(*ast.Ident)
-		return ok && c.imports[id.Name]
+		return ok && c.isPkg(id)
 	}
 	return false
 }
