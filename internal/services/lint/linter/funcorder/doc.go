@@ -15,7 +15,7 @@
 //     user, a function or var block, with the const blocks right above it and
 //     those below it that use it.
 //
-// Calls are matched by name, methods only through their receiver; calls within
-// a cycle don't order its members. //nolint:funcorder on a function's doc lifts
-// the caller, call order and entry point rules.
+// Calls are matched by name, methods only through their receiver. A call within
+// a cycle needn't sit above its callee, but the walk follows it. A function's
+// //nolint:funcorder lifts the caller, call order and entry point rules.
 package funcorder
