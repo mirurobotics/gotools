@@ -26,6 +26,7 @@ type checker struct {
 type fieldGroup struct {
 	base   string
 	root   *ast.Ident
+	deps   map[string]bool
 	calls  []*ast.CallExpr
 	fields map[string]bool
 }
@@ -74,7 +75,7 @@ func (c *checker) checkStmts(stmts []ast.Stmt) {
 		g := open[base]
 		if g == nil {
 			g = &fieldGroup{
-				base: base, root: rootIdent(sel.X),
+				base: base, root: rootIdent(sel.X), deps: identSet(sel.X),
 				calls: nil, fields: map[string]bool{},
 			}
 			open[base] = g

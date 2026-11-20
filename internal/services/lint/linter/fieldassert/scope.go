@@ -8,7 +8,7 @@ import (
 func closeAssigned(open map[string]*fieldGroup, s ast.Stmt) {
 	for _, name := range assignedNames(s) {
 		maps.DeleteFunc(open, func(_ string, g *fieldGroup) bool {
-			return g.root != nil && g.root.Name == name
+			return g.deps[name]
 		})
 	}
 }
@@ -91,10 +91,22 @@ func rootIdent(e ast.Expr) *ast.Ident {
 }
 
 func methodRecv(call *ast.CallExpr) ast.Expr {
-	if _, ok := call.Fun.(*ast.Ident); ok {
-		return nil
+	fun := call.Fun
+	switch x := fun.(type) {
+	case *ast.IndexExpr:
+		fun = x.X
+	case *ast.IndexListExpr:
+		fun = x.X
 	}
-	return call.Fun
+	switch x := fun.(type) {
+	case *ast.Ident:
+		return nil
+	case *ast.SelectorExpr:
+		if id, ok := x.X.(*ast.Ident); ok && id.Obj == nil {
+			return nil
+		}
+	}
+	return fun
 }
 
 func isParam(id *ast.Ident) bool {
@@ -103,4 +115,15 @@ func isParam(id *ast.Ident) bool {
 	}
 	_, ok := id.Obj.Decl.(*ast.Field)
 	return ok
+}
+
+func identSet(e ast.Expr) map[string]bool {
+	names := make(map[string]bool)
+	ast.Inspect(e, func(n ast.Node) bool {
+		if id, ok := n.(*ast.Ident); ok {
+			names[id.Name] = true
+		}
+		return true
+	})
+	return names
 }

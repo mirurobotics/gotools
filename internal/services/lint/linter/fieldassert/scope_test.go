@@ -1,6 +1,7 @@
 package fieldassert
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
@@ -132,4 +133,38 @@ func TestX(t *testing.T) {
 	linttest.AssertLines(t, Check(fset, "foo_test.go", f), []int{11},
 		"3 asserts compare fields of got one at a time; compare the whole value"+
 			" in one assert, or move the checks into a helper that takes got")
+}
+
+func TestCheck_IndexChangeStartsNewGroup(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	got, i := build(), 0
+	assert.Equal(t, 1, got[i].A)
+	i++
+	assert.Equal(t, 2, got[i].B)
+	i++
+	assert.Equal(t, 3, got[i].C)
+}
+`)
+}
+
+func TestCheck_PackageAndGenericCallRootsHaveNoHelperHint(t *testing.T) {
+	fset, f := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
+	assert.Equal(t, 1, http.Load().A)
+	assert.Equal(t, 2, http.Load().B)
+	assert.Equal(t, 3, http.Load().C)
+	assert.Equal(t, 1, build[int]().A)
+	assert.Equal(t, 2, build[int]().B)
+	assert.Equal(t, 3, build[int]().C)
+	assert.Equal(t, 1, pair[int, string]().A)
+	assert.Equal(t, 2, pair[int, string]().B)
+	assert.Equal(t, 3, pair[int, string]().C)
+}
+`)
+	diags := Check(fset, "foo_test.go", f)
+	linttest.AssertLines(t, diags, []int{12, 15, 18}, "")
+	for _, d := range diags {
+		if strings.Contains(d.Message, "helper") {
+			t.Errorf("unexpected helper hint: %q", d.Message)
+		}
+	}
 }
