@@ -77,6 +77,19 @@ func Run() {}
 
 func (a A) Get() {}
 `,
+		"enum and interface assertion between type and methods": `package p
+
+type Kind int
+
+const (
+	A Kind = iota
+	B
+)
+
+var _ fmt.Stringer = A
+
+func (k Kind) String() string { return "" }
+`,
 		"exported entry above unexported entry": `package p
 
 func Run() { helper() }
@@ -227,6 +240,21 @@ func Run() { r := runner{}; r.run() }
 func (r runner) run() {}
 `,
 		`type "runner" should be directly above its methods`,
+	)
+}
+
+func TestCheck_TypeAboveAnotherTypesMethods(t *testing.T) {
+	assertMessages(t, `package p
+
+type T struct{}
+
+type U struct{}
+
+func (U) A() {}
+
+func (T) B() {}
+`,
+		`type "T" should be directly above its methods`,
 	)
 }
 

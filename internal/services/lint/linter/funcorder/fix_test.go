@@ -39,6 +39,14 @@ func TestFix_TypeMovesDownToMethods(t *testing.T) {
 		"package p\n\n"+run+"\n"+typ+"\n"+method)
 }
 
+func TestFix_TypeCarriesItsConsts(t *testing.T) {
+	typ := "type Kind int\n\nconst A Kind = 0\n"
+	run := "func Run() Kind { return A }\n"
+	method := "func (k Kind) String() string { return \"\" }\n"
+	assertFix(t, "package p\n\n"+typ+"\n"+run+"\n"+method,
+		"package p\n\n"+run+"\n"+typ+"\n"+method)
+}
+
 func TestFix_PackageLineComment(t *testing.T) {
 	head := "package p /* a\nb */\n\n"
 	assertFix(t, head+"func helper() {}\n\nfunc Run() { helper() }\n",
