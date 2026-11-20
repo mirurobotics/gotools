@@ -154,7 +154,7 @@ func callees(x *fn, byName map[string]int) []int {
 		switch n := n.(type) {
 		case *ast.SelectorExpr:
 			skip[n.Sel] = true
-			if id, ok := n.X.(*ast.Ident); ok && recv != "" && id.Name == recv {
+			if id, ok := n.X.(*ast.Ident); ok && recv != nil && id.Obj == recv.Obj {
 				add(x.recv + "." + n.Sel.Name)
 			}
 		case *ast.KeyValueExpr:
@@ -171,11 +171,11 @@ func callees(x *fn, byName map[string]int) []int {
 	return out
 }
 
-func recvName(d *ast.FuncDecl) string {
+func recvName(d *ast.FuncDecl) *ast.Ident {
 	if d.Recv == nil || len(d.Recv.List) == 0 || len(d.Recv.List[0].Names) == 0 {
-		return ""
+		return nil
 	}
-	return d.Recv.List[0].Names[0].Name
+	return d.Recv.List[0].Names[0]
 }
 
 func enforced(from, to *fn) bool {

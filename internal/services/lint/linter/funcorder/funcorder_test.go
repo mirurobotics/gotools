@@ -86,6 +86,22 @@ func (t T) e() {}
 
 func (t T) B() {}
 `,
+		"shadowed receiver": `package p
+
+type T struct{}
+
+type U struct{}
+
+func (u U) Help() {}
+
+func (t T) Help() {}
+
+func (t T) Run() {
+	for _, t := range []U{{}} {
+		t.Help()
+	}
+}
+`,
 		"composite literal key": `package p
 
 type T struct{ helper int }
@@ -197,6 +213,17 @@ func TestFix_UnexportedTypeBelowExported(t *testing.T) {
 	run := "func (r runner) run() {}\n"
 	newFn := "func New() runner { return runner{} }\n"
 	assertFix(t, typ+"\n"+run+"\n"+newFn, typ+"\n"+newFn+"\n"+run)
+}
+
+func TestFix_PackageLineComment(t *testing.T) {
+	head := "package p /* a\nb */\n\n"
+	assertFix(t, head+"func helper() {}\n\nfunc Run() { helper() }\n",
+		head+"func Run() { helper() }\n\nfunc helper() {}\n")
+}
+
+func TestFix_SharedLines(t *testing.T) {
+	assertFix(t, "package p; func helper() {}; func Run() {\n\thelper()\n}\n",
+		"package p\nfunc Run() {\n\thelper()\n}\n\nfunc helper() {}\n")
 }
 
 func TestFix(t *testing.T) {

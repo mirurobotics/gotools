@@ -1,6 +1,7 @@
 package funcorder
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -181,11 +182,11 @@ func kahn[T any](items []T, ready func(T) bool, emit func(T)) {
 
 func render(fset *token.FileSet, f *ast.File, src []byte, order []int) []byte {
 	tf := fset.File(f.Pos())
-	start := lineAfter(src, tf.Offset(f.Name.End()))
+	start := boundary(tf, f, src, f.Name.End(), 0)
 	out := slices.Clone(src[:start])
 	chunks := make([][]byte, len(f.Decls))
 	for i, d := range f.Decls {
-		end := lineAfter(src, tf.Offset(declEnd(tf, f, d)))
+		end := boundary(tf, f, src, d.End(), i+1)
 		chunks[i] = trimChunk(src[start:end])
 		start = end
 	}
@@ -196,8 +197,15 @@ func render(fset *token.FileSet, f *ast.File, src []byte, order []int) []byte {
 	return append(out, src[start:]...)
 }
 
-func declEnd(tf *token.File, f *ast.File, d ast.Decl) token.Pos {
-	end := d.End()
+func boundary(tf *token.File, f *ast.File, src []byte, end token.Pos, next int) int {
+	end = extendEnd(tf, f, end)
+	if next < len(f.Decls) && tf.Line(f.Decls[next].Pos()) == tf.Line(end) {
+		return tf.Offset(end)
+	}
+	return lineAfter(src, tf.Offset(end))
+}
+
+func extendEnd(tf *token.File, f *ast.File, end token.Pos) token.Pos {
 	for _, cg := range f.Comments {
 		if cg.Pos() >= end && tf.Line(cg.Pos()) == tf.Line(end) {
 			end = cg.End()
@@ -211,9 +219,7 @@ func lineAfter(src []byte, off int) int {
 }
 
 func trimChunk(chunk []byte) []byte {
-	for len(chunk) > 0 && (chunk[0] == '\n' || chunk[0] == '\r') {
-		chunk = chunk[1:]
-	}
+	chunk = bytes.TrimLeft(chunk, " \t\r\n;")
 	if len(chunk) == 0 || chunk[len(chunk)-1] != '\n' {
 		chunk = append(slices.Clip(chunk), '\n')
 	}
