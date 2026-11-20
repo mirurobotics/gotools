@@ -40,6 +40,16 @@ func setMode(m mode) {}
 `,
 		`type "mode" should be directly above its first user "setMode"`,
 	)
+	assertMessages(t, `package p
+
+var defaults = cfg{m: mode(1)}
+
+type mode int
+
+func setMode(m mode) {}
+`,
+		`type "mode" should be directly above its first user "defaults"`,
+	)
 }
 
 func TestCheck_PlainTypesPlaced(t *testing.T) {

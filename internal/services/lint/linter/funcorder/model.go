@@ -220,32 +220,42 @@ func callees(x *fn, byName map[string]int) []int {
 		return nil
 	}
 	recv := recvName(x.decl)
-	skip := map[*ast.Ident]bool{}
 	var out []int
 	add := func(key string) {
 		if j, ok := byName[key]; ok && j != x.idx && !slices.Contains(out, j) {
 			out = append(out, j)
 		}
 	}
-	ast.Inspect(x.decl.Body, func(n ast.Node) bool {
-		switch n := n.(type) {
-		case *ast.SelectorExpr:
-			skip[n.Sel] = true
-			if id, ok := n.X.(*ast.Ident); ok && recv != nil && id.Obj == recv.Obj {
-				add(x.recv + "." + n.Sel.Name)
-			}
-		case *ast.KeyValueExpr:
-			if k, ok := n.Key.(*ast.Ident); ok {
-				skip[k] = true
-			}
-		case *ast.Ident:
-			if !skip[n] && (n.Obj == nil || n.Obj.Kind == ast.Fun) {
-				add(n.Name)
-			}
+	onSel := func(n *ast.SelectorExpr) {
+		if id, ok := n.X.(*ast.Ident); ok && recv != nil && id.Obj == recv.Obj {
+			add(x.recv + "." + n.Sel.Name)
+		}
+	}
+	refIdents(x.decl.Body, onSel, func(id *ast.Ident) bool {
+		if id.Obj == nil || id.Obj.Kind == ast.Fun {
+			add(id.Name)
 		}
 		return true
 	})
 	return out
+}
+
+func refIdents(n ast.Node, onSel func(*ast.SelectorExpr), ref func(*ast.Ident) bool) {
+	skip := map[*ast.Ident]bool{}
+	more := true
+	ast.Inspect(n, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.SelectorExpr:
+			skip[n.Sel] = true
+			onSel(n)
+		case *ast.KeyValueExpr:
+			k, _ := n.Key.(*ast.Ident)
+			skip[k] = true
+		case *ast.Ident:
+			more = more && (skip[n] || ref(n))
+		}
+		return more
+	})
 }
 
 func recvName(d *ast.FuncDecl) *ast.Ident {
