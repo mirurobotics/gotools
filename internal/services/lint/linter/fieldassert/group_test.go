@@ -104,5 +104,13 @@ func TestCheck_HelperCallInTestifyArgStartsNewGroup(t *testing.T) {
 	require.NoError(t, mutate(got))
 	assert.Equal(t, 3, got.C)
 }
+
+func TestY(t *testing.T) {
+	var got T
+	assert.Equal(t, 1, got.A)
+	assert.Equal(t, 2, got.B)
+	require.Equal(t, 2, copy(got.Buf, src))
+	assert.Equal(t, 3, got.C)
+}
 `)
 }
