@@ -274,13 +274,20 @@ func applyOrderFixer(
 	if !cfg.runRule(RuleFuncOrder) {
 		return src, fset, f
 	}
-	fixed := funcorder.Fix(fset, f, src)
+	in := checkInput{fset, path, f, src}
+	return adoptFix(in, funcorder.Fix(fset, f, src), cfg.Err)
+}
+
+func adoptFix(
+	in checkInput, fixed []byte, errW io.Writer,
+) ([]byte, *token.FileSet, *ast.File) {
 	if fixed == nil {
-		return src, fset, f
+		return in.src, in.fset, in.f
 	}
-	newFset, newF, err := reparse(path, fixed)
+	fset, f, err := reparse(in.path, fixed)
 	if err != nil {
-		return src, fset, f
+		_, _ = fmt.Fprintf(errW, "warning: %s: fix skipped: %v\n", in.path, err)
+		return in.src, in.fset, in.f
 	}
-	return fixed, newFset, newF
+	return fixed, fset, f
 }
