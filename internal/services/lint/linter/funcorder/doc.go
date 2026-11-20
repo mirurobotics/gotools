@@ -9,8 +9,9 @@
 //
 // Calls are matched by name, and methods only through their receiver, so
 // calls across files or through other values are not constrained. Recursion
-// and call cycles are skipped, an exported function is only held below
-// exported callers, and //nolint:funcorder on a function's doc exempts it.
+// and call cycles are skipped, and an exported function is only held below
+// exported callers. //nolint:funcorder on a function's doc lifts the caller
+// and exported-first rules; an exempt method still stays with its type.
 // Fix reorders a file so that every rule holds, moving each declaration with
 // the comments above it.
 package funcorder

@@ -120,6 +120,7 @@ func processFixMode(
 	if err != nil {
 		return 0, false, err
 	}
+	fixed, fset, f = applyOrderFixer(path, fixed, fset, f, cfg)
 
 	didFix := string(fixed) != string(src)
 	if didFix {

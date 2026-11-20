@@ -315,8 +315,7 @@ func assertMessages(t *testing.T, src string, want ...string) {
 		t.Errorf("Fix changed = %v, Check found %d", fixed != nil, len(diags))
 	}
 	if fixed != nil {
-		fset, f = linttest.Parse(t, "a.go", string(fixed))
-		assertClean(t, Check(fset, "a.go", f))
+		assertStable(t, string(fixed))
 	}
 }
 
@@ -327,8 +326,7 @@ func assertFix(t *testing.T, src, want string) {
 	if got != want {
 		t.Fatalf("Fix:\n%s\nwant:\n%s", got, want)
 	}
-	fset, f = linttest.Parse(t, "a.go", got)
-	assertClean(t, Check(fset, "a.go", f))
+	assertStable(t, got)
 }
 
 func messages(diags []analysis.Diagnostic) string {
@@ -339,9 +337,13 @@ func messages(diags []analysis.Diagnostic) string {
 	return strings.Join(msgs, "\n")
 }
 
-func assertClean(t *testing.T, diags []analysis.Diagnostic) {
+func assertStable(t *testing.T, fixed string) {
 	t.Helper()
-	if len(diags) != 0 {
+	fset, f := linttest.Parse(t, "a.go", fixed)
+	if diags := Check(fset, "a.go", f); len(diags) != 0 {
 		t.Errorf("fixed source still has diagnostics: %v", diags)
+	}
+	if again := Fix(fset, f, []byte(fixed)); again != nil {
+		t.Errorf("Fix is not idempotent:\n%s", again)
 	}
 }

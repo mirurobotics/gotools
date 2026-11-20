@@ -261,7 +261,7 @@ func applyCandidateFixers(
 			return nil, nil, nil, err
 		}
 	}
-	return applyOrderFixer(path, src, fset, f, cfg)
+	return src, fset, f, nil
 }
 
 func applyOrderFixer(
@@ -270,14 +270,17 @@ func applyOrderFixer(
 	fset *token.FileSet,
 	f *ast.File,
 	cfg Config,
-) ([]byte, *token.FileSet, *ast.File, error) {
+) ([]byte, *token.FileSet, *ast.File) {
 	if !cfg.runRule(RuleFuncOrder) {
-		return src, fset, f, nil
+		return src, fset, f
 	}
 	fixed := funcorder.Fix(fset, f, src)
 	if fixed == nil {
-		return src, fset, f, nil
+		return src, fset, f
 	}
-	fset, f, err := reparse(path, fixed)
-	return fixed, fset, f, err
+	newFset, newF, err := reparse(path, fixed)
+	if err != nil {
+		return src, fset, f
+	}
+	return fixed, newFset, newF
 }
