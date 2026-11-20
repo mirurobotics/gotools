@@ -25,7 +25,12 @@ type checker struct {
 
 type scope struct {
 	params  map[string]bool
-	objects map[string]bool
+	objects []binding
+}
+
+type binding struct {
+	name     string
+	from, to token.Pos
 }
 
 type fieldGroup struct {
@@ -52,7 +57,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		imports:  importNames(f),
 		diags:    nil,
 	}
-	top := scope{params: map[string]bool{}, objects: map[string]bool{}}
+	top := scope{params: map[string]bool{}, objects: nil}
 	for _, decl := range f.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if ok && fn.Body != nil {
@@ -65,10 +70,14 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 func (c *checker) walkFunc(
 	recv *ast.FieldList, ft *ast.FuncType, body *ast.BlockStmt, outer scope,
 ) {
-	sc := scope{params: maps.Clone(outer.params), objects: maps.Clone(outer.objects)}
+	sc := scope{params: maps.Clone(outer.params), objects: outer.objects}
+	for _, name := range localDefs(body) {
+		delete(sc.params, name)
+	}
 	addNames(sc.params, recv)
 	addNames(sc.params, ft.Params)
-	maps.Copy(sc.objects, c.assertObjects(body))
+	sc.objects = append(sc.objects[:len(sc.objects):len(sc.objects)],
+		c.assertObjects(body)...)
 	ast.Inspect(body, func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.FuncLit:
@@ -169,7 +178,7 @@ func (c *checker) comparedValues(
 	}
 	first := 0
 	switch {
-	case sc.objects[recv.Name]:
+	case sc.isObject(recv):
 	case c.testify[recv.Name]:
 		first = 1
 	default:
@@ -190,38 +199,6 @@ func (c *checker) asField(e ast.Expr) *ast.SelectorExpr {
 		return nil
 	}
 	return sel
-}
-
-func (c *checker) assertObjects(body *ast.BlockStmt) map[string]bool {
-	names := make(map[string]bool)
-	ast.Inspect(body, func(n ast.Node) bool {
-		if _, ok := n.(*ast.FuncLit); ok {
-			return false
-		}
-		as, ok := n.(*ast.AssignStmt)
-		if !ok || len(as.Lhs) != 1 || len(as.Rhs) != 1 {
-			return true
-		}
-		id, ok := as.Lhs[0].(*ast.Ident)
-		if ok && c.isNewCall(as.Rhs[0]) {
-			names[id.Name] = true
-		}
-		return true
-	})
-	return names
-}
-
-func (c *checker) isNewCall(e ast.Expr) bool {
-	call, ok := e.(*ast.CallExpr)
-	if !ok {
-		return false
-	}
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || sel.Sel.Name != "New" {
-		return false
-	}
-	pkg, ok := sel.X.(*ast.Ident)
-	return ok && c.testify[pkg.Name]
 }
 
 func (c *checker) isConstant(e ast.Expr) bool {
