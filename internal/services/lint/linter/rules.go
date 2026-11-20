@@ -15,6 +15,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/docrestate"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/errfmt"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/exprwrap"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/fieldassert"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/filelen"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funccomment"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/funcinline"
@@ -68,6 +69,7 @@ const (
 	RuleDocRestate    Rule = "docrestate"
 	RuleCommentedCode Rule = "commentedcode"
 	RuleFuncOrder     Rule = "funcorder"
+	RuleFieldAssert   Rule = "fieldassert"
 )
 
 // Config holds linter configuration.
@@ -109,7 +111,7 @@ func AllRules() []Rule {
 		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
 		RuleTypeAssert, RuleParamCount,
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
-		RuleTodoIssue, RuleExprWrap,
+		RuleTodoIssue, RuleExprWrap, RuleFieldAssert,
 		RuleFuncComment, RuleDocLen, RuleStrayComment, RulePrivDoc,
 		RuleDocRestate, RuleCommentedCode,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline, RuleFuncOrder,
@@ -193,6 +195,9 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		}},
 		{RuleTodoIssue, false, func(in checkInput) []analysis.Diagnostic {
 			return todoissue.Check(in.fset, in.path, in.f)
+		}},
+		{RuleFieldAssert, false, func(in checkInput) []analysis.Diagnostic {
+			return fieldassert.Check(in.fset, in.path, in.f)
 		}},
 		{RuleFuncComment, false, func(in checkInput) []analysis.Diagnostic {
 			return funccomment.Check(in.fset, in.path, in.f)
