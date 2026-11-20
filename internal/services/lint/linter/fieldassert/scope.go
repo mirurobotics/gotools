@@ -3,6 +3,7 @@ package fieldassert
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 	"maps"
 )
 
@@ -207,7 +208,7 @@ func identKey(id *ast.Ident) any {
 func mayChange(n ast.Node) bool {
 	switch n := n.(type) {
 	case *ast.CallExpr:
-		return !isPureBuiltin(n.Fun)
+		return !isPureUniverseCall(n.Fun)
 	case *ast.FuncLit:
 		return true
 	case *ast.UnaryExpr:
@@ -216,15 +217,19 @@ func mayChange(n ast.Node) bool {
 	return false
 }
 
-func isPureBuiltin(fun ast.Expr) bool {
+func isPureUniverseCall(fun ast.Expr) bool {
 	id, ok := fun.(*ast.Ident)
 	if !ok || id.Obj != nil {
 		return false
 	}
-	switch id.Name {
-	case "len", "cap", "string", "int", "int64", "uint", "uint64",
-		"float64", "bool", "byte", "rune":
+	switch obj := types.Universe.Lookup(id.Name).(type) {
+	case *types.TypeName:
 		return true
+	case *types.Builtin:
+		switch obj.Name() {
+		case "len", "cap", "min", "max", "real", "imag", "complex":
+			return true
+		}
 	}
 	return false
 }

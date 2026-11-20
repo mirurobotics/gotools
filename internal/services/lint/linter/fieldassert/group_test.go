@@ -38,7 +38,7 @@ func TestCheck_ReadingTestifyArgKeepsGroup(t *testing.T) {
 	assertGotFlagged(t, `func TestZ(t *testing.T) {
 	got := build()
 	assert.Equal(t, 1, got.A)
-	assert.Len(t, string(got.Name), len(got.Items))
+	assert.Len(t, string(got.Name), max(len(got.Items), int(int32(got.N))))
 	assert.Equal(t, 2, got.B)
 	err := other()
 	assert.Equal(t, 3, got.C)
@@ -89,7 +89,7 @@ func TestZ(t *testing.T) {
 	var got T
 	assert.Equal(t, 1, got.A)
 	require.Positive(t, -got.N)
-	assert.Len(t, string(got.Name), len(got.Items))
+	assert.Len(t, string(got.Name), max(len(got.Items), int(int32(got.N))))
 	assert.Equal(t, 2, got.B)
 	assert.Equal(t, 3, got.C)
 }
