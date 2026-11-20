@@ -2,6 +2,7 @@ package funcorder
 
 import (
 	"go/ast"
+	"go/token"
 	"slices"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
@@ -24,6 +25,8 @@ func build(f *ast.File) *model {
 		fns:      make([]*fn, len(f.Decls)),
 		typeDecl: map[string]int{},
 		soloType: map[string]int{},
+		inits:    map[int]bool{},
+		heads:    nil,
 	}
 	byName := map[string]int{}
 	for i, d := range f.Decls {
@@ -38,6 +41,7 @@ func build(f *ast.File) *model {
 	for _, x := range m.funcs() {
 		m.linkCallees(x)
 	}
+	m.heads = m.typeHeads()
 	return m
 }
 
@@ -45,16 +49,8 @@ type model struct {
 	fns      []*fn
 	typeDecl map[string]int
 	soloType map[string]int
-}
-
-func (m *model) funcs() []*fn {
-	var out []*fn
-	for _, x := range m.fns {
-		if x != nil {
-			out = append(out, x)
-		}
-	}
-	return out
+	inits    map[int]bool
+	heads    map[string][]int
 }
 
 func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
@@ -67,6 +63,7 @@ func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
 		if len(d.Specs) == 1 && len(names) == 1 {
 			m.soloType[names[0]] = i
 		}
+		m.inits[i] = initializes(d)
 	case *ast.FuncDecl:
 		x := newFn(i, d)
 		m.fns[i] = x
@@ -100,6 +97,58 @@ func (m *model) reaches(from, to int) bool {
 		}
 	}
 	return false
+}
+
+func (m *model) typeHeads() map[string][]int {
+	isType := map[int]bool{}
+	for _, i := range m.typeDecl {
+		isType[i] = true
+	}
+	heads := map[string][]int{}
+	for _, x := range m.funcs() {
+		t, ok := m.soloType[x.recv]
+		if _, seen := heads[x.recv]; ok && !seen {
+			heads[x.recv] = m.typeHead(t, x.idx, isType)
+		}
+	}
+	return heads
+}
+
+func (m *model) funcs() []*fn {
+	var out []*fn
+	for _, x := range m.fns {
+		if x != nil {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+
+func (m *model) typeHead(t, dest int, isType map[int]bool) []int {
+	head := []int{t}
+	for i := t + 1; i < len(m.fns) && m.fns[i] == nil && !isType[i]; i++ {
+		head = append(head, i)
+	}
+	isInit := func(i int) bool { return m.inits[i] }
+	cut := slices.IndexFunc(head, isInit)
+	var between []int
+	for i := head[len(head)-1] + 1; i < dest; i++ {
+		between = append(between, i)
+	}
+	if cut < 0 || !slices.ContainsFunc(between, isInit) {
+		return head
+	}
+	return head[:cut]
+}
+
+func initializes(d *ast.GenDecl) bool {
+	if d.Tok != token.VAR {
+		return false
+	}
+	return slices.ContainsFunc(d.Specs, func(s ast.Spec) bool {
+		vs, ok := s.(*ast.ValueSpec)
+		return ok && len(vs.Values) > 0
+	})
 }
 
 func typeNames(gd *ast.GenDecl) []string {

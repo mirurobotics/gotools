@@ -57,6 +57,16 @@ func TestFix_TypeLeavesOtherTypesBehind(t *testing.T) {
 		"package p\n\n"+group+"\n"+an+"\n"+run+"\n"+typ+"\n"+m)
 }
 
+func TestFix_KeepsVarInitOrder(t *testing.T) {
+	typ := "type T struct{}\n"
+	a := "var a = record(\"a\")\n"
+	f := "func f() {}\n"
+	b := "var b = record(\"b\")\n"
+	m := "func (T) M() {}\n"
+	assertFix(t, "package p\n\n"+typ+"\n"+a+"\n"+f+"\n"+b+"\n"+m,
+		"package p\n\n"+a+"\n"+f+"\n"+b+"\n"+typ+"\n"+m)
+}
+
 func TestFix_PackageLineComment(t *testing.T) {
 	head := "package p /* a\nb */\n\n"
 	assertFix(t, head+"func helper() {}\n\nfunc Run() { helper() }\n",
