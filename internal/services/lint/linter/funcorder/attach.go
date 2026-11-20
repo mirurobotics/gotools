@@ -7,19 +7,28 @@ import (
 	"slices"
 )
 
-func (m *model) attach(settled bool) map[int]int {
-	a := &attacher{
-		m:     m,
-		owner: map[int]int{},
-		first: slices.IndexFunc(m.fns, func(x *fn) bool { return x != nil }),
-	}
+func (m *model) attachToTypes() map[int]int {
+	a := m.newAttacher(map[int]int{})
 	a.claimHeads()
 	a.claimTypeConsts()
+	return a.owner
+}
+
+func (m *model) attach(settled bool) map[int]int {
+	a := m.newAttacher(maps.Clone(m.typeOwner))
 	if settled {
 		a.releaseInitVars()
 	}
 	a.claimLeads(settled)
 	return a.owner
+}
+
+func (m *model) newAttacher(owner map[int]int) *attacher {
+	return &attacher{
+		m:     m,
+		owner: owner,
+		first: slices.IndexFunc(m.fns, func(x *fn) bool { return x != nil }),
+	}
 }
 
 func (m *model) declTok(i int) token.Token {

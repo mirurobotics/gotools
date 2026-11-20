@@ -44,7 +44,7 @@ func (m *model) inPlain(i int) bool {
 }
 
 func (m *model) plainOf(i int) (int, bool) {
-	if o, ok := m.owner[i]; ok {
+	if o, ok := m.typeOwner[i]; ok {
 		i = o
 	}
 	_, ok := m.plain[i]
@@ -125,12 +125,7 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 }
 
 func (m *model) plainHead(t int) []int {
-	head := []int{t}
-	for i, o := range m.owner {
-		if o == t {
-			head = append(head, i)
-		}
-	}
+	head := append([]int{t}, m.typeBlocks[t]...)
 	slices.Sort(head)
 	return head
 }

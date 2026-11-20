@@ -149,8 +149,8 @@ func (m *model) grouped(x *fn) string {
 		)
 	}
 	t, ok := m.typeDecl[x.recv]
-	headed := ok && t < x.idx && owns(m.owner, x.idx, t)
-	if prev >= 0 || !headed || owns(m.owner, x.idx, x.idx-1) {
+	headed := ok && t < x.idx && owns(m.typeOwner, x.idx, t)
+	if prev >= 0 || !headed || owns(m.typeOwner, x.idx, x.idx-1) {
 		return ""
 	}
 	return fmt.Sprintf("type %q should be directly above its methods", x.recv)

@@ -24,13 +24,15 @@ type fn struct {
 
 func build(f *ast.File) *model {
 	m := &model{
-		fns:      make([]*fn, len(f.Decls)),
-		typeDecl: map[string]int{},
-		initVars: nil,
-		plain:    nil,
-		owner:    nil,
-		opener:   nil,
-		decls:    f.Decls,
+		fns:        make([]*fn, len(f.Decls)),
+		typeDecl:   map[string]int{},
+		initVars:   nil,
+		plain:      nil,
+		typeOwner:  nil,
+		typeBlocks: nil,
+		owner:      nil,
+		opener:     nil,
+		decls:      f.Decls,
 	}
 	byName := map[string]int{}
 	for i, d := range f.Decls {
@@ -49,6 +51,8 @@ func build(f *ast.File) *model {
 	m.opener = m.cycleOpeners()
 	m.initVars = m.initVarDecls()
 	m.plain = m.plainTypes()
+	m.typeOwner = m.attachToTypes()
+	m.typeBlocks = attached(m.typeOwner)
 	m.owner = m.attach(false)
 	return m
 }
@@ -104,13 +108,15 @@ func refIdents(n ast.Node, onSel func(*ast.SelectorExpr), ref func(*ast.Ident) b
 }
 
 type model struct {
-	fns      []*fn
-	typeDecl map[string]int
-	initVars map[int]bool
-	plain    map[int][]int
-	owner    map[int]int
-	opener   map[int]int
-	decls    []ast.Decl
+	fns        []*fn
+	typeDecl   map[string]int
+	initVars   map[int]bool
+	plain      map[int][]int
+	typeOwner  map[int]int
+	typeBlocks map[int][]int
+	owner      map[int]int
+	opener     map[int]int
+	decls      []ast.Decl
 }
 
 func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
