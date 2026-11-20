@@ -6,19 +6,10 @@ import (
 	"maps"
 )
 
-func closeAssigned(open map[groupKey]*fieldGroup, s ast.Stmt) {
+func closeAssigned(open map[string]*fieldGroup, s ast.Stmt) {
 	for _, key := range assignedKeys(s) {
-		maps.DeleteFunc(open, func(_ groupKey, g *fieldGroup) bool {
-			return g.deps[key]
-		})
+		maps.DeleteFunc(open, func(_ string, g *fieldGroup) bool { return g.deps[key] })
 	}
-}
-
-func rootKey(id *ast.Ident) any {
-	if id == nil {
-		return nil
-	}
-	return identKey(id)
 }
 
 func assignedKeys(s ast.Stmt) []any {

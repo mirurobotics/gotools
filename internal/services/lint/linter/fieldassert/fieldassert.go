@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"maps"
 	"path"
 	"strings"
 
@@ -22,11 +23,6 @@ type checker struct {
 	imports  map[string]bool
 	results  map[*ast.Field]bool
 	diags    []analysis.Diagnostic
-}
-
-type groupKey struct {
-	base string
-	root any
 }
 
 type fieldGroup struct {
@@ -71,7 +67,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 
 func (c *checker) checkStmts(stmts []ast.Stmt) {
 	var groups []*fieldGroup
-	open := make(map[groupKey]*fieldGroup)
+	open := make(map[string]*fieldGroup)
 	for _, s := range stmts {
 		call, sel := c.fieldArg(s)
 		if sel == nil {
@@ -79,15 +75,14 @@ func (c *checker) checkStmts(stmts []ast.Stmt) {
 			continue
 		}
 		base := types.ExprString(ast.Unparen(sel.X))
-		root := rootIdent(sel.X)
-		key := groupKey{base: base, root: rootKey(root)}
-		g := open[key]
-		if g == nil {
+		deps := identSet(sel.X)
+		g := open[base]
+		if g == nil || !maps.Equal(g.deps, deps) {
 			g = &fieldGroup{
-				base: base, root: root, deps: identSet(sel.X),
+				base: base, root: rootIdent(sel.X), deps: deps,
 				calls: nil, fields: map[string]bool{},
 			}
-			open[key] = g
+			open[base] = g
 			groups = append(groups, g)
 		}
 		g.calls = append(g.calls, call)

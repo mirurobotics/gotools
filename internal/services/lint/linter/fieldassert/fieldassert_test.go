@@ -260,6 +260,12 @@ func TestCheck_ShadowStartsNewGroup(t *testing.T) {
 		assert.Equal(t, 2, got.B)
 		assert.Equal(t, 3, got.C)
 	})
+	t.Run("y", func(t *testing.T) {
+		assert.Equal(t, 1, got[i].A)
+		i := 1
+		assert.Equal(t, 2, got[i].B)
+		assert.Equal(t, 3, got[i].C)
+	})
 }
 `)
 }
