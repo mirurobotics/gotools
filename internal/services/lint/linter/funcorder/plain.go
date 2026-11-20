@@ -98,9 +98,15 @@ func usersOf(ts *ast.TypeSpec, decls []ast.Decl) []int {
 
 func refersTo(n ast.Node, ts *ast.TypeSpec) bool {
 	found := false
+	keys := map[*ast.Ident]bool{}
 	ast.Inspect(n, func(n ast.Node) bool {
-		id, ok := n.(*ast.Ident)
-		found = found || ok && id.Obj != nil && id.Obj.Decl == ts
+		switch n := n.(type) {
+		case *ast.KeyValueExpr:
+			k, _ := n.Key.(*ast.Ident)
+			keys[k] = true
+		case *ast.Ident:
+			found = found || !keys[n] && n.Obj != nil && n.Obj.Decl == ts
+		}
 		return !found
 	})
 	return found

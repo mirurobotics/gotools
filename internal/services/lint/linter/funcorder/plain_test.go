@@ -30,6 +30,16 @@ func show([]Name) {}
 `,
 		`type "Name" should be directly above its first user "names"`,
 	)
+	assertMessages(t, `package p
+
+type mode int
+
+var defaults = cfg{mode: 1}
+
+func setMode(m mode) {}
+`,
+		`type "mode" should be directly above its first user "setMode"`,
+	)
 }
 
 func TestCheck_PlainTypesPlaced(t *testing.T) {
