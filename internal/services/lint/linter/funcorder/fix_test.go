@@ -118,3 +118,13 @@ func TestKahn_NothingReady(t *testing.T) {
 		t.Errorf("got %v, want [1 2]", got)
 	}
 }
+
+func assertFix(t *testing.T, src, want string) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "a.go", src)
+	got := string(Fix(fset, f, []byte(src)))
+	if got != want {
+		t.Fatalf("Fix:\n%s\nwant:\n%s", got, want)
+	}
+	assertStable(t, got)
+}

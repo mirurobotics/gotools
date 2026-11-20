@@ -302,16 +302,6 @@ func assertMessages(t *testing.T, src string, want ...string) {
 	}
 }
 
-func assertFix(t *testing.T, src, want string) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "a.go", src)
-	got := string(Fix(fset, f, []byte(src)))
-	if got != want {
-		t.Fatalf("Fix:\n%s\nwant:\n%s", got, want)
-	}
-	assertStable(t, got)
-}
-
 func messages(diags []analysis.Diagnostic) string {
 	msgs := make([]string, len(diags))
 	for i, d := range diags {
