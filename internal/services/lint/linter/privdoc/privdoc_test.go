@@ -11,12 +11,6 @@ type checkCase struct {
 	wantLines []int
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "foo.go", tt.src)
-	linttest.AssertLines(t, Check(fset, "foo.go", f), tt.wantLines, message)
-}
-
 func TestCheck_UnexportedFuncAndMethodDocsFlagged(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
@@ -305,4 +299,10 @@ import "fmt"
 `,
 		wantLines: nil,
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "foo.go", tt.src)
+	linttest.AssertLines(t, Check(fset, "foo.go", f), tt.wantLines, message)
 }

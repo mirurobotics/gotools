@@ -34,41 +34,6 @@ func RunGolangciGOOS(out io.Writer, errW io.Writer, newFromRev, goos string) err
 	return runGolangciBin(out, errW, bin, newFromRev, goos)
 }
 
-func runGolangciBin(out, errW io.Writer, bin, newFromRev, goos string) error {
-	//nolint:gosec,noctx // G204: trusted subprocess
-	cmd := exec.Command(bin, golangciArgs(newFromRev)...)
-	cmd.Env = append(os.Environ(), "GOWORK=off", "GOOS="+goos)
-	cmd.Stdout = out
-	cmd.Stderr = errW
-	if err := cmd.Run(); err != nil {
-		_, _ = fmt.Fprintf(errW, "golangci-lint for %s failed: %v\n", goos, err)
-		return err
-	}
-	return nil
-}
-
-func golangciArgs(newFromRev string) []string {
-	args := []string{"run"}
-	if newFromRev != "" {
-		args = append(args, "--new-from-rev="+newFromRev)
-	}
-	return args
-}
-
-//nolint:privdoc // GOCACHEPROG= avoids a temporary tool path
-func hostToolPath(name string) (string, error) {
-	cmd := cmdutil.GoCommand("tool", "-n", name)
-	cmd.Env = append(cmd.Env,
-		"GOOS="+runtime.GOOS, "GOARCH="+runtime.GOARCH, "GOCACHEPROG=")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("resolve go tool %s: %w\n%s", name, err, stderr.String())
-	}
-	return strings.TrimSpace(stdout.String()), nil
-}
-
 // RunGofumpt runs gofumpt in fix or check mode.
 func RunGofumpt(out io.Writer, errW io.Writer, fix bool) error {
 	if fix {
@@ -153,4 +118,39 @@ func RunExternal(out io.Writer, errW io.Writer, name string, args ...string) err
 	cmd.Stdout = out
 	cmd.Stderr = errW
 	return cmd.Run()
+}
+
+func runGolangciBin(out, errW io.Writer, bin, newFromRev, goos string) error {
+	//nolint:gosec,noctx // G204: trusted subprocess
+	cmd := exec.Command(bin, golangciArgs(newFromRev)...)
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOOS="+goos)
+	cmd.Stdout = out
+	cmd.Stderr = errW
+	if err := cmd.Run(); err != nil {
+		_, _ = fmt.Fprintf(errW, "golangci-lint for %s failed: %v\n", goos, err)
+		return err
+	}
+	return nil
+}
+
+func golangciArgs(newFromRev string) []string {
+	args := []string{"run"}
+	if newFromRev != "" {
+		args = append(args, "--new-from-rev="+newFromRev)
+	}
+	return args
+}
+
+//nolint:privdoc // GOCACHEPROG= avoids a temporary tool path
+func hostToolPath(name string) (string, error) {
+	cmd := cmdutil.GoCommand("tool", "-n", name)
+	cmd.Env = append(cmd.Env,
+		"GOOS="+runtime.GOOS, "GOARCH="+runtime.GOARCH, "GOCACHEPROG=")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("resolve go tool %s: %w\n%s", name, err, stderr.String())
+	}
+	return strings.TrimSpace(stdout.String()), nil
 }

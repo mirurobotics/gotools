@@ -7,6 +7,21 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
+// Check reports diagnostics for function declarations whose body can be inlined.
+func Check(
+	fset *token.FileSet,
+	filename string,
+	f *ast.File,
+	src []byte,
+	maxLineWidth, tabWidth int,
+) []analysis.Diagnostic {
+	candidates := FindCandidates(fset, f, src, maxLineWidth, tabWidth)
+	return analysis.CheckCandidates(
+		fset, filename, candidates,
+		"function body can be inlined to single line",
+	)
+}
+
 // FindCandidates returns functions whose body fits on one line.
 func FindCandidates(
 	fset *token.FileSet,
@@ -101,19 +116,4 @@ func inlineableStmt(
 		return nil, false
 	}
 	return stmt, true
-}
-
-// Check reports diagnostics for function declarations whose body can be inlined.
-func Check(
-	fset *token.FileSet,
-	filename string,
-	f *ast.File,
-	src []byte,
-	maxLineWidth, tabWidth int,
-) []analysis.Diagnostic {
-	candidates := FindCandidates(fset, f, src, maxLineWidth, tabWidth)
-	return analysis.CheckCandidates(
-		fset, filename, candidates,
-		"function body can be inlined to single line",
-	)
 }

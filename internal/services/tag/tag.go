@@ -88,25 +88,6 @@ func Previous(prefix string, errW io.Writer) (string, error) {
 	return r.previous(prefix, errW)
 }
 
-func (r *runner) previous(prefix string, errW io.Writer) (string, error) {
-	tags, err := r.gitTags(errW)
-	if err != nil {
-		return "", err
-	}
-
-	pat := `^` + regexp.QuoteMeta(prefix) +
-		`[0-9]+\.[0-9]+\.[0-9]+$`
-	pattern := regexp.MustCompile(pat)
-	matched := FilterTags(tags, pattern)
-
-	if len(matched) == 0 {
-		return "", fmt.Errorf("no tags matching %sX.Y.Z found", prefix)
-	}
-
-	SortVersionTags(matched)
-	return matched[len(matched)-1], nil
-}
-
 // Latest finds the latest tag matching <prefix>X.Y.Z with optional pre-release suffix.
 func Latest(prefix string, errW io.Writer) (string, error) {
 	//nolint:exhaustruct // only gitTags needed
@@ -114,46 +95,11 @@ func Latest(prefix string, errW io.Writer) (string, error) {
 	return r.latest(prefix, errW)
 }
 
-func (r *runner) latest(prefix string, errW io.Writer) (string, error) {
-	tags, err := r.gitTags(errW)
-	if err != nil {
-		return "", err
-	}
-
-	pat := `^` + regexp.QuoteMeta(prefix) +
-		`[0-9]+\.[0-9]+\.[0-9]+`
-	pattern := regexp.MustCompile(pat)
-	matched := FilterTags(tags, pattern)
-
-	if len(matched) == 0 {
-		return "", fmt.Errorf("no tags matching %sX.Y.Z found", prefix)
-	}
-
-	SortVersionTags(matched)
-	return matched[len(matched)-1], nil
-}
-
 // Current returns the exact tag on HEAD.
 func Current(errW io.Writer) (string, error) {
 	//nolint:exhaustruct // only currentTag needed
 	r := runner{currentTag: defaultCurrentTag}
 	return r.current(errW)
-}
-
-func (r *runner) current(errW io.Writer) (string, error) { return r.currentTag(errW) }
-
-func defaultCurrentTag(errW io.Writer) (string, error) {
-	if errW == nil {
-		errW = os.Stderr
-	}
-	//nolint:noctx // CLI tool, no context needed
-	cmd := exec.Command("git", "describe", "--exact-match", "--tags", "HEAD")
-	cmd.Stderr = errW
-	out, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("no tag on HEAD: %w", err)
-	}
-	return strings.TrimSpace(string(out)), nil
 }
 
 // GitTags returns all git tags.
@@ -177,6 +123,60 @@ func GitTags(errW io.Writer) ([]string, error) {
 		}
 	}
 	return tags, nil
+}
+
+func (r *runner) previous(prefix string, errW io.Writer) (string, error) {
+	tags, err := r.gitTags(errW)
+	if err != nil {
+		return "", err
+	}
+
+	pat := `^` + regexp.QuoteMeta(prefix) +
+		`[0-9]+\.[0-9]+\.[0-9]+$`
+	pattern := regexp.MustCompile(pat)
+	matched := FilterTags(tags, pattern)
+
+	if len(matched) == 0 {
+		return "", fmt.Errorf("no tags matching %sX.Y.Z found", prefix)
+	}
+
+	SortVersionTags(matched)
+	return matched[len(matched)-1], nil
+}
+
+func (r *runner) latest(prefix string, errW io.Writer) (string, error) {
+	tags, err := r.gitTags(errW)
+	if err != nil {
+		return "", err
+	}
+
+	pat := `^` + regexp.QuoteMeta(prefix) +
+		`[0-9]+\.[0-9]+\.[0-9]+`
+	pattern := regexp.MustCompile(pat)
+	matched := FilterTags(tags, pattern)
+
+	if len(matched) == 0 {
+		return "", fmt.Errorf("no tags matching %sX.Y.Z found", prefix)
+	}
+
+	SortVersionTags(matched)
+	return matched[len(matched)-1], nil
+}
+
+func (r *runner) current(errW io.Writer) (string, error) { return r.currentTag(errW) }
+
+func defaultCurrentTag(errW io.Writer) (string, error) {
+	if errW == nil {
+		errW = os.Stderr
+	}
+	//nolint:noctx // CLI tool, no context needed
+	cmd := exec.Command("git", "describe", "--exact-match", "--tags", "HEAD")
+	cmd.Stderr = errW
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("no tag on HEAD: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func comparePart(a, b string) int {

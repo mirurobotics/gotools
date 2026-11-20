@@ -9,24 +9,6 @@ import (
 
 const messageSuffix = " should not be used outside main; use structured logging or t.Log"
 
-func banned() map[string]bool {
-	return map[string]bool{
-		"fmt.Print":   true,
-		"fmt.Println": true,
-		"fmt.Printf":  true,
-		"log.Print":   true,
-		"log.Println": true,
-		"log.Printf":  true,
-		"log.Fatal":   true,
-		"log.Fatalf":  true,
-		"log.Fatalln": true,
-	}
-}
-
-func builtinBanned() map[string]bool {
-	return map[string]bool{"print": true, "println": true}
-}
-
 // Check reports print and log calls outside main, cmd/, linter source, and examples.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	if isExempt(filename, f) {
@@ -60,6 +42,24 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	})
 
 	return diags
+}
+
+func banned() map[string]bool {
+	return map[string]bool{
+		"fmt.Print":   true,
+		"fmt.Println": true,
+		"fmt.Printf":  true,
+		"log.Print":   true,
+		"log.Println": true,
+		"log.Printf":  true,
+		"log.Fatal":   true,
+		"log.Fatalf":  true,
+		"log.Fatalln": true,
+	}
+}
+
+func builtinBanned() map[string]bool {
+	return map[string]bool{"print": true, "println": true}
 }
 
 func isExempt(filename string, f *ast.File) bool {

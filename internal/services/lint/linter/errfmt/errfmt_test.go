@@ -12,12 +12,6 @@ type checkCase struct {
 	wantMsg string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_LowercaseErrorString(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo; import "errors"` +
@@ -159,4 +153,10 @@ func TestCheck_BareCallNotErrorsOrFmt(t *testing.T) {
 		wantN:   0,
 		wantMsg: "",
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "test.go", tt.src)
+	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
 }

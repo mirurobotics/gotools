@@ -12,13 +12,6 @@ type checkCase struct {
 	wantLines []int
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, tt.filename, tt.src)
-	diags := Check(fset, tt.filename, f, []byte(tt.src))
-	linttest.AssertLines(t, diags, tt.wantLines, message)
-}
-
 func TestCheck_StatementsInFunctionFlaggedOncePerGroup(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo_test.go",
@@ -336,4 +329,11 @@ func f() {
 `,
 		wantLines: []int{4},
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, tt.filename, tt.src)
+	diags := Check(fset, tt.filename, f, []byte(tt.src))
+	linttest.AssertLines(t, diags, tt.wantLines, message)
 }

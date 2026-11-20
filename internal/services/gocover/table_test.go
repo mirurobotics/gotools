@@ -10,14 +10,6 @@ import (
 	"time"
 )
 
-func testTable() Table {
-	return Table{
-		Format: "%-6s  %s\n",
-		Names:  []string{"STATUS", "PACKAGE"},
-		Dashes: []string{"------", "-------"},
-	}
-}
-
 func TestProgress_WriteHeader(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -74,26 +66,34 @@ func TestProgress_RestAndIndent(t *testing.T) {
 	}
 }
 
-func emptyTable() Table { return Table{Format: "", Names: nil, Dashes: nil} }
-
-func trackedRun(peak *atomic.Int32) func(int) int {
-	var inFlight atomic.Int32
-	return func(i int) int {
-		cur := inFlight.Add(1)
-		for {
-			old := peak.Load()
-			if cur <= old || peak.CompareAndSwap(old, cur) {
-				break
-			}
-		}
-		deadline := time.Now().Add(time.Second)
-		for i < 2 && peak.Load() < 2 && time.Now().Before(deadline) {
-			time.Sleep(time.Millisecond)
-		}
-		inFlight.Add(-1)
-		return i * 10
+func TestRunEach_Disabled(t *testing.T) {
+	if out := runEach12(t, false); out != "" {
+		t.Errorf("disabled run printed %q", out)
 	}
 }
+
+func TestRunEach_Enabled(t *testing.T) {
+	lines := strings.Split(strings.TrimSuffix(runEach12(t, true), "\n"), "\n")
+	sort.Strings(lines)
+	want := make([]string, 0, 12)
+	for i := range 12 {
+		want = append(want, fmt.Sprintf("[%2d/12]  PASS  pkg%d", i+1, i))
+	}
+	sort.Strings(want)
+	if strings.Join(lines, "|") != strings.Join(want, "|") {
+		t.Errorf("progress lines = %q, want %q", lines, want)
+	}
+}
+
+func testTable() Table {
+	return Table{
+		Format: "%-6s  %s\n",
+		Names:  []string{"STATUS", "PACKAGE"},
+		Dashes: []string{"------", "-------"},
+	}
+}
+
+func emptyTable() Table { return Table{Format: "", Names: nil, Dashes: nil} }
 
 func runEach12(t *testing.T, enabled bool) string {
 	t.Helper()
@@ -116,21 +116,21 @@ func runEach12(t *testing.T, enabled bool) string {
 	return buf.String()
 }
 
-func TestRunEach_Disabled(t *testing.T) {
-	if out := runEach12(t, false); out != "" {
-		t.Errorf("disabled run printed %q", out)
-	}
-}
-
-func TestRunEach_Enabled(t *testing.T) {
-	lines := strings.Split(strings.TrimSuffix(runEach12(t, true), "\n"), "\n")
-	sort.Strings(lines)
-	want := make([]string, 0, 12)
-	for i := range 12 {
-		want = append(want, fmt.Sprintf("[%2d/12]  PASS  pkg%d", i+1, i))
-	}
-	sort.Strings(want)
-	if strings.Join(lines, "|") != strings.Join(want, "|") {
-		t.Errorf("progress lines = %q, want %q", lines, want)
+func trackedRun(peak *atomic.Int32) func(int) int {
+	var inFlight atomic.Int32
+	return func(i int) int {
+		cur := inFlight.Add(1)
+		for {
+			old := peak.Load()
+			if cur <= old || peak.CompareAndSwap(old, cur) {
+				break
+			}
+		}
+		deadline := time.Now().Add(time.Second)
+		for i < 2 && peak.Load() < 2 && time.Now().Before(deadline) {
+			time.Sleep(time.Millisecond)
+		}
+		inFlight.Add(-1)
+		return i * 10
 	}
 }

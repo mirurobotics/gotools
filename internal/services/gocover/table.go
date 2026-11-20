@@ -40,6 +40,22 @@ func (p Progress) WriteHeader(w io.Writer, total, parallelism int) {
 	_, _ = fmt.Fprintf(w, format, dashes...)
 }
 
+// Rest returns the part of output not already printed by RunEach.
+func (p Progress) Rest(output string) string {
+	if !p.Enabled {
+		return output
+	}
+	return output[strings.IndexByte(output, '\n')+1:]
+}
+
+// Indent pads an extra row past the COUNT column to line up with progress rows.
+func (p Progress) Indent(total int) string {
+	if !p.Enabled {
+		return ""
+	}
+	return strings.Repeat(" ", progressColWidth(total)) + "  "
+}
+
 // RunEach runs run(0..n-1), parallelism at a time, streaming row(result) if p.Enabled.
 func RunEach[T any](
 	p Progress,
@@ -73,22 +89,6 @@ func RunEach[T any](
 	}
 	wg.Wait()
 	return results
-}
-
-// Rest returns the part of output not already printed by RunEach.
-func (p Progress) Rest(output string) string {
-	if !p.Enabled {
-		return output
-	}
-	return output[strings.IndexByte(output, '\n')+1:]
-}
-
-// Indent pads an extra row past the COUNT column to line up with progress rows.
-func (p Progress) Indent(total int) string {
-	if !p.Enabled {
-		return ""
-	}
-	return strings.Repeat(" ", progressColWidth(total)) + "  "
 }
 
 func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }

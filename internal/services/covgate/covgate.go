@@ -158,24 +158,6 @@ func (r *runner) buildWorkItems(
 	return items, excluded, nil
 }
 
-func (r *runner) resolveExcludes(exclude string) (map[string]struct{}, error) {
-	excludedSet := make(map[string]struct{})
-	for _, raw := range strings.Split(exclude, ",") {
-		entry := strings.TrimSpace(raw)
-		if entry == "" {
-			continue
-		}
-		matched, err := r.goListPackages(entry)
-		if err != nil {
-			return nil, fmt.Errorf("resolve exclude %q: %w", entry, err)
-		}
-		for _, p := range matched {
-			excludedSet[p] = struct{}{}
-		}
-	}
-	return excludedSet, nil
-}
-
 func (r *runner) applyExclude(
 	pkgs []string, exclude string, w io.Writer,
 ) (kept []string, excluded []string, err error) {
@@ -205,6 +187,24 @@ func (r *runner) applyExclude(
 		)
 	}
 	return kept, excluded, nil
+}
+
+func (r *runner) resolveExcludes(exclude string) (map[string]struct{}, error) {
+	excludedSet := make(map[string]struct{})
+	for _, raw := range strings.Split(exclude, ",") {
+		entry := strings.TrimSpace(raw)
+		if entry == "" {
+			continue
+		}
+		matched, err := r.goListPackages(entry)
+		if err != nil {
+			return nil, fmt.Errorf("resolve exclude %q: %w", entry, err)
+		}
+		for _, p := range matched {
+			excludedSet[p] = struct{}{}
+		}
+	}
+	return excludedSet, nil
 }
 
 func (r *runner) runPackages(

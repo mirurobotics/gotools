@@ -8,6 +8,22 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
+// Check reports diagnostics for multi-line function signatures that could be collapsed.
+func Check(
+	fset *token.FileSet,
+	filename string,
+	f *ast.File,
+	src []byte,
+	maxLineWidth, tabWidth int,
+) []analysis.Diagnostic {
+	candidates := FindCandidates(fset, f, src, maxLineWidth, tabWidth)
+	return analysis.CheckCandidates(
+		fset, filename, candidates,
+		"multi-line function signature "+
+			"can be collapsed to single line",
+	)
+}
+
 // FindCandidates returns multi-line function signatures that fit on one line.
 func FindCandidates(
 	fset *token.FileSet,
@@ -205,20 +221,4 @@ func fieldText(fset *token.FileSet, field *ast.Field, src []byte) string {
 		names[i] = n.Name
 	}
 	return strings.Join(names, ", ") + " " + typeText
-}
-
-// Check reports diagnostics for multi-line function signatures that could be collapsed.
-func Check(
-	fset *token.FileSet,
-	filename string,
-	f *ast.File,
-	src []byte,
-	maxLineWidth, tabWidth int,
-) []analysis.Diagnostic {
-	candidates := FindCandidates(fset, f, src, maxLineWidth, tabWidth)
-	return analysis.CheckCandidates(
-		fset, filename, candidates,
-		"multi-line function signature "+
-			"can be collapsed to single line",
-	)
 }

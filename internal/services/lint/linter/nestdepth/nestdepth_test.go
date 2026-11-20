@@ -13,13 +13,6 @@ type checkCase struct {
 	wantMsg  string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	diags := Check(fset, "test.go", f, tt.maxDepth)
-	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_AtLimit(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
@@ -316,4 +309,11 @@ func f() {
 		wantN:    0,
 		wantMsg:  "",
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "test.go", tt.src)
+	diags := Check(fset, "test.go", f, tt.maxDepth)
+	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
 }

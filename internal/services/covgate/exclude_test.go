@@ -49,36 +49,6 @@ const (
 	pkgC = "example.com/mod/pkg/c"
 )
 
-func allThree() []string { return []string{pkgA, pkgB, pkgC} }
-
-func runExclude(t *testing.T, exclude string, lookup map[string][]string) string {
-	t.Helper()
-	var buf bytes.Buffer
-	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
-		goModule: func() (string, error) { return modName, nil },
-		goListPackages: func(pattern string) ([]string, error) {
-			out, ok := lookup[pattern]
-			if !ok {
-				return nil, fmt.Errorf("unexpected pattern %q", pattern)
-			}
-			return out, nil
-		},
-		measure: fakeMeasure(90.0),
-	}
-	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{
-		Out:              &buf,
-		DefaultThreshold: 80.0,
-		Packages:         "./...",
-		Exclude:          exclude,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	return buf.String()
-}
-
 func TestRun_Exclude_NoExclude(t *testing.T) {
 	out := runExclude(t, "", map[string][]string{"./...": allThree()})
 	assertOutput(t, out,
@@ -135,6 +105,36 @@ func TestRun_Exclude_OrderingAndCount(t *testing.T) {
 		[]string{"FAIL"})
 	assertSkippedAfterMeasured(t, out)
 	assertSkippedLine(t, out)
+}
+
+func allThree() []string { return []string{pkgA, pkgB, pkgC} }
+
+func runExclude(t *testing.T, exclude string, lookup map[string][]string) string {
+	t.Helper()
+	var buf bytes.Buffer
+	//nolint:exhaustruct // test uses partial initialization
+	r := runner{
+		goModule: func() (string, error) { return modName, nil },
+		goListPackages: func(pattern string) ([]string, error) {
+			out, ok := lookup[pattern]
+			if !ok {
+				return nil, fmt.Errorf("unexpected pattern %q", pattern)
+			}
+			return out, nil
+		},
+		measure: fakeMeasure(90.0),
+	}
+	//nolint:exhaustruct // test uses partial initialization
+	err := r.run(Opts{
+		Out:              &buf,
+		DefaultThreshold: 80.0,
+		Packages:         "./...",
+		Exclude:          exclude,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	return buf.String()
 }
 
 func assertSkippedAfterMeasured(t *testing.T, out string) {

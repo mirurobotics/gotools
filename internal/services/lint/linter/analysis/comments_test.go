@@ -61,16 +61,6 @@ func TestCommentHelpers(t *testing.T) {
 	}
 }
 
-func nonNil[T any](xs []*T) int {
-	n := 0
-	for _, x := range xs {
-		if x != nil {
-			n++
-		}
-	}
-	return n
-}
-
 func TestProseLineCount(t *testing.T) {
 	tests := []struct {
 		name string
@@ -131,21 +121,6 @@ func Local() {
 	}
 }
 
-func documentedNames(f *ast.File) []string {
-	var got []string
-	for _, d := range NamedDocs(f) {
-		if d.Doc == nil {
-			continue
-		}
-		name := "-"
-		if d.Name != nil {
-			name = d.Name.Name
-		}
-		got = append(got, name)
-	}
-	return got
-}
-
 func TestNamedDocs_Import(t *testing.T) {
 	const importSrc = "package bar\n\n// os doc.\nimport \"os\"\n"
 	fset := token.NewFileSet()
@@ -202,4 +177,29 @@ func TestComments(t *testing.T) {
 			t.Errorf("comment %d = %q, want %q", i, c.Text, want[i])
 		}
 	}
+}
+
+func nonNil[T any](xs []*T) int {
+	n := 0
+	for _, x := range xs {
+		if x != nil {
+			n++
+		}
+	}
+	return n
+}
+
+func documentedNames(f *ast.File) []string {
+	var got []string
+	for _, d := range NamedDocs(f) {
+		if d.Doc == nil {
+			continue
+		}
+		name := "-"
+		if d.Name != nil {
+			name = d.Name.Name
+		}
+		got = append(got, name)
+	}
+	return got
 }

@@ -14,17 +14,6 @@ type checkCase struct {
 	wantMsg   string
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	filename := tt.filename
-	if filename == "" {
-		filename = "test.go"
-	}
-	fset, f := linttest.Parse(t, filename, tt.src)
-	diags := Check(fset, filename, f, tt.maxParams)
-	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
-}
-
 func TestCheck_AtLimit(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "",
@@ -181,4 +170,15 @@ func TestCheck_TestFileNotExempt(t *testing.T) {
 		wantMsg: "function helper has 3 parameters (limit 2);" +
 			" consider an options struct",
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	filename := tt.filename
+	if filename == "" {
+		filename = "test.go"
+	}
+	fset, f := linttest.Parse(t, filename, tt.src)
+	diags := Check(fset, filename, f, tt.maxParams)
+	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
 }

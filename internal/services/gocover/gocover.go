@@ -63,6 +63,14 @@ func GoListTestPackages(pattern string) ([]string, error) {
 	return NonEmptyLines(out), nil
 }
 
+// GetThreshold reads the .covgate threshold, falling back to the default.
+func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
+	if v, ok := LookupThreshold(pkgDir); ok {
+		return v
+	}
+	return defaultThreshold
+}
+
 // LookupThreshold reads the coverage threshold from a .covgate file.
 func LookupThreshold(pkgDir string) (float64, bool) {
 	covFile := filepath.Join(pkgDir, ".covgate")
@@ -77,51 +85,6 @@ func LookupThreshold(pkgDir string) (float64, bool) {
 		return 0, false
 	}
 	return val, true
-}
-
-// GetThreshold reads the .covgate threshold, falling back to the default.
-func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
-	if v, ok := LookupThreshold(pkgDir); ok {
-		return v
-	}
-	return defaultThreshold
-}
-
-// ExtractCoverage parses the total coverage percentage from a Go coverage profile.
-func ExtractCoverage(coverFile string) (float64, error) {
-	if _, err := os.Stat(coverFile); err != nil {
-		return 0, fmt.Errorf("coverage file: %w", err)
-	}
-	out, err := ExecOutput(nil, "go", "tool", "cover", "-func="+coverFile)
-	if err != nil {
-		return 0, fmt.Errorf("go tool cover: %w", err)
-	}
-	val, err := ParseCoverageOutput(out)
-	if err != nil {
-		return 0, fmt.Errorf("parse coverage output: %w", err)
-	}
-	return val, nil
-}
-
-// ParseCoverageOutput extracts total coverage from "go tool cover -func" output.
-func ParseCoverageOutput(text string) (float64, error) {
-	scanner := bufio.NewScanner(strings.NewReader(text))
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "total:") {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 3 {
-			continue
-		}
-		pct := strings.TrimSuffix(fields[len(fields)-1], "%")
-		val, err := strconv.ParseFloat(pct, 64)
-		if err == nil {
-			return val, nil
-		}
-	}
-	return 0, fmt.Errorf("no total coverage line found in output")
 }
 
 // BuildTestPaths returns the test package paths for a source package.
@@ -185,6 +148,43 @@ func MeasureWithEnv(
 		return 0, output, fmt.Errorf("extract coverage: %w", coverErr)
 	}
 	return coverage, output, nil
+}
+
+// ExtractCoverage parses the total coverage percentage from a Go coverage profile.
+func ExtractCoverage(coverFile string) (float64, error) {
+	if _, err := os.Stat(coverFile); err != nil {
+		return 0, fmt.Errorf("coverage file: %w", err)
+	}
+	out, err := ExecOutput(nil, "go", "tool", "cover", "-func="+coverFile)
+	if err != nil {
+		return 0, fmt.Errorf("go tool cover: %w", err)
+	}
+	val, err := ParseCoverageOutput(out)
+	if err != nil {
+		return 0, fmt.Errorf("parse coverage output: %w", err)
+	}
+	return val, nil
+}
+
+// ParseCoverageOutput extracts total coverage from "go tool cover -func" output.
+func ParseCoverageOutput(text string) (float64, error) {
+	scanner := bufio.NewScanner(strings.NewReader(text))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "total:") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		pct := strings.TrimSuffix(fields[len(fields)-1], "%")
+		val, err := strconv.ParseFloat(pct, 64)
+		if err == nil {
+			return val, nil
+		}
+	}
+	return 0, fmt.Errorf("no total coverage line found in output")
 }
 
 // ExecOutput runs a command with GOWORK=off and returns its stdout.

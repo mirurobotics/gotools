@@ -11,18 +11,6 @@ type checkCase struct {
 	wantLines []int
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "foo.go", tt.src)
-	diags := Check(fset, "foo.go", f)
-	linttest.AssertLines(t, diags, tt.wantLines, message)
-	for _, d := range diags {
-		if d.File != "foo.go" {
-			t.Errorf("diag file = %q, want foo.go", d.File)
-		}
-	}
-}
-
 func TestCheck_TodoWithoutLinkFlagged(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
@@ -251,4 +239,16 @@ var r = 1
 `,
 		wantLines: []int{6},
 	})
+}
+
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "foo.go", tt.src)
+	diags := Check(fset, "foo.go", f)
+	linttest.AssertLines(t, diags, tt.wantLines, message)
+	for _, d := range diags {
+		if d.File != "foo.go" {
+			t.Errorf("diag file = %q, want foo.go", d.File)
+		}
+	}
 }
