@@ -274,6 +274,10 @@ type fixture struct {
 func (s *fixture) dir() string {
 	return s.t.TempDir()
 }
+
+func (s *fixture) other() string {
+	return s.m.TempDir()
+}
 `,
 		wantN:   1,
 		wantMsg: "",
@@ -339,8 +343,8 @@ func TestF(t *testing.T) {
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	fset, f := linttest.Parse(t, tt.filename, tt.src)
-	linttest.AssertCount(t, Check(fset, tt.filename, f), tt.wantN, tt.wantMsg)
+	fset, file := linttest.Parse(t, tc.filename, tc.src)
+	linttest.AssertCount(t, Check(fset, tc.filename, file), tc.wantN, tc.wantMsg)
 }

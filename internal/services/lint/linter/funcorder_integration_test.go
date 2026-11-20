@@ -31,23 +31,23 @@ func TestRun_Fix_FuncOrderExcluded(t *testing.T) {
 
 func TestAdoptFix_KeepsSourceWhenFixDoesNotParse(t *testing.T) {
 	src := []byte(unorderedSrc)
-	fset, f, err := reparse("foo.go", src)
+	fset, file, err := reparse("foo.go", src)
 	if err != nil {
 		t.Fatal(err)
 	}
-	in := checkInput{fset, "foo.go", f, src}
-	got, gotFset, gotF, err := adoptOrderFix(in, []byte("func {"))
-	kept := string(got) == unorderedSrc && gotFset == fset && gotF == f
+	input := checkInput{fset, "foo.go", file, src}
+	got, gotFset, gotF, err := adoptOrderFix(input, []byte("func {"))
+	kept := string(got) == unorderedSrc && gotFset == fset && gotF == file
 	if err == nil || !kept {
 		t.Errorf("adoptOrderFix = %q, %v; want original and error", got, err)
 	}
-	var w strings.Builder
-	if n := warnFixSkipped(&w, "foo.go", err); n != 1 {
-		t.Errorf("warnFixSkipped counted %d, want 1", n)
+	var buf strings.Builder
+	if count := warnFixSkipped(&buf, "foo.go", err); count != 1 {
+		t.Errorf("warnFixSkipped counted %d, want 1", count)
 	}
 	want := "warning: foo.go: funcorder fix produced invalid Go: "
-	if !strings.HasPrefix(w.String(), want) {
-		t.Errorf("warning = %q", w.String())
+	if !strings.HasPrefix(buf.String(), want) {
+		t.Errorf("warning = %q", buf.String())
 	}
 }
 

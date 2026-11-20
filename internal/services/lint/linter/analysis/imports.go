@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-// PkgImportName returns the local name of f's import of path, or "".
-func PkgImportName(f *ast.File, path string) string {
-	for _, imp := range f.Imports {
+// PkgImportName returns the local name of file's import of path, or "".
+func PkgImportName(file *ast.File, path string) string {
+	for _, imp := range file.Imports {
 		if ImportPath(imp) == path {
 			return ImportName(imp)
 		}
@@ -34,7 +34,7 @@ func ImportPath(imp *ast.ImportSpec) string {
 	return strings.Trim(imp.Path.Value, "\"`")
 }
 
-func isVersionElem(s string) bool {
-	digits, ok := strings.CutPrefix(s, "v")
+func isVersionElem(elem string) bool {
+	digits, ok := strings.CutPrefix(elem, "v")
 	return ok && digits != "" && strings.Trim(digits, "0123456789") == ""
 }

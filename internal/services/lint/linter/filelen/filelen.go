@@ -16,19 +16,19 @@ const ruleName = "filelen"
 func Check(
 	fset *token.FileSet,
 	filename string,
-	f *ast.File,
+	file *ast.File,
 	src []byte,
 	maxLen int,
 ) []analysis.Diagnostic {
 	if maxLen <= 0 {
 		return nil
 	}
-	count := countLines(fset, f, src)
+	count := countLines(fset, file, src)
 	if count <= maxLen {
 		return nil
 	}
-	line := fset.Position(f.Package).Line
-	if hasNolint(fset, f, line) {
+	line := fset.Position(file.Package).Line
+	if hasNolint(fset, file, line) {
 		return nil
 	}
 	return []analysis.Diagnostic{{
@@ -38,11 +38,11 @@ func Check(
 	}}
 }
 
-func countLines(fset *token.FileSet, f *ast.File, src []byte) int {
+func countLines(fset *token.FileSet, file *ast.File, src []byte) int {
 	code := bytes.Clone(src)
-	for _, c := range analysis.Comments(f) {
-		start := fset.Position(c.Pos()).Offset
-		blankRange(code, start, commentEnd(src, start, c))
+	for _, comment := range analysis.Comments(file) {
+		start := fset.Position(comment.Pos()).Offset
+		blankRange(code, start, commentEnd(src, start, comment))
 	}
 	count := 0
 	for _, line := range bytes.Split(code, []byte("\n")) {
@@ -61,25 +61,25 @@ func blankRange(code []byte, start, end int) {
 	}
 }
 
-func commentEnd(src []byte, start int, c *ast.Comment) int {
-	if !strings.HasPrefix(c.Text, "/*") {
-		return start + len(c.Text)
+func commentEnd(src []byte, start int, comment *ast.Comment) int {
+	if !strings.HasPrefix(comment.Text, "/*") {
+		return start + len(comment.Text)
 	}
 	return start + 2 + bytes.Index(src[start+2:], []byte("*/")) + 2
 }
 
-func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
+func hasNolint(fset *token.FileSet, file *ast.File, line int) bool {
 	var comments []*ast.Comment
-	if f.Doc != nil {
-		comments = append(comments, f.Doc.List...)
+	if file.Doc != nil {
+		comments = append(comments, file.Doc.List...)
 	}
-	for _, cg := range f.Comments {
-		if fset.Position(cg.Pos()).Line == line {
-			comments = append(comments, cg.List...)
+	for _, group := range file.Comments {
+		if fset.Position(group.Pos()).Line == line {
+			comments = append(comments, group.List...)
 		}
 	}
-	for _, c := range comments {
-		if analysis.NolintsRule(c.Text, ruleName) {
+	for _, comment := range comments {
+		if analysis.NolintsRule(comment.Text, ruleName) {
 			return true
 		}
 	}

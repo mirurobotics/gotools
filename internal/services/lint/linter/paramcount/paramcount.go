@@ -13,25 +13,25 @@ import (
 func Check(
 	fset *token.FileSet,
 	filename string,
-	f *ast.File,
+	file *ast.File,
 	maxParams int,
 ) []analysis.Diagnostic {
 	if maxParams <= 0 || analysis.IsLintSource(filename) {
 		return nil
 	}
 
-	ctxPkg := analysis.ContextPkgName(f)
+	ctxPkg := analysis.ContextPkgName(file)
 
 	var diags []analysis.Diagnostic
-	for _, decl := range f.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Type.Params == nil || isExemptFunc(fn.Name.Name) {
+	for _, decl := range file.Decls {
+		funcDecl, ok := decl.(*ast.FuncDecl)
+		if !ok || funcDecl.Type.Params == nil || isExemptFunc(funcDecl.Name.Name) {
 			continue
 		}
 
-		count := countParams(fn.Type.Params, ctxPkg)
+		count := countParams(funcDecl.Type.Params, ctxPkg)
 		if count > maxParams {
-			pos := fset.Position(fn.Pos())
+			pos := fset.Position(funcDecl.Pos())
 			diags = append(diags, analysis.Diagnostic{
 				File: filename,
 				Line: pos.Line,
@@ -39,7 +39,7 @@ func Check(
 					"function %s has %d parameters"+
 						" (limit %d);"+
 						" consider an options struct",
-					fn.Name.Name, count, maxParams),
+					funcDecl.Name.Name, count, maxParams),
 			})
 		}
 	}

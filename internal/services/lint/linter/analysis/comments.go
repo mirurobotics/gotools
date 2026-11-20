@@ -7,11 +7,11 @@ import (
 )
 
 // DocGroups returns the doc comment groups outside function bodies.
-func DocGroups(f *ast.File) []*ast.CommentGroup {
-	named := NamedDocs(f)
+func DocGroups(file *ast.File) []*ast.CommentGroup {
+	named := NamedDocs(file)
 	docs := make([]*ast.CommentGroup, len(named))
-	for i, d := range named {
-		docs[i] = d.Doc
+	for i, doc := range named {
+		docs[i] = doc.Doc
 	}
 	return docs
 }
@@ -23,39 +23,39 @@ type NamedDoc struct {
 }
 
 // NamedDocs pairs doc groups outside function bodies with their single name, if any.
-func NamedDocs(f *ast.File) []NamedDoc {
+func NamedDocs(file *ast.File) []NamedDoc {
 	var docs []NamedDoc
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch x := n.(type) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		switch node := node.(type) {
 		case *ast.BlockStmt:
 			return false
 		case *ast.FuncDecl:
-			docs = append(docs, NamedDoc{x.Name, x.Doc})
+			docs = append(docs, NamedDoc{node.Name, node.Doc})
 		case *ast.GenDecl:
-			docs = append(docs, NamedDoc{genDeclName(x), x.Doc})
+			docs = append(docs, NamedDoc{genDeclName(node), node.Doc})
 		case *ast.TypeSpec:
-			docs = append(docs, NamedDoc{x.Name, x.Doc})
+			docs = append(docs, NamedDoc{node.Name, node.Doc})
 		case *ast.ValueSpec:
-			docs = append(docs, NamedDoc{soleName(x.Names), x.Doc})
+			docs = append(docs, NamedDoc{soleName(node.Names), node.Doc})
 		case *ast.ImportSpec:
-			docs = append(docs, NamedDoc{nil, x.Doc})
+			docs = append(docs, NamedDoc{nil, node.Doc})
 		case *ast.Field:
-			docs = append(docs, NamedDoc{soleName(x.Names), x.Doc})
+			docs = append(docs, NamedDoc{soleName(node.Names), node.Doc})
 		}
 		return true
 	})
 	return docs
 }
 
-func genDeclName(d *ast.GenDecl) *ast.Ident {
-	if d.Lparen != token.NoPos || len(d.Specs) != 1 {
+func genDeclName(decl *ast.GenDecl) *ast.Ident {
+	if decl.Lparen != token.NoPos || len(decl.Specs) != 1 {
 		return nil
 	}
-	switch s := d.Specs[0].(type) {
+	switch spec := decl.Specs[0].(type) {
 	case *ast.TypeSpec:
-		return s.Name
+		return spec.Name
 	case *ast.ValueSpec:
-		return soleName(s.Names)
+		return soleName(spec.Names)
 	}
 	return nil
 }
@@ -68,20 +68,20 @@ func soleName(names []*ast.Ident) *ast.Ident {
 }
 
 // LineComments returns trailing comments of specs and fields outside function bodies.
-func LineComments(f *ast.File) []*ast.CommentGroup {
+func LineComments(file *ast.File) []*ast.CommentGroup {
 	var groups []*ast.CommentGroup
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch x := n.(type) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		switch node := node.(type) {
 		case *ast.BlockStmt:
 			return false
 		case *ast.TypeSpec:
-			groups = append(groups, x.Comment)
+			groups = append(groups, node.Comment)
 		case *ast.ValueSpec:
-			groups = append(groups, x.Comment)
+			groups = append(groups, node.Comment)
 		case *ast.ImportSpec:
-			groups = append(groups, x.Comment)
+			groups = append(groups, node.Comment)
 		case *ast.Field:
-			groups = append(groups, x.Comment)
+			groups = append(groups, node.Comment)
 		}
 		return true
 	})
@@ -89,16 +89,16 @@ func LineComments(f *ast.File) []*ast.CommentGroup {
 }
 
 // FuncBodies returns the bodies of all function declarations and literals.
-func FuncBodies(f *ast.File) []*ast.BlockStmt {
+func FuncBodies(file *ast.File) []*ast.BlockStmt {
 	var bodies []*ast.BlockStmt
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch fn := n.(type) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		switch node := node.(type) {
 		case *ast.FuncDecl:
-			if fn.Body != nil {
-				bodies = append(bodies, fn.Body)
+			if node.Body != nil {
+				bodies = append(bodies, node.Body)
 			}
 		case *ast.FuncLit:
-			bodies = append(bodies, fn.Body)
+			bodies = append(bodies, node.Body)
 		}
 		return true
 	})
@@ -115,9 +115,9 @@ func InAnyBody(pos token.Pos, bodies []*ast.BlockStmt) bool {
 	return false
 }
 
-// ProseLineCount counts cg lines, ignoring directives and leading/trailing blanks.
-func ProseLineCount(cg *ast.CommentGroup) int {
-	lines := ProseLines(cg)
+// ProseLineCount counts group lines, ignoring directives and leading/trailing blanks.
+func ProseLineCount(group *ast.CommentGroup) int {
+	lines := ProseLines(group)
 	for len(lines) > 0 && isBlank(lines[len(lines)-1]) {
 		lines = lines[:len(lines)-1]
 	}
@@ -127,18 +127,18 @@ func ProseLineCount(cg *ast.CommentGroup) int {
 	return len(lines)
 }
 
-// ProseLines returns the prose lines of cg's non-directive comments, without markers.
-func ProseLines(cg *ast.CommentGroup) []string {
+// ProseLines returns the prose of group's non-directive comments, without markers.
+func ProseLines(group *ast.CommentGroup) []string {
 	var lines []string
-	for _, c := range cg.List {
-		if IsDirective(c.Text) {
+	for _, comment := range group.List {
+		if IsDirective(comment.Text) {
 			continue
 		}
-		if text, ok := strings.CutPrefix(c.Text, "//"); ok {
+		if text, ok := strings.CutPrefix(comment.Text, "//"); ok {
 			lines = append(lines, text)
 			continue
 		}
-		lines = append(lines, blockLines(c.Text)...)
+		lines = append(lines, blockLines(comment.Text)...)
 	}
 	return lines
 }
@@ -156,11 +156,11 @@ func blockLines(text string) []string {
 
 func isBlank(line string) bool { return strings.TrimSpace(line) == "" }
 
-// Comments returns every comment in f, flattened across groups, in source order.
-func Comments(f *ast.File) []*ast.Comment {
+// Comments returns every comment in file, flattened across groups, in source order.
+func Comments(file *ast.File) []*ast.Comment {
 	var out []*ast.Comment
-	for _, cg := range f.Comments {
-		out = append(out, cg.List...)
+	for _, group := range file.Comments {
+		out = append(out, group.List...)
 	}
 	return out
 }

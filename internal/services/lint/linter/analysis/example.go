@@ -6,25 +6,25 @@ import (
 )
 
 // ExampleOutputs returns the output comment groups of Example functions in a test file.
-func ExampleOutputs(filename string, f *ast.File) map[*ast.CommentGroup]bool {
+func ExampleOutputs(filename string, file *ast.File) map[*ast.CommentGroup]bool {
 	var bodies []*ast.BlockStmt
-	for _, decl := range f.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if ok && fn.Body != nil && IsExampleFunc(filename, fn) {
-			bodies = append(bodies, fn.Body)
+	for _, decl := range file.Decls {
+		funcDecl, ok := decl.(*ast.FuncDecl)
+		if ok && funcDecl.Body != nil && IsExampleFunc(filename, funcDecl) {
+			bodies = append(bodies, funcDecl.Body)
 		}
 	}
 	outputs := map[*ast.CommentGroup]bool{}
-	for _, cg := range f.Comments {
-		if isOutput(cg) && InAnyBody(cg.Pos(), bodies) {
-			outputs[cg] = true
+	for _, group := range file.Comments {
+		if isOutput(group) && InAnyBody(group.Pos(), bodies) {
+			outputs[group] = true
 		}
 	}
 	return outputs
 }
 
-func isOutput(cg *ast.CommentGroup) bool {
-	text := strings.ToLower(strings.TrimSpace(cg.Text()))
+func isOutput(group *ast.CommentGroup) bool {
+	text := strings.ToLower(strings.TrimSpace(group.Text()))
 	if strings.HasPrefix(text, "output:") {
 		return true
 	}

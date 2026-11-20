@@ -8,24 +8,28 @@ import (
 )
 
 // Check reports functions whose context.Context parameter is not first.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	ctxPkg := analysis.ContextPkgName(f)
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
+	ctxPkg := analysis.ContextPkgName(file)
 	if ctxPkg == "" {
 		return nil
 	}
+	testingPkg := analysis.TestingPkgName(file)
 
 	var diags []analysis.Diagnostic
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		params, pos, ok := funcParams(n)
+	ast.Inspect(file, func(node ast.Node) bool {
+		params, pos, ok := funcParams(node)
 		if !ok {
 			return true
 		}
-		if ctxParamIndex(params, ctxPkg) > 0 && !firstParamIsTesting(params) {
-			p := fset.Position(pos)
+		if ctxParamIndex(params, ctxPkg) <= 0 {
+			return true
+		}
+		if !analysis.IsTestingType(params.List[0].Type, testingPkg) {
+			position := fset.Position(pos)
 			diags = append(diags, analysis.Diagnostic{
 				File:    filename,
-				Line:    p.Line,
+				Line:    position.Line,
 				Message: "context.Context should be the first parameter",
 			})
 		}
@@ -35,20 +39,20 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-func funcParams(n ast.Node) (*ast.FieldList, token.Pos, bool) {
-	var ft *ast.FuncType
-	switch fn := n.(type) {
+func funcParams(node ast.Node) (*ast.FieldList, token.Pos, bool) {
+	var funcType *ast.FuncType
+	switch node := node.(type) {
 	case *ast.FuncDecl:
-		ft = fn.Type
+		funcType = node.Type
 	case *ast.FuncLit:
-		ft = fn.Type
+		funcType = node.Type
 	default:
 		return nil, token.NoPos, false
 	}
-	if ft.Params == nil {
+	if funcType.Params == nil {
 		return nil, token.NoPos, false
 	}
-	return ft.Params, n.Pos(), true
+	return funcType.Params, node.Pos(), true
 }
 
 func ctxParamIndex(params *ast.FieldList, ctxPkg string) int {
@@ -64,28 +68,4 @@ func ctxParamIndex(params *ast.FieldList, ctxPkg string) int {
 		paramIdx += names
 	}
 	return -1
-}
-
-func firstParamIsTesting(params *ast.FieldList) bool {
-	typ := params.List[0].Type
-	star, ok := typ.(*ast.StarExpr)
-	if !ok {
-		return false
-	}
-	sel, ok := star.X.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	ident, ok := sel.X.(*ast.Ident)
-	if !ok {
-		return false
-	}
-	if ident.Name != "testing" {
-		return false
-	}
-	switch sel.Sel.Name {
-	case "T", "B", "F", "M":
-		return true
-	}
-	return false
 }

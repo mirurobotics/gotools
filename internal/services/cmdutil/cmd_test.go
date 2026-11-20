@@ -7,8 +7,8 @@ import (
 func TestGoCommand_SetsGOWORK(t *testing.T) {
 	cmd := GoCommand("version")
 	found := false
-	for _, e := range cmd.Env {
-		if e == "GOWORK=off" {
+	for _, env := range cmd.Env {
+		if env == "GOWORK=off" {
 			found = true
 			break
 		}

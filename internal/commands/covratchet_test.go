@@ -29,17 +29,17 @@ func TestNewCovratchetCommand_Flags(t *testing.T) {
 }
 
 func TestNewCovratchetCommand_FlagDefaults(t *testing.T) {
-	fl := NewCovratchetCommand().Flags()
-	assertStringDefaults(t, fl, map[string]string{
+	flags := NewCovratchetCommand().Flags()
+	assertStringDefaults(t, flags, map[string]string{
 		"packages": "./...", "src-prefix": "pkg", "test-dir": "",
 	})
-	assertIntDefaults(t, fl, map[string]int{"parallelism": 0})
+	assertIntDefaults(t, flags, map[string]int{"parallelism": 0})
 }
 
 func TestNewCovratchetCommand_NoDefaultThreshold(t *testing.T) {
 	cmd := NewCovratchetCommand()
-	f := cmd.Flags().Lookup("default-threshold")
-	if f != nil {
+	flag := cmd.Flags().Lookup("default-threshold")
+	if flag != nil {
 		t.Error("covratchet should not have a default-threshold flag")
 	}
 }

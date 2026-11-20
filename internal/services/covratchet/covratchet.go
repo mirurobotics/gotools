@@ -22,13 +22,13 @@ type Opts struct {
 // Run ratchets up .covgate thresholds.
 func Run(opts Opts) error {
 	progress := gocover.Progress{Enabled: opts.Parallelism == 0, Table: table()}
-	r := runner{
+	job := runner{
 		goModule:       gocover.GoModule,
 		goListPackages: gocover.GoListPackages,
 		measure:        gocover.Measure,
 		progress:       progress,
 	}
-	return r.run(opts)
+	return job.run(opts)
 }
 
 func table() gocover.Table {
@@ -63,12 +63,12 @@ func (r *runner) run(opts Opts) error {
 	if opts.Out == nil {
 		opts.Out = os.Stdout
 	}
-	w := opts.Out
+	out := opts.Out
 
 	parallelism := gocover.Parallelism(opts.Parallelism)
 
-	_, _ = fmt.Fprintln(w, "Updating .covgate files (ratchet up only)...")
-	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(out, "Updating .covgate files (ratchet up only)...")
+	_, _ = fmt.Fprintln(out)
 
 	module, err := r.goModule()
 	if err != nil {
@@ -80,25 +80,25 @@ func (r *runner) run(opts Opts) error {
 		return err
 	}
 
-	r.progress.WriteHeader(w, len(pkgs), parallelism)
+	r.progress.WriteHeader(out, len(pkgs), parallelism)
 	ctx := ratchetCtx{
 		module:    module,
 		srcPrefix: opts.SrcPrefix,
 		testDir:   opts.TestDir,
 	}
-	results := r.runPackages(pkgs, ctx, parallelism, w)
+	results := r.runPackages(pkgs, ctx, parallelism, out)
 
-	return r.summarize(w, results)
+	return r.summarize(out, results)
 }
 
 func (r *runner) runPackages(
-	pkgs []string, ctx ratchetCtx, parallelism int, w io.Writer,
+	pkgs []string, ctx ratchetCtx, parallelism int, out io.Writer,
 ) []ratchetResult {
 	run := func(i int) ratchetResult {
 		return r.ratchetPackage(pkgs[i], ctx.module, ctx.srcPrefix, ctx.testDir)
 	}
 	row := func(res ratchetResult) string { return res.output }
-	return gocover.RunEach(r.progress, w, len(pkgs), parallelism, run, row)
+	return gocover.RunEach(r.progress, out, len(pkgs), parallelism, run, row)
 }
 
 func (r *runner) ratchetPackage(pkg, module, srcPrefix, testDir string) ratchetResult {
@@ -121,18 +121,18 @@ func (r *runner) ratchetPackage(pkg, module, srcPrefix, testDir string) ratchetR
 	return ratchetExisting(covgateFile, current, actual, relPkg)
 }
 
-func (r *runner) summarize(w io.Writer, results []ratchetResult) error {
+func (r *runner) summarize(out io.Writer, results []ratchetResult) error {
 	updated, unchanged, failed := 0, 0, 0
 	for _, res := range results {
-		_, _ = fmt.Fprint(w, r.progress.Rest(res.output))
+		_, _ = fmt.Fprint(out, r.progress.Rest(res.output))
 		updated += res.updated
 		unchanged += res.unchanged
 		failed += res.failed
 	}
 
-	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(out)
 	_, _ = fmt.Fprintf(
-		w, "Done. Updated: %d, Unchanged: %d, Failed: %d\n",
+		out, "Done. Updated: %d, Unchanged: %d, Failed: %d\n",
 		updated, unchanged, failed,
 	)
 	if failed > 0 {

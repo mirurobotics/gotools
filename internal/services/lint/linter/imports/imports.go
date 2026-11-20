@@ -16,31 +16,31 @@ type ImportBlock struct {
 }
 
 // ExtractBlocks walks a parsed file and returns all import blocks.
-func ExtractBlocks(f *ast.File) []ImportBlock {
+func ExtractBlocks(file *ast.File) []ImportBlock {
 	var blocks []ImportBlock
 
-	for _, decl := range f.Decls {
-		gd, ok := decl.(*ast.GenDecl)
-		if !ok || gd.Tok != token.IMPORT {
+	for _, decl := range file.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.IMPORT {
 			continue
 		}
 
-		blocks = append(blocks, newImportBlock(gd))
+		blocks = append(blocks, newImportBlock(genDecl))
 	}
 
 	return blocks
 }
 
-func newImportBlock(gd *ast.GenDecl) ImportBlock {
+func newImportBlock(decl *ast.GenDecl) ImportBlock {
 	block := ImportBlock{
 		Imports:   nil,
-		Pos:       gd.Pos(),
-		End:       gd.End(),
-		IsGrouped: gd.Lparen.IsValid(),
+		Pos:       decl.Pos(),
+		End:       decl.End(),
+		IsGrouped: decl.Lparen.IsValid(),
 	}
-	for _, spec := range gd.Specs {
-		if is, ok := spec.(*ast.ImportSpec); ok {
-			block.Imports = append(block.Imports, newImport(is))
+	for _, spec := range decl.Specs {
+		if imp, ok := spec.(*ast.ImportSpec); ok {
+			block.Imports = append(block.Imports, newImport(imp))
 		}
 	}
 	return block
@@ -55,17 +55,17 @@ type Import struct {
 	Group ImportGroup
 }
 
-func newImport(is *ast.ImportSpec) Import {
-	path, _ := strconv.Unquote(is.Path.Value)
+func newImport(spec *ast.ImportSpec) Import {
+	path, _ := strconv.Unquote(spec.Path.Value)
 	imp := Import{
 		Path:  path,
 		Name:  "",
-		Pos:   is.Pos(),
-		End:   is.End(),
+		Pos:   spec.Pos(),
+		End:   spec.End(),
 		Group: classify(path),
 	}
-	if is.Name != nil {
-		imp.Name = is.Name.Name
+	if spec.Name != nil {
+		imp.Name = spec.Name.Name
 	}
 	return imp
 }

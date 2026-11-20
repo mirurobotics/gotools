@@ -172,13 +172,13 @@ func TestCheck_TestFileNotExempt(t *testing.T) {
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	filename := tt.filename
+	filename := tc.filename
 	if filename == "" {
 		filename = "test.go"
 	}
-	fset, f := linttest.Parse(t, filename, tt.src)
-	diags := Check(fset, filename, f, tt.maxParams)
-	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
+	fset, file := linttest.Parse(t, filename, tc.src)
+	diags := Check(fset, filename, file, tc.maxParams)
+	linttest.AssertCount(t, diags, tc.wantN, tc.wantMsg)
 }

@@ -26,22 +26,22 @@ func TestNolintsRule(t *testing.T) {
 		{"//nolint:privdoc// reason", true},
 		{"// remove nolint:privdoc once split", false},
 	}
-	for _, tt := range tests {
-		if got := NolintsRule(tt.text, "privdoc"); got != tt.want {
-			t.Errorf("NolintsRule(%q) = %v, want %v", tt.text, got, tt.want)
+	for _, tc := range tests {
+		if got := NolintsRule(tc.text, "privdoc"); got != tc.want {
+			t.Errorf("NolintsRule(%q) = %v, want %v", tc.text, got, tc.want)
 		}
 	}
 }
 
 func TestHasNolint(t *testing.T) {
-	cg := &ast.CommentGroup{List: []*ast.Comment{
+	group := &ast.CommentGroup{List: []*ast.Comment{
 		{Slash: 0, Text: "// note"},
 		{Slash: 0, Text: "//nolint:privdoc // reason"},
 	}}
-	if !HasNolint(cg, "privdoc") {
+	if !HasNolint(group, "privdoc") {
 		t.Error("HasNolint missed a directive in the group")
 	}
-	if HasNolint(cg, "funclen") {
+	if HasNolint(group, "funclen") {
 		t.Error("HasNolint matched an unnamed linter")
 	}
 }
@@ -49,17 +49,17 @@ func TestHasNolint(t *testing.T) {
 func TestNolintOnLines(t *testing.T) {
 	src := "package p\n\n//nolint:funclen // reason\nvar x = 1 //nolint:other\n"
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "p.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !NolintOnLines(fset, f, "funclen", 3, 4) {
+	if !NolintOnLines(fset, file, "funclen", 3, 4) {
 		t.Error("directive on line 3 not found in [3, 4]")
 	}
-	if !NolintOnLines(fset, f, "funclen", 3, 3) {
+	if !NolintOnLines(fset, file, "funclen", 3, 3) {
 		t.Error("directive on line 3 not found in [3, 3]")
 	}
-	if NolintOnLines(fset, f, "funclen", 4, 4) {
+	if NolintOnLines(fset, file, "funclen", 4, 4) {
 		t.Error("directive on line 3 found in [4, 4]")
 	}
 }

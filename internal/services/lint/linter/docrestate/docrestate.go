@@ -12,43 +12,43 @@ import (
 )
 
 // Check reports doc comments that only restate the name they document.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
-	for _, d := range analysis.NamedDocs(f) {
-		if d.Doc == nil || d.Name == nil || d.Name.Name == "_" {
+	for _, doc := range analysis.NamedDocs(file) {
+		if doc.Doc == nil || doc.Name == nil || doc.Name.Name == "_" {
 			continue
 		}
-		if analysis.HasNolint(d.Doc, "docrestate") {
+		if analysis.HasNolint(doc.Doc, "docrestate") {
 			continue
 		}
-		if !restates(d.Name.Name, d.Doc) {
+		if !restates(doc.Name.Name, doc.Doc) {
 			continue
 		}
 		diags = append(diags, analysis.Diagnostic{
 			File: filename,
-			Line: fset.Position(d.Doc.Pos()).Line,
+			Line: fset.Position(doc.Doc.Pos()).Line,
 			Message: fmt.Sprintf(
 				"doc comment for %s only restates its name; "+
-					"say what it does or remove it", d.Name.Name),
+					"say what it does or remove it", doc.Name.Name),
 		})
 	}
 	return diags
 }
 
-func restates(name string, cg *ast.CommentGroup) bool {
-	text := strings.Join(analysis.ProseLines(cg), " ")
+func restates(name string, group *ast.CommentGroup) bool {
+	text := strings.Join(analysis.ProseLines(group), " ")
 	if hasSymbols(text) {
 		return false
 	}
-	words := strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
-		return !isWordRune(r)
+	words := strings.FieldsFunc(strings.ToLower(text), func(char rune) bool {
+		return !isWordRune(char)
 	})
 	if len(words) == 0 || words[0] != strings.ToLower(name) {
 		return false
 	}
 	nameWords := append(splitName(name), strings.ToLower(name))
-	for _, w := range words[1:] {
-		if !isFiller(w) && !matchesAny(w, nameWords) {
+	for _, word := range words[1:] {
+		if !isFiller(word) && !matchesAny(word, nameWords) {
 			return false
 		}
 	}
@@ -69,20 +69,20 @@ func hasSymbols(text string) bool {
 }
 
 func hasSingleQuoted(text string) bool {
-	r := []rune(text)
-	for i, c := range r {
-		if c != '\'' || (i > 0 && isWordRune(r[i-1])) {
+	runes := []rune(text)
+	for i, char := range runes {
+		if char != '\'' || (i > 0 && isWordRune(runes[i-1])) {
 			continue
 		}
-		if end := slices.Index(r[i+1:], '\''); end > 0 {
+		if end := slices.Index(runes[i+1:], '\''); end > 0 {
 			return true
 		}
 	}
 	return false
 }
 
-func isWordRune(r rune) bool {
-	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
+func isWordRune(char rune) bool {
+	return unicode.IsLetter(char) || unicode.IsDigit(char) || char == '_'
 }
 
 func splitName(name string) []string {
@@ -93,16 +93,16 @@ func splitName(name string) []string {
 		if i < len(runes) && !isBoundary(runes, i) {
 			continue
 		}
-		if w := strings.Trim(string(runes[start:i]), "_"); w != "" {
-			words = append(words, strings.ToLower(w))
+		if word := strings.Trim(string(runes[start:i]), "_"); word != "" {
+			words = append(words, strings.ToLower(word))
 		}
 		start = i
 	}
 	return words
 }
 
-func isBoundary(r []rune, i int) bool {
-	prev, cur := r[i-1], r[i]
+func isBoundary(runes []rune, i int) bool {
+	prev, cur := runes[i-1], runes[i]
 	switch {
 	case cur == '_' || prev == '_':
 		return true
@@ -111,18 +111,18 @@ func isBoundary(r []rune, i int) bool {
 	case unicode.IsDigit(prev) != unicode.IsDigit(cur):
 		return true
 	}
-	if !unicode.IsUpper(prev) || !unicode.IsUpper(cur) || i+1 >= len(r) {
+	if !unicode.IsUpper(prev) || !unicode.IsUpper(cur) || i+1 >= len(runes) {
 		return false
 	}
-	return unicode.IsLower(r[i+1]) && !isPluralS(r, i+1)
+	return unicode.IsLower(runes[i+1]) && !isPluralS(runes, i+1)
 }
 
-func isPluralS(r []rune, i int) bool {
-	return r[i] == 's' && (i+1 == len(r) || !unicode.IsLower(r[i+1]))
+func isPluralS(runes []rune, i int) bool {
+	return runes[i] == 's' && (i+1 == len(runes) || !unicode.IsLower(runes[i+1]))
 }
 
-func isFiller(w string) bool {
-	switch w {
+func isFiller(word string) bool {
+	switch word {
 	case "a", "an", "the", "this", "that", "it", "its", "is", "are", "be",
 		"new", "returns", "creates", "constructs", "makes", "builds",
 		"type", "struct", "interface", "func", "function", "method",
@@ -132,9 +132,9 @@ func isFiller(w string) bool {
 	return false
 }
 
-func matchesAny(w string, nameWords []string) bool {
-	for _, n := range nameWords {
-		if inflects(w, n) || inflects(n, w) {
+func matchesAny(word string, nameWords []string) bool {
+	for _, nameWord := range nameWords {
+		if inflects(word, nameWord) || inflects(nameWord, word) {
 			return true
 		}
 	}
@@ -143,8 +143,8 @@ func matchesAny(w string, nameWords []string) bool {
 
 const minStemLen = 4
 
-func inflects(w, base string) bool {
-	suffix, ok := strings.CutPrefix(w, base)
+func inflects(word, base string) bool {
+	suffix, ok := strings.CutPrefix(word, base)
 	if ok && takesShortSuffix(base, suffix) {
 		return true
 	}
@@ -154,11 +154,11 @@ func inflects(w, base string) bool {
 	if ok && (suffix == "ed" || suffix == "ing") {
 		return true
 	}
-	if stem, ok := strings.CutSuffix(base, "e"); ok && w == stem+"ing" {
+	if stem, ok := strings.CutSuffix(base, "e"); ok && word == stem+"ing" {
 		return true
 	}
 	if stem, ok := strings.CutSuffix(base, "y"); ok {
-		return w == stem+"ies" || w == stem+"ied"
+		return word == stem+"ies" || word == stem+"ied"
 	}
 	return false
 }

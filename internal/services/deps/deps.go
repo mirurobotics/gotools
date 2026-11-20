@@ -9,8 +9,8 @@ import (
 
 // RunUpdate updates all Go dependencies.
 func RunUpdate(out io.Writer, errW io.Writer) error {
-	r := runner{exec: defaultExec}
-	return r.runUpdate(out, errW)
+	run := runner{exec: defaultExec}
+	return run.runUpdate(out, errW)
 }
 
 func defaultExec(out io.Writer, errW io.Writer, args ...string) error {

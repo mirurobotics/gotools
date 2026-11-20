@@ -12,7 +12,7 @@ func (m *model) order() ([]int, map[int]bool) {
 
 func (m *model) arrange(settled bool) ([]int, map[int]bool) {
 	units := m.units(settled)
-	l := &layout{
+	lay := &layout{
 		m:      m,
 		unit:   map[int][]int{},
 		unitOf: map[int]int{},
@@ -21,15 +21,15 @@ func (m *model) arrange(settled bool) ([]int, map[int]bool) {
 		out:    nil,
 	}
 	keys := make([]int, len(units))
-	for k, u := range units {
-		keys[k] = u[0]
-		l.unit[u[0]] = u
-		for _, i := range u {
-			l.unitOf[i] = u[0]
+	for unitIdx, unit := range units {
+		keys[unitIdx] = unit[0]
+		lay.unit[unit[0]] = unit
+		for _, i := range unit {
+			lay.unitOf[i] = unit[0]
 		}
 	}
-	walk(keys, l.unitReady, l.unitNext, l.emitUnit)
-	return m.placeTypes(units, l.out), l.below
+	walk(keys, lay.unitReady, lay.unitNext, lay.emitUnit)
+	return m.placeTypes(units, lay.out), lay.below
 }
 
 func (m *model) units(settled bool) [][]int {
@@ -37,18 +37,18 @@ func (m *model) units(settled bool) [][]int {
 	blocks := attached(owner)
 	var units [][]int
 	group := map[string]int{}
-	for i, x := range m.fns {
+	for i, fnc := range m.fns {
 		_, owned := owner[i]
 		_, plain := m.plain[i]
 		switch {
 		case owned || plain:
-		case x == nil || x.recv == "":
+		case fnc == nil || fnc.recv == "":
 			units = append(units, append(blocks[i], i))
-		case group[x.recv] > 0:
-			u := group[x.recv] - 1
-			units[u] = append(units[u], i)
+		case group[fnc.recv] > 0:
+			slot := group[fnc.recv] - 1
+			units[slot] = append(units[slot], i)
 		default:
-			group[x.recv] = len(units) + 1
+			group[fnc.recv] = len(units) + 1
 			units = append(units, append(blocks[i], i))
 		}
 	}
@@ -65,45 +65,45 @@ func (m *model) keepsInitOrder(order []int) bool {
 	return slices.IsSorted(vars)
 }
 
-func (m *model) unitReady(u []int, done map[int]bool) bool {
-	x := m.fns[u[len(u)-1]]
-	if x == nil || x.recv == "" {
-		return m.ready(x, done)
+func (m *model) unitReady(unit []int, done map[int]bool) bool {
+	fnc := m.fns[unit[len(unit)-1]]
+	if fnc == nil || fnc.recv == "" {
+		return m.ready(fnc, done)
 	}
-	t, ok := m.typeDecl[x.recv]
-	return !ok || done[t] || slices.Contains(u, t)
+	typeIdx, ok := m.typeDecl[fnc.recv]
+	return !ok || done[typeIdx] || slices.Contains(unit, typeIdx)
 }
 
-func (m *model) ready(x *fn, done map[int]bool) bool {
-	if x == nil || x.exempt {
+func (m *model) ready(fnc *fn, done map[int]bool) bool {
+	if fnc == nil || fnc.exempt {
 		return true
 	}
 	isDone := func(i int) bool { return done[i] }
-	for _, c := range x.callers {
-		if !done[c] {
+	for _, caller := range fnc.callers {
+		if !done[caller] {
 			return false
 		}
 	}
-	if m.waitsInCycle(x) && !slices.ContainsFunc(x.cycleCallers, isDone) {
+	if m.waitsInCycle(fnc) && !slices.ContainsFunc(fnc.cycleCallers, isDone) {
 		return false
 	}
-	return m.ranked(x, isDone)
+	return m.ranked(fnc, isDone)
 }
 
-func (m *model) ranked(y *fn, isDone func(int) bool) bool {
-	for _, x := range m.funcs() {
-		if mustPrecede(x, y) && !isDone(x.idx) {
+func (m *model) ranked(fnc *fn, isDone func(int) bool) bool {
+	for _, other := range m.funcs() {
+		if mustPrecede(other, fnc) && !isDone(other.idx) {
 			return false
 		}
 	}
 	return true
 }
 
-func mustPrecede(x, y *fn) bool {
-	if x.rank != 0 || y.rank != 1 || x.exempt || y.exempt {
+func mustPrecede(fnc, other *fn) bool {
+	if fnc.rank != 0 || other.rank != 1 || fnc.exempt || other.exempt {
 		return false
 	}
-	return x.recv == y.recv && !x.hasInFileCaller && !y.hasInFileCaller
+	return fnc.recv == other.recv && !fnc.hasInFileCaller && !other.hasInFileCaller
 }
 
 type layout struct {
@@ -115,23 +115,25 @@ type layout struct {
 	out    []int
 }
 
-func (l *layout) unitReady(key int) bool { return l.m.unitReady(l.unit[key], l.done) }
+func (l *layout) unitReady(unitIdx int) bool {
+	return l.m.unitReady(l.unit[unitIdx], l.done)
+}
 
-func (l *layout) unitNext(key int) []int {
+func (l *layout) unitNext(unitIdx int) []int {
 	var next []int
 	for _, i := range l.out {
-		if l.unitOf[i] != key {
+		if l.unitOf[i] != unitIdx {
 			continue
 		}
-		for _, j := range l.m.next(i) {
-			next = append(next, l.unitOf[j])
+		for _, nextIdx := range l.m.next(i) {
+			next = append(next, l.unitOf[nextIdx])
 		}
 	}
 	return next
 }
 
-func (l *layout) emitUnit(key int, below bool) {
-	walk(l.unit[key], l.fnReady, l.m.next, func(i int, inner bool) {
+func (l *layout) emitUnit(unitIdx int, below bool) {
+	walk(l.unit[unitIdx], l.fnReady, l.m.next, func(i int, inner bool) {
 		l.done[i] = true
 		l.below[i] = below || inner
 		l.out = append(l.out, i)
@@ -143,11 +145,12 @@ func (l *layout) fnReady(i int) bool { return l.m.ready(l.m.fns[i], l.done) }
 func walk(
 	items []int, ready func(int) bool, next func(int) []int, emit func(int, bool),
 ) {
-	w := &walker{left: slices.Clone(items), stack: nil, ready: ready, next: next}
-	for len(w.left) > 0 {
-		i, below := w.pick()
-		w.left = slices.DeleteFunc(w.left, func(j int) bool { return j == i })
-		w.stack = append(w.stack, i)
+	width := &walker{left: slices.Clone(items), stack: nil, ready: ready, next: next}
+	for len(width.left) > 0 {
+		i, below := width.pick()
+		picked := func(idx int) bool { return idx == i }
+		width.left = slices.DeleteFunc(width.left, picked)
+		width.stack = append(width.stack, i)
 		emit(i, below)
 	}
 }
@@ -161,8 +164,8 @@ type walker struct {
 func (w *walker) pick() (int, bool) {
 	for len(w.stack) > 0 {
 		next := w.next(w.stack[len(w.stack)-1])
-		if k := slices.IndexFunc(next, w.pending); k >= 0 {
-			return next[k], true
+		if key := slices.IndexFunc(next, w.pending); key >= 0 {
+			return next[key], true
 		}
 		w.stack = w.stack[:len(w.stack)-1]
 	}

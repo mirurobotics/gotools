@@ -16,8 +16,8 @@ func f() {
 }
 `
 	candidates := findCandidates(t, src, 22)
-	for _, c := range candidates {
-		if c.Collapsed == "[]int{1, 2, 3}" {
+	for _, cand := range candidates {
+		if cand.Collapsed == "[]int{1, 2, 3}" {
 			t.Error(
 				"should not collapse []int{1, 2, 3} when trailing" +
 					" ) exceeds limit",
@@ -40,8 +40,8 @@ func g() {
 }
 `
 	candidates := findCandidates(t, src, 30)
-	for _, c := range candidates {
-		if c.Collapsed == "S{A: 1}" {
+	for _, cand := range candidates {
+		if cand.Collapsed == "S{A: 1}" {
 			t.Error(
 				"should not collapse S{A: 1} when trailing" +
 					" .Build() exceeds limit",
@@ -62,8 +62,8 @@ func f() {
 }
 `
 	candidates := findCandidates(t, src, 15)
-	for _, c := range candidates {
-		if c.Collapsed == "S{A: 1}" {
+	for _, cand := range candidates {
+		if cand.Collapsed == "S{A: 1}" {
 			t.Error(
 				"should not collapse S{A: 1} when trailing" +
 					" ) exceeds limit",
@@ -85,8 +85,8 @@ func f() {
 `
 	candidates := findCandidates(t, src, 23)
 	found := false
-	for _, c := range candidates {
-		if c.Collapsed == "[]int{1, 2, 3}" {
+	for _, cand := range candidates {
+		if cand.Collapsed == "[]int{1, 2, 3}" {
 			found = true
 		}
 	}
@@ -110,8 +110,8 @@ func g() {
 `
 	candidates := findCandidates(t, src, 31)
 	found := false
-	for _, c := range candidates {
-		if c.Collapsed == "S{A: 1}" {
+	for _, cand := range candidates {
+		if cand.Collapsed == "S{A: 1}" {
 			found = true
 		}
 	}

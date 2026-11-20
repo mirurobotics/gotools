@@ -16,40 +16,40 @@ import (
 const MinFieldAsserts = 3
 
 // Check reports runs of testify asserts that compare one value field by field.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
 	if !analysis.IsTestFile(filename) {
 		return nil
 	}
-	testify := testifyNames(f)
+	testify := testifyNames(file)
 	if len(testify) == 0 {
 		return nil
 	}
-	c := &checker{
+	chk := &checker{
 		fset:     fset,
 		filename: filename,
-		f:        f,
+		f:        file,
 		testify:  testify,
-		imports:  importNames(f),
-		results:  resultFields(f),
+		imports:  importNames(file),
+		results:  resultFields(file),
 		diags:    nil,
 	}
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch n := n.(type) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		switch node := node.(type) {
 		case *ast.BlockStmt:
-			c.checkStmts(n.List)
+			chk.checkStmts(node.List)
 		case *ast.CaseClause:
-			c.checkStmts(n.Body)
+			chk.checkStmts(node.Body)
 		case *ast.CommClause:
-			c.checkStmts(n.Body)
+			chk.checkStmts(node.Body)
 		}
 		return true
 	})
-	return c.diags
+	return chk.diags
 }
 
-func testifyNames(f *ast.File) map[string]bool {
+func testifyNames(file *ast.File) map[string]bool {
 	names := make(map[string]bool)
-	for _, imp := range f.Imports {
+	for _, imp := range file.Imports {
 		if isTestifyPath(analysis.ImportPath(imp)) {
 			names[analysis.ImportName(imp)] = true
 		}
@@ -57,14 +57,14 @@ func testifyNames(f *ast.File) map[string]bool {
 	return names
 }
 
-func isTestifyPath(p string) bool {
+func isTestifyPath(importPath string) bool {
 	const prefix = "github.com/stretchr/testify/"
-	return p == prefix+"assert" || p == prefix+"require"
+	return importPath == prefix+"assert" || importPath == prefix+"require"
 }
 
-func importNames(f *ast.File) map[string]bool {
+func importNames(file *ast.File) map[string]bool {
 	names := make(map[string]bool)
-	for _, imp := range f.Imports {
+	for _, imp := range file.Imports {
 		names[analysis.ImportName(imp)] = true
 		if imp.Name == nil {
 			names[path.Base(analysis.ImportPath(imp))] = true
@@ -94,35 +94,35 @@ type checker struct {
 func (c *checker) checkStmts(stmts []ast.Stmt) {
 	var groups []*fieldGroup
 	open := make(map[string]*fieldGroup)
-	for _, s := range stmts {
-		call, sel := c.fieldArg(s)
+	for _, stmt := range stmts {
+		call, sel := c.fieldArg(stmt)
 		if sel == nil {
-			c.closeUsed(open, s)
+			c.closeUsed(open, stmt)
 			continue
 		}
 		base := types.ExprString(ast.Unparen(sel.X))
 		deps := identSet(sel.X)
-		g := open[base]
-		if g == nil || !maps.Equal(g.deps, deps) {
-			g = &fieldGroup{
+		group := open[base]
+		if group == nil || !maps.Equal(group.deps, deps) {
+			group = &fieldGroup{
 				base: base, root: rootIdent(sel.X), deps: deps,
 				calls: nil, fields: map[string]bool{},
 			}
-			open[base] = g
-			groups = append(groups, g)
+			open[base] = group
+			groups = append(groups, group)
 		}
-		g.calls = append(g.calls, call)
-		g.fields[sel.Sel.Name] = true
+		group.calls = append(group.calls, call)
+		group.fields[sel.Sel.Name] = true
 	}
-	for _, g := range groups {
-		if len(g.fields) >= MinFieldAsserts && !c.isParam(g.root) {
-			c.report(g)
+	for _, group := range groups {
+		if len(group.fields) >= MinFieldAsserts && !c.isParam(group.root) {
+			c.report(group)
 		}
 	}
 }
 
-func (c *checker) fieldArg(s ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
-	call, name, args := c.testifyCall(s)
+func (c *checker) fieldArg(stmt ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
+	call, name, args := c.testifyCall(stmt)
 	if call == nil || !isEqualityFunc(name) || len(args) < 2 {
 		return nil, nil
 	}
@@ -139,8 +139,8 @@ func (c *checker) fieldArg(s ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
 	return nil, nil
 }
 
-func (c *checker) asField(e ast.Expr) *ast.SelectorExpr {
-	sel, ok := ast.Unparen(e).(*ast.SelectorExpr)
+func (c *checker) asField(expr ast.Expr) *ast.SelectorExpr {
+	sel, ok := ast.Unparen(expr).(*ast.SelectorExpr)
 	if !ok {
 		return nil
 	}
@@ -150,46 +150,46 @@ func (c *checker) asField(e ast.Expr) *ast.SelectorExpr {
 	return sel
 }
 
-func (c *checker) isConstant(e ast.Expr) bool {
-	switch x := ast.Unparen(e).(type) {
+func (c *checker) isConstant(expr ast.Expr) bool {
+	switch inner := ast.Unparen(expr).(type) {
 	case *ast.BasicLit:
 		return true
 	case *ast.CompositeLit:
-		return c.allConstant(x.Elts)
+		return c.allConstant(inner.Elts)
 	case *ast.KeyValueExpr:
-		return c.isConstant(x.Value)
+		return c.isConstant(inner.Value)
 	case *ast.UnaryExpr:
-		return c.isConstant(x.X)
+		return c.isConstant(inner.X)
 	case *ast.Ident:
-		return x.Name == "true" || x.Name == "false" || x.Name == "nil"
+		return inner.Name == "true" || inner.Name == "false" || inner.Name == "nil"
 	case *ast.SelectorExpr:
-		id, ok := x.X.(*ast.Ident)
+		id, ok := inner.X.(*ast.Ident)
 		return ok && c.isPkg(id)
 	}
 	return false
 }
 
 func (c *checker) allConstant(elts []ast.Expr) bool {
-	for _, e := range elts {
-		if !c.isConstant(e) {
+	for _, expr := range elts {
+		if !c.isConstant(expr) {
 			return false
 		}
 	}
 	return true
 }
 
-func (c *checker) report(g *fieldGroup) {
-	first := c.fset.Position(g.calls[0].Pos()).Line
-	last := c.fset.Position(g.calls[len(g.calls)-1].End()).Line
+func (c *checker) report(group *fieldGroup) {
+	first := c.fset.Position(group.calls[0].Pos()).Line
+	last := c.fset.Position(group.calls[len(group.calls)-1].End()).Line
 	if analysis.NolintOnLines(c.fset, c.f, "fieldassert", first, last) {
 		return
 	}
 	msg := fmt.Sprintf(
 		"%d asserts compare fields of %s one at a time; compare the whole value in one assert",
-		len(g.calls), g.base,
+		len(group.calls), group.base,
 	)
-	if g.root != nil {
-		msg += ", or move the checks into a helper that takes " + g.root.Name
+	if group.root != nil {
+		msg += ", or move the checks into a helper that takes " + group.root.Name
 	}
 	c.diags = append(c.diags,
 		analysis.Diagnostic{File: c.filename, Line: first, Message: msg})

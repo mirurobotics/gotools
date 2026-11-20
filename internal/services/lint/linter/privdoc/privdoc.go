@@ -12,29 +12,29 @@ const message = "comment on identifier outside the exported API; " +
 	"only the exported API may be documented"
 
 // Check reports doc and trailing comments on identifiers outside the exported API.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	prose := proseComments(f)
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
+	prose := proseComments(file)
 	diags := make([]analysis.Diagnostic, 0, len(prose))
-	for _, c := range prose {
+	for _, comment := range prose {
 		diags = append(diags, analysis.Diagnostic{
 			File:    filename,
-			Line:    fset.Position(c.Pos()).Line,
+			Line:    fset.Position(comment.Pos()).Line,
 			Message: message,
 		})
 	}
 	return diags
 }
 
-func proseComments(f *ast.File) []*ast.Comment {
-	ok := allowedGroups(f)
-	groups := append(analysis.DocGroups(f), analysis.LineComments(f)...)
+func proseComments(file *ast.File) []*ast.Comment {
+	ok := allowedGroups(file)
+	groups := append(analysis.DocGroups(file), analysis.LineComments(file)...)
 	var prose []*ast.Comment
-	for _, cg := range groups {
-		if cg == nil || ok[cg] {
+	for _, group := range groups {
+		if group == nil || ok[group] {
 			continue
 		}
-		if c := firstProse(cg); c != nil {
-			prose = append(prose, c)
+		if comment := firstProse(group); comment != nil {
+			prose = append(prose, comment)
 		}
 	}
 	slices.SortFunc(prose, func(a, b *ast.Comment) int {
@@ -43,39 +43,40 @@ func proseComments(f *ast.File) []*ast.Comment {
 	return prose
 }
 
-func allowedGroups(f *ast.File) allowed {
+func allowedGroups(file *ast.File) allowed {
 	ok := allowed{}
-	for _, decl := range f.Decls {
-		switch d := decl.(type) {
+	for _, decl := range file.Decls {
+		switch decl := decl.(type) {
 		case *ast.FuncDecl:
-			public := funcPublic(d)
-			ok.add(public, d.Doc)
-			ok.walk(d.Type, public)
+			public := funcPublic(decl)
+			ok.add(public, decl.Doc)
+			ok.walk(decl.Type, public)
 		case *ast.GenDecl:
-			ok.genDecl(d)
+			ok.genDecl(decl)
 		}
 	}
 	return ok
 }
 
-func funcPublic(d *ast.FuncDecl) bool {
-	if !d.Name.IsExported() {
+func funcPublic(decl *ast.FuncDecl) bool {
+	if !decl.Name.IsExported() {
 		return false
 	}
-	if d.Recv == nil || len(d.Recv.List) == 0 {
+	if decl.Recv == nil || len(decl.Recv.List) == 0 {
 		return true
 	}
-	name := analysis.BaseIdent(d.Recv.List[0].Type)
+	name := analysis.BaseIdent(decl.Recv.List[0].Type)
 	return name == nil || name.IsExported()
 }
 
-func firstProse(cg *ast.CommentGroup) *ast.Comment {
-	if analysis.HasNolint(cg, "privdoc") {
+func firstProse(group *ast.CommentGroup) *ast.Comment {
+	if analysis.HasNolint(group, "privdoc") {
 		return nil
 	}
-	for _, c := range cg.List {
-		if analysis.ProseLineCount(&ast.CommentGroup{List: []*ast.Comment{c}}) > 0 {
-			return c
+	for _, comment := range group.List {
+		single := &ast.CommentGroup{List: []*ast.Comment{comment}}
+		if analysis.ProseLineCount(single) > 0 {
+			return comment
 		}
 	}
 	return nil
@@ -83,48 +84,48 @@ func firstProse(cg *ast.CommentGroup) *ast.Comment {
 
 type allowed map[*ast.CommentGroup]bool
 
-func (ok allowed) genDecl(d *ast.GenDecl) {
-	anyPublic := d.Tok == token.IMPORT
-	for _, spec := range d.Specs {
+func (ok allowed) genDecl(decl *ast.GenDecl) {
+	anyPublic := decl.Tok == token.IMPORT
+	for _, spec := range decl.Specs {
 		anyPublic = ok.spec(spec) || anyPublic
 	}
-	ok.add(anyPublic, d.Doc)
+	ok.add(anyPublic, decl.Doc)
 }
 
 func (ok allowed) spec(spec ast.Spec) bool {
-	switch s := spec.(type) {
+	switch spec := spec.(type) {
 	case *ast.ImportSpec:
-		ok.add(true, s.Doc, s.Comment)
+		ok.add(true, spec.Doc, spec.Comment)
 	case *ast.TypeSpec:
-		public := s.Name.IsExported()
-		ok.add(public, s.Doc, s.Comment)
-		if s.TypeParams != nil {
-			ok.walk(s.TypeParams, public)
+		public := spec.Name.IsExported()
+		ok.add(public, spec.Doc, spec.Comment)
+		if spec.TypeParams != nil {
+			ok.walk(spec.TypeParams, public)
 		}
-		ok.walk(s.Type, public)
+		ok.walk(spec.Type, public)
 		return public
 	case *ast.ValueSpec:
-		public := anyExported(s.Names)
-		ok.add(public, s.Doc, s.Comment)
-		if s.Type != nil {
-			ok.walk(s.Type, public)
+		public := anyExported(spec.Names)
+		ok.add(public, spec.Doc, spec.Comment)
+		if spec.Type != nil {
+			ok.walk(spec.Type, public)
 		}
-		for _, v := range s.Values {
-			ok.walk(v, public)
+		for _, expr := range spec.Values {
+			ok.walk(expr, public)
 		}
 		return public
 	}
 	return false
 }
 
-func (ok allowed) walk(n ast.Node, public bool) {
-	ast.Inspect(n, func(x ast.Node) bool {
-		switch t := x.(type) {
+func (ok allowed) walk(node ast.Node, public bool) {
+	ast.Inspect(node, func(child ast.Node) bool {
+		switch child := child.(type) {
 		case *ast.StructType:
-			ok.fields(t.Fields, public)
+			ok.fields(child.Fields, public)
 			return false
 		case *ast.InterfaceType:
-			ok.fields(t.Methods, public)
+			ok.fields(child.Methods, public)
 			return false
 		}
 		return true
@@ -133,9 +134,9 @@ func (ok allowed) walk(n ast.Node, public bool) {
 
 func (ok allowed) fields(list *ast.FieldList, public bool) {
 	for _, field := range list.List {
-		p := public && fieldPublic(field)
-		ok.add(p, field.Doc, field.Comment)
-		ok.walk(field.Type, p)
+		isPublic := public && fieldPublic(field)
+		ok.add(isPublic, field.Doc, field.Comment)
+		ok.walk(field.Type, isPublic)
 	}
 }
 
@@ -143,8 +144,8 @@ func (ok allowed) add(public bool, groups ...*ast.CommentGroup) {
 	if !public {
 		return
 	}
-	for _, cg := range groups {
-		ok[cg] = true
+	for _, group := range groups {
+		ok[group] = true
 	}
 }
 
@@ -157,8 +158,8 @@ func fieldPublic(field *ast.Field) bool {
 }
 
 func anyExported(names []*ast.Ident) bool {
-	for _, n := range names {
-		if n.IsExported() {
+	for _, ident := range names {
+		if ident.IsExported() {
 			return true
 		}
 	}

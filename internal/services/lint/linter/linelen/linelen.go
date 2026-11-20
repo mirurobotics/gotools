@@ -16,18 +16,18 @@ import (
 func Check(
 	fset *token.FileSet,
 	filename string,
-	f *ast.File,
+	file *ast.File,
 	src []byte,
 	maxLineWidth, tabWidth int,
 ) []analysis.Diagnostic {
-	importRanges := importLineRanges(fset, f)
+	importRanges := importLineRanges(fset, file)
 	lines := bytes.Split(src, []byte("\n"))
 
 	var diags []analysis.Diagnostic
 	for i, line := range lines {
 		lineNum := i + 1
-		w := analysis.VisualWidth(string(line), tabWidth)
-		if w <= maxLineWidth {
+		width := analysis.VisualWidth(string(line), tabWidth)
+		if width <= maxLineWidth {
 			continue
 		}
 		if isExempt(string(line), lineNum, importRanges) {
@@ -38,7 +38,7 @@ func Check(
 			Line: lineNum,
 			Message: fmt.Sprintf(
 				"line is %d columns wide, exceeds %d-column limit",
-				w, maxLineWidth,
+				width, maxLineWidth,
 			),
 		})
 	}
@@ -49,15 +49,15 @@ type lineRange struct {
 	start, end int
 }
 
-func importLineRanges(fset *token.FileSet, f *ast.File) []lineRange {
+func importLineRanges(fset *token.FileSet, file *ast.File) []lineRange {
 	var ranges []lineRange
-	for _, decl := range f.Decls {
-		gd, ok := decl.(*ast.GenDecl)
-		if !ok || gd.Tok != token.IMPORT {
+	for _, decl := range file.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.IMPORT {
 			continue
 		}
-		start := fset.Position(gd.Pos()).Line
-		end := fset.Position(gd.End()).Line
+		start := fset.Position(genDecl.Pos()).Line
+		end := fset.Position(genDecl.End()).Line
 		ranges = append(ranges, lineRange{start: start, end: end})
 	}
 	return ranges
@@ -68,8 +68,8 @@ func isExempt(line string, lineNum int, importRanges []lineRange) bool {
 		return true
 	}
 
-	for _, r := range importRanges {
-		if lineNum >= r.start && lineNum <= r.end {
+	for _, span := range importRanges {
+		if lineNum >= span.start && lineNum <= span.end {
 			return true
 		}
 	}
@@ -136,8 +136,10 @@ func isStringLiteralLine(trimmed string) bool {
 	return false
 }
 
-func isQuoted(s string) bool { return isWrappedIn(s, `"`) || isWrappedIn(s, "`") }
+func isQuoted(text string) bool {
+	return isWrappedIn(text, `"`) || isWrappedIn(text, "`")
+}
 
-func isWrappedIn(s, q string) bool {
-	return strings.HasPrefix(s, q) && strings.HasSuffix(s, q)
+func isWrappedIn(text, quote string) bool {
+	return strings.HasPrefix(text, quote) && strings.HasSuffix(text, quote)
 }

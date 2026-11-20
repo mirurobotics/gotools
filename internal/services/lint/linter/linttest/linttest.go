@@ -14,11 +14,11 @@ import (
 func Parse(t *testing.T, filename, src string) (*token.FileSet, *ast.File) {
 	t.Helper()
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	return fset, f
+	return fset, file
 }
 
 // AssertCount checks the diagnostic count and, when wantMsg is set, the first message.
@@ -43,12 +43,12 @@ func AssertLines(
 	if len(diags) != len(wantLines) {
 		t.Fatalf("got %d diagnostics, want %d: %v", len(diags), len(wantLines), diags)
 	}
-	for i, d := range diags {
-		if d.Line != wantLines[i] {
-			t.Errorf("diag %d line = %d, want %d", i, d.Line, wantLines[i])
+	for i, diag := range diags {
+		if diag.Line != wantLines[i] {
+			t.Errorf("diag %d line = %d, want %d", i, diag.Line, wantLines[i])
 		}
-		if wantMsg != "" && d.Message != wantMsg {
-			t.Errorf("diag %d message = %q, want %q", i, d.Message, wantMsg)
+		if wantMsg != "" && diag.Message != wantMsg {
+			t.Errorf("diag %d message = %q, want %q", i, diag.Message, wantMsg)
 		}
 	}
 }

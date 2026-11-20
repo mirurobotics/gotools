@@ -11,11 +11,11 @@ import (
 func Check(
 	fset *token.FileSet,
 	filename string,
-	f *ast.File,
+	file *ast.File,
 	src []byte,
 	maxLineWidth, tabWidth int,
 ) []analysis.Diagnostic {
-	candidates := FindCandidates(fset, f, src, maxLineWidth, tabWidth)
+	candidates := FindCandidates(fset, file, src, maxLineWidth, tabWidth)
 	return analysis.CheckCandidates(
 		fset, filename, candidates,
 		"function body can be inlined to single line",
@@ -25,31 +25,35 @@ func Check(
 // FindCandidates returns functions whose body fits on one line.
 func FindCandidates(
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	src []byte,
 	maxLineWidth, tabWidth int,
 ) []analysis.Candidate {
 	var candidates []analysis.Candidate
 
-	for _, decl := range f.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
+	for _, decl := range file.Decls {
+		funcDecl, ok := decl.(*ast.FuncDecl)
 		if !ok {
 			continue
 		}
-		c, ok := tryInline(fset, f, fn.Pos(), fn.Body, src, maxLineWidth, tabWidth)
+		cand, ok := tryInline(
+			fset, file, funcDecl.Pos(), funcDecl.Body, src, maxLineWidth, tabWidth,
+		)
 		if ok {
-			candidates = append(candidates, c)
+			candidates = append(candidates, cand)
 		}
 	}
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		lit, ok := n.(*ast.FuncLit)
+	ast.Inspect(file, func(node ast.Node) bool {
+		lit, ok := node.(*ast.FuncLit)
 		if !ok {
 			return true
 		}
-		c, ok := tryInline(fset, f, lit.Pos(), lit.Body, src, maxLineWidth, tabWidth)
+		cand, ok := tryInline(
+			fset, file, lit.Pos(), lit.Body, src, maxLineWidth, tabWidth,
+		)
 		if ok {
-			candidates = append(candidates, c)
+			candidates = append(candidates, cand)
 		}
 		return true
 	})
@@ -59,13 +63,13 @@ func FindCandidates(
 
 func tryInline(
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	funcPos token.Pos,
 	body *ast.BlockStmt,
 	src []byte,
 	maxLineWidth, tabWidth int,
 ) (analysis.Candidate, bool) {
-	stmt, ok := inlineableStmt(fset, f, body)
+	stmt, ok := inlineableStmt(fset, file, body)
 	if !ok {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
@@ -96,7 +100,7 @@ func tryInline(
 
 func inlineableStmt(
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	body *ast.BlockStmt,
 ) (ast.Stmt, bool) {
 	if body == nil || len(body.List) != 1 {
@@ -109,7 +113,7 @@ func inlineableStmt(
 	if fset.Position(stmt.Pos()).Line != fset.Position(stmt.End()).Line {
 		return nil, false
 	}
-	if analysis.HasCommentsBetween(fset, f, body.Lbrace, body.Rbrace) {
+	if analysis.HasCommentsBetween(fset, file, body.Lbrace, body.Rbrace) {
 		return nil, false
 	}
 	if analysis.ContainsFuncLit(stmt) {

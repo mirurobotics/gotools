@@ -22,22 +22,24 @@ type Progress struct {
 }
 
 // WriteHeader writes the run announcement and table header for total packages.
-func (p Progress) WriteHeader(w io.Writer, total, parallelism int) {
+func (p Progress) WriteHeader(out io.Writer, total, parallelism int) {
 	if !p.Enabled {
-		_, _ = fmt.Fprintf(w, p.Table.Format, strArgs(p.Table.Names)...)
-		_, _ = fmt.Fprintf(w, p.Table.Format, strArgs(p.Table.Dashes)...)
+		_, _ = fmt.Fprintf(out, p.Table.Format, strArgs(p.Table.Names)...)
+		_, _ = fmt.Fprintf(out, p.Table.Format, strArgs(p.Table.Dashes)...)
 		return
 	}
 	_, _ = fmt.Fprintf(
-		w, "Running %d packages with parallelism=%d; progress:\n",
+		out, "Running %d packages with parallelism=%d; progress:\n",
 		total, parallelism,
 	)
-	cw := progressColWidth(total)
+	colWidth := progressColWidth(total)
 	format := "%-*s  " + p.Table.Format
-	names := append([]any{cw, "COUNT"}, strArgs(p.Table.Names)...)
-	dashes := append([]any{cw, strings.Repeat("-", cw)}, strArgs(p.Table.Dashes)...)
-	_, _ = fmt.Fprintf(w, format, names...)
-	_, _ = fmt.Fprintf(w, format, dashes...)
+	names := append([]any{colWidth, "COUNT"}, strArgs(p.Table.Names)...)
+	dashes := append(
+		[]any{colWidth, strings.Repeat("-", colWidth)}, strArgs(p.Table.Dashes)...,
+	)
+	_, _ = fmt.Fprintf(out, format, names...)
+	_, _ = fmt.Fprintf(out, format, dashes...)
 }
 
 // Rest returns the part of output not already printed by RunEach.
@@ -56,41 +58,41 @@ func (p Progress) Indent(total int) string {
 	return strings.Repeat(" ", progressColWidth(total)) + "  "
 }
 
-func strArgs(ss []string) []any {
-	args := make([]any, len(ss))
-	for i, s := range ss {
-		args[i] = s
+func strArgs(strs []string) []any {
+	args := make([]any, len(strs))
+	for i, str := range strs {
+		args[i] = str
 	}
 	return args
 }
 
-// RunEach runs run(0..n-1), parallelism at a time, streaming row(result) if p.Enabled.
+// RunEach runs run(0..count-1), parallelism at a time, streaming row output.
 func RunEach[T any](
-	p Progress,
-	w io.Writer,
-	n, parallelism int,
+	progress Progress,
+	out io.Writer,
+	count, parallelism int,
 	run func(int) T,
 	row func(T) string,
 ) []T {
 	parallelism = Parallelism(parallelism)
-	results := make([]T, n)
+	results := make([]T, count)
 	sem := make(chan struct{}, parallelism)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	countWidth := len(strconv.Itoa(n))
-	colWidth := progressColWidth(n)
-	for i := range n {
+	countWidth := len(strconv.Itoa(count))
+	colWidth := progressColWidth(count)
+	for i := range count {
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(idx int) {
 			defer wg.Done()
 			defer func() { <-sem }()
 			results[idx] = run(idx)
-			if p.Enabled {
-				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, n)
+			if progress.Enabled {
+				label := fmt.Sprintf("[%*d/%d]", countWidth, idx+1, count)
 				line := firstLine(row(results[idx]))
 				mu.Lock()
-				_, _ = fmt.Fprintf(w, "%-*s  %s", colWidth, label, line)
+				_, _ = fmt.Fprintf(out, "%-*s  %s", colWidth, label, line)
 				mu.Unlock()
 			}
 		}(i)
@@ -101,4 +103,4 @@ func RunEach[T any](
 
 func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
 
-func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
+func firstLine(text string) string { return text[:strings.IndexByte(text, '\n')+1] }

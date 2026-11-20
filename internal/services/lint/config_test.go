@@ -19,11 +19,11 @@ func TestParseExclusions(t *testing.T) {
 		{"with spaces", "funclen , paramcount", 2},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ParseExclusions(tt.input)
-			if len(got) != tt.want {
-				t.Errorf("len = %d, want %d", len(got), tt.want)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ParseExclusions(tc.input)
+			if len(got) != tc.want {
+				t.Errorf("len = %d, want %d", len(got), tc.want)
 			}
 		})
 	}
@@ -65,12 +65,12 @@ func TestSummarizeOutcome(t *testing.T) {
 		{"fixed with remaining", true, 1, 2, 1},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			code := SummarizeOutcome(&buf, tt.doFix, tt.diags, tt.fixed)
-			if code != tt.wantCode {
-				t.Errorf("exit code = %d, want %d", code, tt.wantCode)
+			code := SummarizeOutcome(&buf, tc.doFix, tc.diags, tc.fixed)
+			if code != tc.wantCode {
+				t.Errorf("exit code = %d, want %d", code, tc.wantCode)
 			}
 		})
 	}

@@ -28,7 +28,7 @@ type Opts struct {
 // Run checks per-package coverage against thresholds.
 func Run(opts Opts) error {
 	progress := gocover.Progress{Enabled: opts.Parallelism == 0, Table: table()}
-	r := runner{
+	job := runner{
 		goModule:           gocover.GoModule,
 		goListPackages:     gocover.GoListPackages,
 		goListTestPackages: gocover.GoListTestPackages,
@@ -36,7 +36,7 @@ func Run(opts Opts) error {
 		runTests:           gocover.RunTests,
 		progress:           progress,
 	}
-	return r.run(opts)
+	return job.run(opts)
 }
 
 type workItem struct {
@@ -57,22 +57,22 @@ func (r *runner) run(opts Opts) error {
 	if opts.Out == nil {
 		opts.Out = os.Stdout
 	}
-	w := opts.Out
+	out := opts.Out
 
 	parallelism := gocover.Parallelism(opts.Parallelism)
 
 	_, _ = fmt.Fprintf(
-		w, "Checking per-package coverage "+
+		out, "Checking per-package coverage "+
 			"(default minimum: %.1f%%)...\n\n",
 		opts.DefaultThreshold,
 	)
 
-	module, items, excluded, err := r.discover(opts, w)
+	module, items, excluded, err := r.discover(opts, out)
 	if err != nil {
 		return err
 	}
 
-	r.progress.WriteHeader(w, len(items), parallelism)
+	r.progress.WriteHeader(out, len(items), parallelism)
 
 	ctx := checkPackageCtx{
 		module:             module,
@@ -84,13 +84,13 @@ func (r *runner) run(opts Opts) error {
 	}
 
 	start := time.Now()
-	results := r.runPackages(items, ctx, parallelism, w)
+	results := r.runPackages(items, ctx, parallelism, out)
 	wallTime := time.Since(start)
-	return r.printResults(w, results, excluded, module, wallTime)
+	return r.printResults(out, results, excluded, module, wallTime)
 }
 
 func (r *runner) discover(
-	opts Opts, w io.Writer,
+	opts Opts, out io.Writer,
 ) (module string, items []workItem, excluded []string, err error) {
 	module, err = r.goModule()
 	if err != nil {
@@ -107,7 +107,7 @@ func (r *runner) discover(
 		return "", nil, nil, err
 	}
 
-	items, excluded, err = r.buildWorkItems(pkgs, orphans, opts.Exclude, w)
+	items, excluded, err = r.buildWorkItems(pkgs, orphans, opts.Exclude, out)
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -137,12 +137,12 @@ func (r *runner) findOrphanTests(
 }
 
 func (r *runner) buildWorkItems(
-	pkgs, orphans []string, exclude string, w io.Writer,
+	pkgs, orphans []string, exclude string, out io.Writer,
 ) ([]workItem, []string, error) {
 	all := make([]string, 0, len(pkgs)+len(orphans))
 	all = append(all, pkgs...)
 	all = append(all, orphans...)
-	kept, excluded, err := r.applyExclude(all, exclude, w)
+	kept, excluded, err := r.applyExclude(all, exclude, out)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -159,7 +159,7 @@ func (r *runner) buildWorkItems(
 }
 
 func (r *runner) applyExclude(
-	pkgs []string, exclude string, w io.Writer,
+	pkgs []string, exclude string, out io.Writer,
 ) (kept []string, excluded []string, err error) {
 	if strings.TrimSpace(exclude) == "" {
 		return pkgs, nil, nil
@@ -172,17 +172,17 @@ func (r *runner) applyExclude(
 
 	kept = make([]string, 0, len(pkgs))
 	excluded = make([]string, 0, len(excludedSet))
-	for _, p := range pkgs {
-		if _, drop := excludedSet[p]; drop {
-			excluded = append(excluded, p)
+	for _, pkg := range pkgs {
+		if _, drop := excludedSet[pkg]; drop {
+			excluded = append(excluded, pkg)
 			continue
 		}
-		kept = append(kept, p)
+		kept = append(kept, pkg)
 	}
 
 	if len(excluded) > 0 {
 		_, _ = fmt.Fprintf(
-			w, "Excluded %d package(s) from coverage measurement\n",
+			out, "Excluded %d package(s) from coverage measurement\n",
 			len(excluded),
 		)
 	}
@@ -200,15 +200,15 @@ func (r *runner) resolveExcludes(exclude string) (map[string]struct{}, error) {
 		if err != nil {
 			return nil, fmt.Errorf("resolve exclude %q: %w", entry, err)
 		}
-		for _, p := range matched {
-			excludedSet[p] = struct{}{}
+		for _, pkg := range matched {
+			excludedSet[pkg] = struct{}{}
 		}
 	}
 	return excludedSet, nil
 }
 
 func (r *runner) runPackages(
-	items []workItem, ctx checkPackageCtx, parallelism int, w io.Writer,
+	items []workItem, ctx checkPackageCtx, parallelism int, out io.Writer,
 ) []checkResult {
 	run := func(i int) checkResult {
 		var res checkResult
@@ -220,7 +220,7 @@ func (r *runner) runPackages(
 		return res
 	}
 	row := func(res checkResult) string { return res.output }
-	return gocover.RunEach(r.progress, w, len(items), parallelism, run, row)
+	return gocover.RunEach(r.progress, out, len(items), parallelism, run, row)
 }
 
 func claimedTestDirs(

@@ -11,9 +11,9 @@ import (
 )
 
 func TestDiagnostic_String(t *testing.T) {
-	d := analysis.Diagnostic{File: "foo.go", Line: 42, Message: "bad imports"}
+	diag := analysis.Diagnostic{File: "foo.go", Line: 42, Message: "bad imports"}
 	want := "foo.go:42: bad imports"
-	got := d.String()
+	got := diag.String()
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -233,8 +233,8 @@ func TestFindGoFiles(t *testing.T) {
 func cfgExcluding(rules ...Rule) Config {
 	cfg := defaultCfg()
 	cfg.Exclude = make(map[Rule]bool, len(rules))
-	for _, r := range rules {
-		cfg.Exclude[r] = true
+	for _, rule := range rules {
+		cfg.Exclude[rule] = true
 	}
 	return cfg
 }

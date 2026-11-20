@@ -242,11 +242,11 @@ func TestFix_NoBlocks(t *testing.T) {
 func main() {}
 `)
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	blocks := ExtractBlocks(f)
+	blocks := ExtractBlocks(file)
 	got := string(Fix(fset, src, blocks))
 	if got != string(src) {
 		t.Errorf("expected no change, got:\n%s", got)

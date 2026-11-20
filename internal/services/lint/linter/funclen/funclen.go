@@ -14,7 +14,7 @@ import (
 func Check(
 	fset *token.FileSet,
 	filename string,
-	f *ast.File,
+	file *ast.File,
 	src []byte,
 	maxLen int,
 ) []analysis.Diagnostic {
@@ -24,8 +24,8 @@ func Check(
 	allLines := bytes.Split(src, []byte("\n"))
 
 	var diags []analysis.Diagnostic
-	ast.Inspect(f, func(n ast.Node) bool {
-		body, label, ok := funcBody(n)
+	ast.Inspect(file, func(node ast.Node) bool {
+		body, label, ok := funcBody(node)
 		if !ok {
 			return true
 		}
@@ -33,8 +33,8 @@ func Check(
 		if count <= maxLen {
 			return true
 		}
-		pos := fset.Position(n.Pos())
-		if analysis.NolintOnLines(fset, f, "funclen", pos.Line-1, pos.Line) {
+		pos := fset.Position(node.Pos())
+		if analysis.NolintOnLines(fset, file, "funclen", pos.Line-1, pos.Line) {
 			return true
 		}
 		diags = append(diags, analysis.Diagnostic{
@@ -47,18 +47,18 @@ func Check(
 	return diags
 }
 
-func funcBody(n ast.Node) (*ast.BlockStmt, string, bool) {
-	switch fn := n.(type) {
+func funcBody(node ast.Node) (*ast.BlockStmt, string, bool) {
+	switch node := node.(type) {
 	case *ast.FuncDecl:
-		if fn.Body == nil {
+		if node.Body == nil {
 			return nil, "", false
 		}
-		return fn.Body, "function " + fn.Name.Name, true
+		return node.Body, "function " + node.Name.Name, true
 	case *ast.FuncLit:
-		if fn.Body == nil {
+		if node.Body == nil {
 			return nil, "", false
 		}
-		return fn.Body, "anonymous function", true
+		return node.Body, "anonymous function", true
 	}
 	return nil, "", false
 }
@@ -81,13 +81,13 @@ func literalTailLines(fset *token.FileSet, body *ast.BlockStmt) map[int]bool {
 	skip := make(map[int]bool)
 	codeStarts := make(map[int]bool)
 	var closingLines []int
-	ast.Inspect(body, func(n ast.Node) bool {
-		switch n.(type) {
+	ast.Inspect(body, func(node ast.Node) bool {
+		switch node.(type) {
 		case nil, *ast.CommentGroup, *ast.Comment:
 			return false
 		}
-		codeStarts[fset.Position(n.Pos()).Line] = true
-		lit, ok := n.(*ast.CompositeLit)
+		codeStarts[fset.Position(node.Pos()).Line] = true
+		lit, ok := node.(*ast.CompositeLit)
 		if !ok {
 			return true
 		}

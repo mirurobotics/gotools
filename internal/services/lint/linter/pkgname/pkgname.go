@@ -10,8 +10,8 @@ import (
 )
 
 // Check reports package names with underscores, except test_, mock_, and _test.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	name := f.Name.Name
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
+	name := file.Name.Name
 	if !strings.Contains(name, "_") {
 		return nil
 	}
@@ -21,7 +21,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	if strings.HasSuffix(name, "_test") {
 		return nil
 	}
-	pos := fset.Position(f.Name.Pos())
+	pos := fset.Position(file.Name.Pos())
 	return []analysis.Diagnostic{{
 		File: filename,
 		Line: pos.Line,

@@ -13,11 +13,11 @@ import (
 )
 
 // Check reports error strings that are capitalized or end with punctuation.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		lit, val, ok := errorStringArg(n)
+	ast.Inspect(file, func(node ast.Node) bool {
+		lit, val, ok := errorStringArg(node)
 		if !ok {
 			return true
 		}
@@ -35,8 +35,8 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-func errorStringArg(n ast.Node) (*ast.BasicLit, string, bool) {
-	call, ok := n.(*ast.CallExpr)
+func errorStringArg(node ast.Node) (*ast.BasicLit, string, bool) {
+	call, ok := node.(*ast.CallExpr)
 	if !ok || !isErrorCall(call) || len(call.Args) == 0 {
 		return nil, "", false
 	}
@@ -82,25 +82,25 @@ func checkErrorString(val string) []string {
 	return msgs
 }
 
-func isAcronymStart(s string) bool {
-	word := firstWord(s)
+func isAcronymStart(text string) bool {
+	word := firstWord(text)
 	if len(word) < 2 {
 		return false
 	}
-	for _, r := range word {
-		if !unicode.IsUpper(r) && !unicode.IsDigit(r) {
+	for _, char := range word {
+		if !unicode.IsUpper(char) && !unicode.IsDigit(char) {
 			return false
 		}
 	}
 	return true
 }
 
-func firstWord(s string) string {
-	i := strings.IndexFunc(s, func(r rune) bool {
-		return r == ' ' || r == ':' || r == ',' || r == '('
+func firstWord(text string) string {
+	i := strings.IndexFunc(text, func(char rune) bool {
+		return char == ' ' || char == ':' || char == ',' || char == '('
 	})
 	if i < 0 {
-		return s
+		return text
 	}
-	return s[:i]
+	return text[:i]
 }

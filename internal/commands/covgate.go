@@ -26,44 +26,46 @@ func NewCovgateCommand() *cobra.Command {
 		},
 	}
 
-	fl := cmd.Flags()
-	bindCovgatePackageFlags(fl, &opts)
-	bindCovgateThresholdFlags(fl, &opts)
+	flags := cmd.Flags()
+	bindCovgatePackageFlags(flags, &opts)
+	bindCovgateThresholdFlags(flags, &opts)
 
 	return cmd
 }
 
-func bindCovgatePackageFlags(fl *pflag.FlagSet, opts *covgate.Opts) {
-	fl.StringVar(&opts.Packages, "packages", "./...", "Go package pattern for go list")
-	fl.StringVar(
+func bindCovgatePackageFlags(flags *pflag.FlagSet, opts *covgate.Opts) {
+	flags.StringVar(
+		&opts.Packages, "packages", "./...", "Go package pattern for go list",
+	)
+	flags.StringVar(
 		&opts.Exclude, "exclude", "",
 		"comma-separated list of Go list patterns to exclude from coverage measurement",
 	)
-	fl.StringVar(
+	flags.StringVar(
 		&opts.SrcPrefix, "src-prefix", "pkg",
 		"source prefix for mapping external test dirs",
 	)
-	fl.StringVar(
+	flags.StringVar(
 		&opts.TestDir, "test-dir", "",
 		"external test directory (empty = none)",
 	)
-	fl.IntVarP(
+	flags.IntVarP(
 		&opts.Parallelism, "parallelism", "p", 0,
 		"max concurrent package measurements (0 = NumCPU; emits progress)",
 	)
 }
 
-func bindCovgateThresholdFlags(fl *pflag.FlagSet, opts *covgate.Opts) {
-	fl.Float64Var(
+func bindCovgateThresholdFlags(flags *pflag.FlagSet, opts *covgate.Opts) {
+	flags.Float64Var(
 		&opts.DefaultThreshold, "default-threshold", 80.0,
 		"fallback threshold when no .covgate exists",
 	)
-	fl.BoolVar(
+	flags.BoolVar(
 		&opts.TightnessEnabled, "tightness", true,
 		"fail when required threshold lags actual coverage "+
 			"by more than --tightness-tolerance",
 	)
-	fl.Float64Var(
+	flags.Float64Var(
 		&opts.TightnessTolerance, "tightness-tolerance", 0.5,
 		"max allowed gap in percentage points between "+
 			"actual coverage and required threshold",

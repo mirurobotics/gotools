@@ -14,60 +14,60 @@ const (
 )
 
 // Check flags expressions that wrap at a binary operator or selector dot.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
 	lines := map[int]int{}
 	concat := map[*ast.BinaryExpr]bool{}
 	typeParams := map[*ast.FieldList]bool{}
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch x := n.(type) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		switch node := node.(type) {
 		case *ast.InterfaceType:
 			return false
 		case *ast.FieldList:
-			return !typeParams[x]
+			return !typeParams[node]
 		case *ast.FuncType:
-			typeParams[x.TypeParams] = true
+			typeParams[node.TypeParams] = true
 		case *ast.TypeSpec:
-			typeParams[x.TypeParams] = true
+			typeParams[node.TypeParams] = true
 		case *ast.BinaryExpr:
-			markStringChain(x, concat)
-			if !concat[x] && breaks(fset, x.X.End(), x.Y.Pos()) {
-				flag(fset, lines, x.Pos(), x.X.End())
+			markStringChain(node, concat)
+			if !concat[node] && breaks(fset, node.X.End(), node.Y.Pos()) {
+				flag(fset, lines, node.Pos(), node.X.End())
 			}
 		case *ast.SelectorExpr:
-			if breaks(fset, x.X.End(), x.Sel.Pos()) {
-				flag(fset, lines, x.Pos(), x.X.End())
+			if breaks(fset, node.X.End(), node.Sel.Pos()) {
+				flag(fset, lines, node.Pos(), node.X.End())
 			}
 		}
 		return true
 	})
-	return diagnostics(fset, f, filename, lines)
+	return diagnostics(fset, file, filename, lines)
 }
 
-func markStringChain(e *ast.BinaryExpr, concat map[*ast.BinaryExpr]bool) {
-	if _, decided := concat[e]; e.Op != token.ADD || decided {
+func markStringChain(bin *ast.BinaryExpr, concat map[*ast.BinaryExpr]bool) {
+	if _, decided := concat[bin]; bin.Op != token.ADD || decided {
 		return
 	}
 	var nodes []*ast.BinaryExpr
 	hasLit := false
 	var walk func(ast.Expr)
-	walk = func(x ast.Expr) {
-		switch v := x.(type) {
+	walk = func(expr ast.Expr) {
+		switch expr := expr.(type) {
 		case *ast.ParenExpr:
-			walk(v.X)
+			walk(expr.X)
 		case *ast.BinaryExpr:
-			if v.Op != token.ADD {
+			if expr.Op != token.ADD {
 				return
 			}
-			nodes = append(nodes, v)
-			walk(v.X)
-			walk(v.Y)
+			nodes = append(nodes, expr)
+			walk(expr.X)
+			walk(expr.Y)
 		case *ast.BasicLit:
-			hasLit = hasLit || v.Kind == token.STRING
+			hasLit = hasLit || expr.Kind == token.STRING
 		}
 	}
-	walk(e)
-	for _, n := range nodes {
-		concat[n] = hasLit
+	walk(bin)
+	for _, binExpr := range nodes {
+		concat[binExpr] = hasLit
 	}
 }
 
@@ -85,21 +85,21 @@ func flag(fset *token.FileSet, lines map[int]int, start, brk token.Pos) {
 
 func diagnostics(
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	filename string,
 	lines map[int]int,
 ) []analysis.Diagnostic {
 	diags := make([]analysis.Diagnostic, 0, len(lines))
 	for line, start := range lines {
-		if analysis.NolintOnLines(fset, f, ruleName, start-1, start) {
+		if analysis.NolintOnLines(fset, file, ruleName, start-1, start) {
 			continue
 		}
-		if analysis.NolintOnLines(fset, f, ruleName, line, line) {
+		if analysis.NolintOnLines(fset, file, ruleName, line, line) {
 			continue
 		}
 		diag := analysis.Diagnostic{File: filename, Line: line, Message: message}
 		diags = append(diags, diag)
 	}
-	sort.Slice(diags, func(i, j int) bool { return diags[i].Line < diags[j].Line })
+	sort.Slice(diags, func(a, b int) bool { return diags[a].Line < diags[b].Line })
 	return diags
 }

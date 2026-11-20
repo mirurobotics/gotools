@@ -12,47 +12,47 @@ import (
 )
 
 // Check reports functions that are out of control-flow order.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	m := build(f)
-	order, below := m.order()
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
+	graph := build(file)
+	order, below := graph.order()
 	var diags []analysis.Diagnostic
-	add := func(d ast.Decl, msg string) {
+	add := func(decl ast.Decl, msg string) {
 		diags = append(diags, analysis.Diagnostic{
 			File:    filename,
-			Line:    fset.Position(d.Pos()).Line,
+			Line:    fset.Position(decl.Pos()).Line,
 			Message: msg,
 		})
 	}
-	for _, x := range m.funcs() {
-		for _, msg := range m.violations(x, order, below) {
-			add(x.decl, msg)
+	for _, fnc := range graph.funcs() {
+		for _, msg := range graph.violations(fnc, order, below) {
+			add(fnc.decl, msg)
 		}
 	}
-	uses := m.firstUses(m.units(false), func(i int) int { return i })
-	for _, t := range slices.Sorted(maps.Keys(uses)) {
-		if !m.typePlaced(t, uses) {
-			add(m.decls[t], m.typeMessage(t, uses[t]))
+	uses := graph.firstUses(graph.units(false), func(i int) int { return i })
+	for _, typeIdx := range slices.Sorted(maps.Keys(uses)) {
+		if !graph.typePlaced(typeIdx, uses) {
+			add(graph.decls[typeIdx], graph.typeMessage(typeIdx, uses[typeIdx]))
 		}
 	}
 	return diags
 }
 
 // Fix returns src with its declarations reordered, or nil when already ordered.
-func Fix(fset *token.FileSet, f *ast.File, src []byte) []byte {
-	order, _ := build(f).order()
+func Fix(fset *token.FileSet, file *ast.File, src []byte) []byte {
+	order, _ := build(file).order()
 	if slices.IsSorted(order) {
 		return nil
 	}
-	return render(fset, f, src, order)
+	return render(fset, file, src, order)
 }
 
-func render(fset *token.FileSet, f *ast.File, src []byte, order []int) []byte {
-	tf := fset.File(f.Pos())
-	start := boundary(tf, f, src, f.Name.End(), 0)
+func render(fset *token.FileSet, file *ast.File, src []byte, order []int) []byte {
+	tfile := fset.File(file.Pos())
+	start := boundary(tfile, file, src, file.Name.End(), 0)
 	out := slices.Clone(src[:start])
-	chunks := make([][]byte, len(f.Decls))
-	for i, d := range f.Decls {
-		end := boundary(tf, f, src, d.End(), i+1)
+	chunks := make([][]byte, len(file.Decls))
+	for i, decl := range file.Decls {
+		end := boundary(tfile, file, src, decl.End(), i+1)
 		chunks[i] = trimChunk(src[start:end])
 		start = end
 	}
@@ -63,18 +63,20 @@ func render(fset *token.FileSet, f *ast.File, src []byte, order []int) []byte {
 	return append(out, src[start:]...)
 }
 
-func boundary(tf *token.File, f *ast.File, src []byte, end token.Pos, next int) int {
-	end = extendEnd(tf, f, end)
-	if next < len(f.Decls) && tf.Line(f.Decls[next].Pos()) == tf.Line(end) {
-		return tf.Offset(end)
+func boundary(
+	tfile *token.File, file *ast.File, src []byte, end token.Pos, next int,
+) int {
+	end = extendEnd(tfile, file, end)
+	if next < len(file.Decls) && tfile.Line(file.Decls[next].Pos()) == tfile.Line(end) {
+		return tfile.Offset(end)
 	}
-	return lineAfter(src, tf.Offset(end))
+	return lineAfter(src, tfile.Offset(end))
 }
 
-func extendEnd(tf *token.File, f *ast.File, end token.Pos) token.Pos {
-	for _, cg := range f.Comments {
-		if cg.Pos() >= end && tf.Line(cg.Pos()) == tf.Line(end) {
-			end = cg.End()
+func extendEnd(tfile *token.File, file *ast.File, end token.Pos) token.Pos {
+	for _, group := range file.Comments {
+		if group.Pos() >= end && tfile.Line(group.Pos()) == tfile.Line(end) {
+			end = group.End()
 		}
 	}
 	return end
@@ -92,86 +94,87 @@ func trimChunk(chunk []byte) []byte {
 	return chunk
 }
 
-func (m *model) violations(x *fn, order []int, below map[int]bool) []string {
+func (m *model) violations(fnc *fn, order []int, below map[int]bool) []string {
 	checks := []func(*fn) string{m.stepdown, m.rankOrder, m.belowType, m.grouped}
-	if x.exempt {
+	if fnc.exempt {
 		checks = checks[2:]
 	}
 	var msgs []string
 	for _, check := range checks {
-		if msg := check(x); msg != "" {
+		if msg := check(fnc); msg != "" {
 			msgs = append(msgs, msg)
 		}
 	}
-	if len(msgs) > 0 || !below[x.idx] {
+	if len(msgs) > 0 || !below[fnc.idx] {
 		return msgs
 	}
-	return m.directlyBelow(x, order)
+	return m.directlyBelow(fnc, order)
 }
 
-func (m *model) stepdown(x *fn) string {
-	if len(x.callers) == 0 || slices.Max(x.callers) < x.idx {
+func (m *model) stepdown(fnc *fn) string {
+	if len(fnc.callers) == 0 || slices.Max(fnc.callers) < fnc.idx {
 		return ""
 	}
-	last := m.fns[slices.Max(x.callers)].name
-	return fmt.Sprintf("%q should be below its last caller %q", x.name, last)
+	last := m.fns[slices.Max(fnc.callers)].name
+	return fmt.Sprintf("%q should be below its last caller %q", fnc.name, last)
 }
 
-func (m *model) rankOrder(x *fn) string {
-	if x.rank != 0 {
+func (m *model) rankOrder(fnc *fn) string {
+	if fnc.rank != 0 {
 		return ""
 	}
-	for _, y := range m.funcs() {
-		if y.idx < x.idx && mustPrecede(x, y) {
-			return fmt.Sprintf("%q should be above unexported %q", x.name, y.name)
+	for _, other := range m.funcs() {
+		if other.idx < fnc.idx && mustPrecede(fnc, other) {
+			return fmt.Sprintf("%q should be above unexported %q", fnc.name, other.name)
 		}
 	}
 	return ""
 }
 
-func (m *model) belowType(x *fn) string {
-	if t, ok := m.typeDecl[x.recv]; !ok || t < x.idx {
+func (m *model) belowType(fnc *fn) string {
+	if typeIdx, ok := m.typeDecl[fnc.recv]; !ok || typeIdx < fnc.idx {
 		return ""
 	}
-	return fmt.Sprintf("method %q should be below type %q", x.name, x.recv)
+	return fmt.Sprintf("method %q should be below type %q", fnc.name, fnc.recv)
 }
 
-func (m *model) grouped(x *fn) string {
+func (m *model) grouped(fnc *fn) string {
 	prev := -1
-	for _, y := range m.funcs() {
-		if y.idx < x.idx && x.recv != "" && y.recv == x.recv {
-			prev = y.idx
+	for _, other := range m.funcs() {
+		if other.idx < fnc.idx && fnc.recv != "" && other.recv == fnc.recv {
+			prev = other.idx
 		}
 	}
-	if prev >= 0 && prev != x.idx-1 {
+	if prev >= 0 && prev != fnc.idx-1 {
 		return fmt.Sprintf(
-			"method %q should be grouped with the other methods of %q", x.name, x.recv,
+			"method %q should be grouped with the other methods of %q",
+			fnc.name, fnc.recv,
 		)
 	}
-	t, ok := m.typeDecl[x.recv]
-	headed := ok && t < x.idx && owns(m.typeOwner, x.idx, t)
-	if prev >= 0 || !headed || owns(m.typeOwner, x.idx, x.idx-1) {
+	typeIdx, ok := m.typeDecl[fnc.recv]
+	headed := ok && typeIdx < fnc.idx && owns(m.typeOwner, fnc.idx, typeIdx)
+	if prev >= 0 || !headed || owns(m.typeOwner, fnc.idx, fnc.idx-1) {
 		return ""
 	}
-	return fmt.Sprintf("type %q should be directly above its methods", x.recv)
+	return fmt.Sprintf("type %q should be directly above its methods", fnc.recv)
 }
 
-func (m *model) directlyBelow(x *fn, order []int) []string {
-	k, first := slices.Index(order, x.idx), x.idx
-	for m.fns[order[k-1]] == nil {
-		k--
-		if !m.inPlain(order[k]) {
-			first = order[k]
+func (m *model) directlyBelow(fnc *fn, order []int) []string {
+	pos, first := slices.Index(order, fnc.idx), fnc.idx
+	for m.fns[order[pos-1]] == nil {
+		pos--
+		if !m.inPlain(order[pos]) {
+			first = order[pos]
 		}
 	}
 	prev := first - 1
 	for prev >= 0 && m.inPlain(prev) {
 		prev--
 	}
-	above := order[k-1]
+	above := order[pos-1]
 	if above == prev {
 		return nil
 	}
-	msg := fmt.Sprintf("%q should be directly below %q", x.name, m.declName(above))
+	msg := fmt.Sprintf("%q should be directly below %q", fnc.name, m.declName(above))
 	return []string{msg}
 }

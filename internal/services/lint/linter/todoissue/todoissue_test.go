@@ -241,14 +241,14 @@ var r = 1
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	fset, f := linttest.Parse(t, "foo.go", tt.src)
-	diags := Check(fset, "foo.go", f)
-	linttest.AssertLines(t, diags, tt.wantLines, message)
-	for _, d := range diags {
-		if d.File != "foo.go" {
-			t.Errorf("diag file = %q, want foo.go", d.File)
+	fset, file := linttest.Parse(t, "foo.go", tc.src)
+	diags := Check(fset, "foo.go", file)
+	linttest.AssertLines(t, diags, tc.wantLines, message)
+	for _, diag := range diags {
+		if diag.File != "foo.go" {
+			t.Errorf("diag file = %q, want foo.go", diag.File)
 		}
 	}
 }

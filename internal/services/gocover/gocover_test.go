@@ -15,9 +15,9 @@ func TestParallelism(t *testing.T) {
 	if got := Parallelism(3); got != 3 {
 		t.Errorf("Parallelism(3) = %d, want 3", got)
 	}
-	for _, n := range []int{0, -1} {
-		if got := Parallelism(n); got != runtime.NumCPU() {
-			t.Errorf("Parallelism(%d) = %d, want %d", n, got, runtime.NumCPU())
+	for _, num := range []int{0, -1} {
+		if got := Parallelism(num); got != runtime.NumCPU() {
+			t.Errorf("Parallelism(%d) = %d, want %d", num, got, runtime.NumCPU())
 		}
 	}
 }
@@ -40,21 +40,21 @@ func TestGetThreshold(t *testing.T) {
 		{"hundred", "100.0\n", true, 80.0, 100.0},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			pkgDir := filepath.Join(dir, tt.name)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			pkgDir := filepath.Join(dir, tc.name)
 			//nolint:gosec // G301: test directory
 			_ = os.MkdirAll(pkgDir, 0o755)
 
-			if tt.exists {
+			if tc.exists {
 				covFile := filepath.Join(pkgDir, ".covgate")
 				//nolint:gosec // G306: test file
-				_ = os.WriteFile(covFile, []byte(tt.content), 0o644)
+				_ = os.WriteFile(covFile, []byte(tc.content), 0o644)
 			}
 
-			got := GetThreshold(pkgDir, tt.defVal)
-			if got != tt.want {
-				t.Errorf("GetThreshold() = %v, want %v", got, tt.want)
+			got := GetThreshold(pkgDir, tc.defVal)
+			if got != tc.want {
+				t.Errorf("GetThreshold() = %v, want %v", got, tc.want)
 			}
 		})
 	}
@@ -118,13 +118,13 @@ func TestRelPkg(t *testing.T) {
 		{"no match", "github.com/other/pkg", "github.com/foo/bar", "."},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := RelPkg(tt.pkg, tt.module)
-			if got != tt.want {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := RelPkg(tc.pkg, tc.module)
+			if got != tc.want {
 				t.Errorf(
 					"RelPkg(%q, %q) = %q, want %q",
-					tt.pkg, tt.module, got, tt.want,
+					tc.pkg, tc.module, got, tc.want,
 				)
 			}
 		})
@@ -151,11 +151,11 @@ func TestBuildTestPaths(t *testing.T) {
 		{"test dir missing", "mod/pkg/foo", "pkg/foo", "pkg", dir + "/tests", 1},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := BuildTestPaths(tt.pkg, tt.relPkg, tt.srcPrefix, tt.tDir)
-			if len(got) != tt.wantLen {
-				t.Errorf("len = %d, want %d: %v", len(got), tt.wantLen, got)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := BuildTestPaths(tc.pkg, tc.relPkg, tc.srcPrefix, tc.tDir)
+			if len(got) != tc.wantLen {
+				t.Errorf("len = %d, want %d: %v", len(got), tc.wantLen, got)
 			}
 		})
 	}
@@ -248,11 +248,11 @@ func TestNonEmptyLines(t *testing.T) {
 		{"only blanks", "\n\n\n", 0},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := NonEmptyLines(tt.input)
-			if len(got) != tt.want {
-				t.Errorf("len = %d, want %d", len(got), tt.want)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := NonEmptyLines(tc.input)
+			if len(got) != tc.want {
+				t.Errorf("len = %d, want %d", len(got), tc.want)
 			}
 		})
 	}
@@ -272,14 +272,14 @@ func TestParseCoverageOutput(t *testing.T) {
 		{"total:\t(statements)\t0.0%\n", 0.0},
 		{"total:\t(statements)\t100.0%\n", 100.0},
 	}
-	for _, tt := range tests {
-		got, err := ParseCoverageOutput(tt.input)
+	for _, tc := range tests {
+		got, err := ParseCoverageOutput(tc.input)
 		if err != nil {
-			t.Errorf("ParseCoverageOutput(%q) unexpected error: %v", tt.input, err)
+			t.Errorf("ParseCoverageOutput(%q) unexpected error: %v", tc.input, err)
 			continue
 		}
-		if got != tt.want {
-			t.Errorf("ParseCoverageOutput(%q) = %v, want %v", tt.input, got, tt.want)
+		if got != tc.want {
+			t.Errorf("ParseCoverageOutput(%q) = %v, want %v", tc.input, got, tc.want)
 		}
 	}
 }

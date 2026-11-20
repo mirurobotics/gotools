@@ -8,22 +8,22 @@ import (
 )
 
 // Check reports diagnostics for calls to context.Background().
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	ctxPkg := analysis.ContextPkgName(f)
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
+	ctxPkg := analysis.ContextPkgName(file)
 	if ctxPkg == "" {
 		return nil
 	}
 
 	var diags []analysis.Diagnostic
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
+	ast.Inspect(file, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
 		if !ok || !isBackgroundCall(call, ctxPkg) {
 			return true
 		}
 
 		pos := fset.Position(call.Pos())
-		if analysis.NolintOnLines(fset, f, "bgctx", pos.Line, pos.Line) {
+		if analysis.NolintOnLines(fset, file, "bgctx", pos.Line, pos.Line) {
 			return true
 		}
 

@@ -10,7 +10,7 @@ import (
 func TestRun_Exclude_GoListError(t *testing.T) {
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(pattern string) ([]string, error) {
 			if pattern == "./..." {
@@ -22,7 +22,7 @@ func TestRun_Exclude_GoListError(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{
+	err := job.run(Opts{
 		Out:              &buf,
 		DefaultThreshold: 80.0,
 		Packages:         "./...",
@@ -113,7 +113,7 @@ func runExclude(t *testing.T, exclude string, lookup map[string][]string) string
 	t.Helper()
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(pattern string) ([]string, error) {
 			out, ok := lookup[pattern]
@@ -125,7 +125,7 @@ func runExclude(t *testing.T, exclude string, lookup map[string][]string) string
 		measure: fakeMeasure(90.0),
 	}
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{
+	err := job.run(Opts{
 		Out:              &buf,
 		DefaultThreshold: 80.0,
 		Packages:         "./...",
@@ -173,8 +173,8 @@ func assertSkippedLine(t *testing.T, out string) {
 	if !strings.Contains(skippedLine, "SKIPPED") {
 		t.Errorf("pkg/b line missing SKIPPED: %q", skippedLine)
 	}
-	if n := strings.Count(skippedLine, "---"); n != 3 {
+	if count := strings.Count(skippedLine, "---"); count != 3 {
 		t.Errorf("pkg/b SKIPPED line expected 3 '---' placeholders, got %d: %q",
-			n, skippedLine)
+			count, skippedLine)
 	}
 }

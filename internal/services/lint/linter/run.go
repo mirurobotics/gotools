@@ -31,10 +31,10 @@ func Run(path string, doFix bool, cfg Config) (int, int, error) {
 	totalDiags := 0
 	filesFixed := 0
 
-	for _, f := range files {
-		diags, fixed, err := ProcessFile(f, doFix, cfg)
+	for _, filePath := range files {
+		diags, fixed, err := ProcessFile(filePath, doFix, cfg)
 		if err != nil {
-			_, _ = fmt.Fprintf(cfg.Err, "warning: %s: %v\n", f, err)
+			_, _ = fmt.Fprintf(cfg.Err, "warning: %s: %v\n", filePath, err)
 			continue
 		}
 		totalDiags += diags
@@ -91,24 +91,24 @@ func ProcessFile(path string, doFix bool, cfg Config) (int, bool, error) {
 		return 0, false, nil
 	}
 
-	fset, f, err := reparse(path, src)
+	fset, file, err := reparse(path, src)
 	if err != nil {
 		return 0, false, err
 	}
 
-	blocks := imports.ExtractBlocks(f)
+	blocks := imports.ExtractBlocks(file)
 
 	if doFix {
-		return processFixMode(path, src, fset, f, blocks, info, cfg)
+		return processFixMode(path, src, fset, file, blocks, info, cfg)
 	}
-	return processCheckMode(path, src, fset, f, blocks, cfg)
+	return processCheckMode(path, src, fset, file, blocks, cfg)
 }
 
 func processFixMode(
 	path string,
 	src []byte,
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	blocks []imports.ImportBlock,
 	info os.FileInfo,
 	cfg Config,
@@ -119,17 +119,17 @@ func processFixMode(
 	}
 	var err error
 	if string(fixed) != string(src) {
-		fset, f, err = reparse(path, fixed)
+		fset, file, err = reparse(path, fixed)
 		if err != nil {
 			return 0, false, err
 		}
 	}
 
-	fixed, fset, f, err = applyCandidateFixers(path, fixed, fset, f, cfg)
+	fixed, fset, file, err = applyCandidateFixers(path, fixed, fset, file, cfg)
 	if err != nil {
 		return 0, false, err
 	}
-	fixed, fset, f, err = applyOrderFixer(path, fixed, fset, f, cfg)
+	fixed, fset, file, err = applyOrderFixer(path, fixed, fset, file, cfg)
 	skipped := warnFixSkipped(cfg.Err, path, err)
 
 	didFix := string(fixed) != string(src)
@@ -141,26 +141,26 @@ func processFixMode(
 		_, _ = fmt.Fprintf(cfg.Out, "fixed: %s\n", path)
 	}
 
-	in := checkInput{fset, path, f, fixed}
-	diags := runChecks(in, cfg, false)
-	for _, d := range diags {
-		_, _ = fmt.Fprintln(cfg.Out, d)
+	input := checkInput{fset, path, file, fixed}
+	diags := runChecks(input, cfg, false)
+	for _, diag := range diags {
+		_, _ = fmt.Fprintln(cfg.Out, diag)
 	}
 	return len(diags) + skipped, didFix, nil
 }
 
 func reparse(path string, src []byte) (*token.FileSet, *ast.File, error) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, path, src, parser.ParseComments)
-	return fset, f, err
+	file, err := parser.ParseFile(fset, path, src, parser.ParseComments)
+	return fset, file, err
 }
 
-func warnFixSkipped(w io.Writer, path string, err error) int {
+func warnFixSkipped(out io.Writer, path string, err error) int {
 	if err == nil {
 		return 0
 	}
 	const msg = "warning: %s: funcorder fix produced invalid Go: %v\n"
-	_, _ = fmt.Fprintf(w, msg, path, err)
+	_, _ = fmt.Fprintf(out, msg, path, err)
 	return 1
 }
 
@@ -168,17 +168,17 @@ func processCheckMode(
 	path string,
 	src []byte,
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	blocks []imports.ImportBlock,
 	cfg Config,
 ) (int, bool, error) {
-	in := checkInput{fset, path, f, src}
-	diags := runChecks(in, cfg, true)
+	input := checkInput{fset, path, file, src}
+	diags := runChecks(input, cfg, true)
 	if cfg.runRule(RuleImports) {
 		diags = append(diags, imports.Check(fset, path, src, blocks)...)
 	}
-	for _, d := range diags {
-		_, _ = fmt.Fprintln(cfg.Out, d)
+	for _, diag := range diags {
+		_, _ = fmt.Fprintln(cfg.Out, diag)
 	}
 	return len(diags), false, nil
 }

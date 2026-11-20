@@ -25,15 +25,15 @@ type line struct {
 	indented bool
 }
 
-func runs(s source, cg *ast.CommentGroup) [][]line {
+func runs(code source, group *ast.CommentGroup) [][]line {
 	var out [][]line
 	var cur []line
-	for _, c := range cg.List {
-		if analysis.IsDirective(c.Text) {
+	for _, comment := range group.List {
+		if analysis.IsDirective(comment.Text) {
 			out, cur = appendRun(out, cur), nil
 			continue
 		}
-		cur = append(cur, lines(s, c)...)
+		cur = append(cur, lines(code, comment)...)
 	}
 	return appendRun(out, cur)
 }
@@ -45,26 +45,26 @@ func appendRun(out [][]line, run []line) [][]line {
 	return append(out, run)
 }
 
-func lines(s source, c *ast.Comment) []line {
-	if body, ok := strings.CutPrefix(c.Text, "/*"); ok {
-		return blockLines(s, c.Pos(), strings.TrimSuffix(body, "*/"))
+func lines(code source, comment *ast.Comment) []line {
+	if body, ok := strings.CutPrefix(comment.Text, "/*"); ok {
+		return blockLines(code, comment.Pos(), strings.TrimSuffix(body, "*/"))
 	}
-	body := strings.TrimPrefix(c.Text, "//")
+	body := strings.TrimPrefix(comment.Text, "//")
 	text := strings.TrimPrefix(body, " ")
-	return []line{{pos: c.Pos(), text: text, indented: isIndented(body)}}
+	return []line{{pos: comment.Pos(), text: text, indented: isIndented(body)}}
 }
 
-func blockLines(s source, opener token.Pos, body string) []line {
+func blockLines(code source, opener token.Pos, body string) []line {
 	texts := strings.Split(body, "\n")
-	start := s.tf.PositionFor(opener, false)
+	start := code.tf.PositionFor(opener, false)
 	prefix := commonIndent(texts[1:])
-	prefix = prefix[:min(len(prefix), len(s.before(opener)))]
+	prefix = prefix[:min(len(prefix), len(code.before(opener)))]
 	out := make([]line, len(texts))
-	for i, t := range texts {
-		text := strings.TrimPrefix(t, prefix)
+	for i, raw := range texts {
+		text := strings.TrimPrefix(raw, prefix)
 		pos := opener
 		if i > 0 {
-			pos = s.tf.LineStart(start.Line + i)
+			pos = code.tf.LineStart(start.Line + i)
 		}
 		out[i] = line{pos: pos, text: text, indented: isIndented(text)}
 	}
@@ -73,29 +73,29 @@ func blockLines(s source, opener token.Pos, body string) []line {
 
 func commonIndent(texts []string) string {
 	prefix, first := "", true
-	for _, t := range texts {
-		if strings.TrimSpace(t) == "" {
+	for _, text := range texts {
+		if strings.TrimSpace(text) == "" {
 			continue
 		}
-		ws := t[:len(t)-len(strings.TrimLeft(t, " \t"))]
+		indent := text[:len(text)-len(strings.TrimLeft(text, " \t"))]
 		if first {
-			prefix, first = ws, false
+			prefix, first = indent, false
 		}
-		for !strings.HasPrefix(ws, prefix) {
+		for !strings.HasPrefix(indent, prefix) {
 			prefix = prefix[:len(prefix)-1]
 		}
 	}
 	return prefix
 }
 
-func isIndented(s string) bool {
-	return strings.HasPrefix(s, "\t") || strings.HasPrefix(s, "  ")
+func isIndented(text string) bool {
+	return strings.HasPrefix(text, "\t") || strings.HasPrefix(text, "  ")
 }
 
 func joinText(run []line) string {
 	texts := make([]string, len(run))
-	for i, l := range run {
-		texts[i] = l.text
+	for i, entry := range run {
+		texts[i] = entry.text
 	}
 	return strings.Join(texts, "\n")
 }

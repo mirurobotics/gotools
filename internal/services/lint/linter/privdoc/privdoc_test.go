@@ -301,8 +301,8 @@ import "fmt"
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	fset, f := linttest.Parse(t, "foo.go", tt.src)
-	linttest.AssertLines(t, Check(fset, "foo.go", f), tt.wantLines, message)
+	fset, file := linttest.Parse(t, "foo.go", tc.src)
+	linttest.AssertLines(t, Check(fset, "foo.go", file), tc.wantLines, message)
 }

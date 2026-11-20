@@ -8,38 +8,39 @@ import (
 	"unicode/utf8"
 )
 
-func isCode(s string) bool {
-	if strings.TrimSpace(s) == "" {
+func isCode(text string) bool {
+	if strings.TrimSpace(text) == "" {
 		return false
 	}
-	return isDecls(s) || isStmts(s)
+	return isDecls(text) || isStmts(text)
 }
 
-func isDecls(s string) bool {
-	src := "package p\n" + s + "\n"
+func isDecls(text string) bool {
+	src := "package p\n" + text + "\n"
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "", src, 0)
-	if err != nil || len(f.Decls) == 0 || isProse(fset, src, f) {
+	file, err := parser.ParseFile(fset, "", src, 0)
+	if err != nil || len(file.Decls) == 0 || isProse(fset, src, file) {
 		return false
 	}
-	return anyPlausibleDecl(f.Decls)
+	return anyPlausibleDecl(file.Decls)
 }
 
-func isStmts(s string) bool {
-	src := "package p\nfunc _() {\n" + s + "\n}\n"
+func isStmts(text string) bool {
+	src := "package p\nfunc _() {\n" + text + "\n}\n"
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "", src, 0)
-	if err != nil || isProse(fset, src, f) {
+	file, err := parser.ParseFile(fset, "", src, 0)
+	if err != nil || isProse(fset, src, file) {
 		return false
 	}
-	body := firstBody(f)
+	body := firstBody(file)
 	ok := true
 	exempt := map[ast.Node]bool{}
-	ast.Inspect(body, func(n ast.Node) bool {
-		if ts, isSwitch := n.(*ast.TypeSwitchStmt); isSwitch {
-			exempt[ts.Assign] = true
+	ast.Inspect(body, func(node ast.Node) bool {
+		if typeSwitch, isSwitch := node.(*ast.TypeSwitchStmt); isSwitch {
+			exempt[typeSwitch.Assign] = true
 		}
-		if st, isStmt := n.(ast.Stmt); isStmt && !exempt[n] && !plausible(st) {
+		stmt, isStmt := node.(ast.Stmt)
+		if isStmt && !exempt[node] && !plausible(stmt) {
 			ok = false
 		}
 		return ok
@@ -47,14 +48,14 @@ func isStmts(s string) bool {
 	return ok && hasCodeNode(body)
 }
 
-func isProse(fset *token.FileSet, src string, f *ast.File) bool {
-	return spacedDot(fset, src, f) || hasNonASCIIIdent(f)
+func isProse(fset *token.FileSet, src string, file *ast.File) bool {
+	return spacedDot(fset, src, file) || hasNonASCIIIdent(file)
 }
 
-func spacedDot(fset *token.FileSet, src string, f *ast.File) bool {
+func spacedDot(fset *token.FileSet, src string, file *ast.File) bool {
 	found := false
-	ast.Inspect(f, func(n ast.Node) bool {
-		if sel, ok := n.(*ast.SelectorExpr); ok {
+	ast.Inspect(file, func(node ast.Node) bool {
+		if sel, ok := node.(*ast.SelectorExpr); ok {
 			from := fset.Position(sel.X.End()).Offset
 			gap := src[from:fset.Position(sel.Sel.Pos()).Offset]
 			if gap != "." && !strings.Contains(gap, "\n") {
@@ -66,10 +67,10 @@ func spacedDot(fset *token.FileSet, src string, f *ast.File) bool {
 	return found
 }
 
-func hasNonASCIIIdent(f *ast.File) bool {
+func hasNonASCIIIdent(file *ast.File) bool {
 	found := false
-	ast.Inspect(f, func(n ast.Node) bool {
-		if id, ok := n.(*ast.Ident); ok && !isASCII(id.Name) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		if id, ok := node.(*ast.Ident); ok && !isASCII(id.Name) {
 			found = true
 		}
 		return !found
@@ -77,75 +78,75 @@ func hasNonASCIIIdent(f *ast.File) bool {
 	return found
 }
 
-func isASCII(s string) bool {
-	for i := range len(s) {
-		if s[i] >= utf8.RuneSelf {
+func isASCII(text string) bool {
+	for i := range len(text) {
+		if text[i] >= utf8.RuneSelf {
 			return false
 		}
 	}
 	return true
 }
 
-func firstBody(f *ast.File) *ast.BlockStmt {
+func firstBody(file *ast.File) *ast.BlockStmt {
 	var body *ast.BlockStmt
-	ast.Inspect(f, func(n ast.Node) bool {
-		if fd, ok := n.(*ast.FuncDecl); ok && body == nil {
-			body = fd.Body
+	ast.Inspect(file, func(node ast.Node) bool {
+		if decl, ok := node.(*ast.FuncDecl); ok && body == nil {
+			body = decl.Body
 		}
 		return body == nil
 	})
 	return body
 }
 
-func plausible(st ast.Stmt) bool {
-	switch x := st.(type) {
+func plausible(stmt ast.Stmt) bool {
+	switch stmt := stmt.(type) {
 	case *ast.LabeledStmt:
 		return false
 	case *ast.ExprStmt:
-		return isCallOrRecv(x.X)
+		return isCallOrRecv(stmt.X)
 	case *ast.IncDecStmt:
-		return isAssignable(x.X)
+		return isAssignable(stmt.X)
 	case *ast.AssignStmt:
-		return allAssignable(x.Lhs)
+		return allAssignable(stmt.Lhs)
 	}
 	return true
 }
 
-func isCallOrRecv(e ast.Expr) bool {
-	switch x := e.(type) {
+func isCallOrRecv(expr ast.Expr) bool {
+	switch expr := expr.(type) {
 	case *ast.CallExpr:
 		return true
 	case *ast.UnaryExpr:
-		return x.Op == token.ARROW
+		return expr.Op == token.ARROW
 	case *ast.ParenExpr:
-		return isCallOrRecv(x.X)
+		return isCallOrRecv(expr.X)
 	}
 	return false
 }
 
 func allAssignable(lhs []ast.Expr) bool {
-	for _, e := range lhs {
-		if !isAssignable(e) {
+	for _, expr := range lhs {
+		if !isAssignable(expr) {
 			return false
 		}
 	}
 	return true
 }
 
-func isAssignable(e ast.Expr) bool {
-	switch x := e.(type) {
+func isAssignable(expr ast.Expr) bool {
+	switch expr := expr.(type) {
 	case *ast.Ident, *ast.SelectorExpr, *ast.IndexExpr, *ast.StarExpr:
 		return true
 	case *ast.ParenExpr:
-		return isAssignable(x.X)
+		return isAssignable(expr.X)
 	}
 	return false
 }
 
 func hasCodeNode(body *ast.BlockStmt) bool {
 	found := false
-	ast.Inspect(body, func(n ast.Node) bool {
-		switch n.(type) {
+	ast.Inspect(body, func(node ast.Node) bool {
+		switch node.(type) {
 		case *ast.CallExpr, *ast.AssignStmt, *ast.IncDecStmt,
 			*ast.ReturnStmt, *ast.IfStmt, *ast.ForStmt, *ast.RangeStmt,
 			*ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt,

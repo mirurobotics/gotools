@@ -18,17 +18,17 @@ func f() {
 }
 `
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	call := findFirstCallExpr(f)
+	call := findFirstCallExpr(file)
 	if call == nil {
 		t.Fatal("no call expression found")
 	}
 
-	if !HasCommentsBetween(fset, f, call.Lparen, call.Rparen) {
+	if !HasCommentsBetween(fset, file, call.Lparen, call.Rparen) {
 		t.Error(
 			"expected HasCommentsBetween to return true" +
 				" for call with comment inside",
@@ -47,17 +47,17 @@ func f() {
 }
 `
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	call := findFirstCallExpr(f)
+	call := findFirstCallExpr(file)
 	if call == nil {
 		t.Fatal("no call expression found")
 	}
 
-	if HasCommentsBetween(fset, f, call.Lparen, call.Rparen) {
+	if HasCommentsBetween(fset, file, call.Lparen, call.Rparen) {
 		t.Error("expected HasCommentsBetween to return false for call without comment")
 	}
 }
@@ -73,17 +73,17 @@ func f() {
 }
 `
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	call := findFirstCallExpr(f)
+	call := findFirstCallExpr(file)
 	if call == nil {
 		t.Fatal("no call expression found")
 	}
 
-	if HasCommentsBetween(fset, f, call.Lparen, call.Rparen) {
+	if HasCommentsBetween(fset, file, call.Lparen, call.Rparen) {
 		t.Error("expected false when comment is outside the range")
 	}
 }
@@ -99,17 +99,17 @@ func f() {
 }
 `
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	call := findFirstCallExpr(f)
+	call := findFirstCallExpr(file)
 	if call == nil {
 		t.Fatal("no call expression found")
 	}
 
-	if !HasCommentsBetween(fset, f, call.Lparen, call.Rparen) {
+	if !HasCommentsBetween(fset, file, call.Lparen, call.Rparen) {
 		t.Error("expected true for inline nolint comment inside args")
 	}
 }
@@ -122,9 +122,9 @@ func f() {
 	_ = x
 }
 `
-	f := parseFile(t, src)
+	file := parseFile(t, src)
 
-	assign := findFirstAssign(f)
+	assign := findFirstAssign(file)
 	if assign == nil {
 		t.Fatal("no assignment found")
 	}
@@ -140,9 +140,9 @@ func f() {
 	foo(func() {})
 }
 `
-	f := parseFile(t, src)
+	file := parseFile(t, src)
 
-	call := findFirstCallExpr(f)
+	call := findFirstCallExpr(file)
 	if call == nil {
 		t.Fatal("no call expression found")
 	}
@@ -161,9 +161,9 @@ func f() {
 	foo(1, 2, 3)
 }
 `
-	f := parseFile(t, src)
+	file := parseFile(t, src)
 
-	call := findFirstCallExpr(f)
+	call := findFirstCallExpr(file)
 	if call == nil {
 		t.Fatal("no call expression found")
 	}
@@ -184,9 +184,9 @@ func f() {
 	_ = s
 }
 `
-	f := parseFile(t, src)
+	file := parseFile(t, src)
 
-	assign := findFirstAssign(f)
+	assign := findFirstAssign(file)
 	if assign == nil {
 		t.Fatal("no assignment found")
 	}

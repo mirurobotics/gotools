@@ -230,11 +230,11 @@ func assertFixResult(t *testing.T, src, want string) {
 func fixSource(t *testing.T, src string) string {
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidates := FindCandidates(fset, f, srcBytes, 88, 4)
+	candidates := FindCandidates(fset, file, srcBytes, 88, 4)
 	return string(analysis.Fix(fset, srcBytes, candidates))
 }
 
@@ -249,11 +249,11 @@ func Get(
 `
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidates := FindCandidates(fset, f, srcBytes, 29, 4)
+	candidates := FindCandidates(fset, file, srcBytes, 29, 4)
 	if len(candidates) != 1 {
 		t.Fatalf("expected 1 candidate at limit, got %d", len(candidates))
 	}
@@ -270,11 +270,11 @@ func Get(
 `
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidates := FindCandidates(fset, f, srcBytes, 28, 4)
+	candidates := FindCandidates(fset, file, srcBytes, 28, 4)
 	if len(candidates) != 0 {
 		t.Fatalf("expected 0 candidates past limit, got %d", len(candidates))
 	}

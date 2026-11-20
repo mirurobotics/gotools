@@ -51,9 +51,9 @@ func TestInflects_NonMatches(t *testing.T) {
 
 func assertInflects(t *testing.T, want bool, pairs ...[2]string) {
 	t.Helper()
-	for _, p := range pairs {
-		if got := inflects(p[0], p[1]); got != want {
-			t.Errorf("inflects(%q, %q) = %v, want %v", p[0], p[1], got, want)
+	for _, pair := range pairs {
+		if got := inflects(pair[0], pair[1]); got != want {
+			t.Errorf("inflects(%q, %q) = %v, want %v", pair[0], pair[1], got, want)
 		}
 	}
 }

@@ -26,17 +26,19 @@ func NewCovratchetCommand() *cobra.Command {
 		},
 	}
 
-	fl := cmd.Flags()
-	fl.StringVar(&opts.Packages, "packages", "./...", "Go package pattern for go list")
-	fl.StringVar(
+	flags := cmd.Flags()
+	flags.StringVar(
+		&opts.Packages, "packages", "./...", "Go package pattern for go list",
+	)
+	flags.StringVar(
 		&opts.SrcPrefix, "src-prefix", "pkg",
 		"source prefix for mapping external test dirs",
 	)
-	fl.StringVar(
+	flags.StringVar(
 		&opts.TestDir, "test-dir", "",
 		"external test directory (empty = none)",
 	)
-	fl.IntVarP(
+	flags.IntVarP(
 		&opts.Parallelism, "parallelism", "p", 0,
 		"max concurrent package measurements (0 = NumCPU; emits progress)",
 	)

@@ -82,11 +82,11 @@ import (
 
 func assertHasDiags(t *testing.T, src []byte) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	blocks := ExtractBlocks(f)
+	blocks := ExtractBlocks(file)
 	diags := Check(fset, "test.go", src, blocks)
 	if len(diags) == 0 {
 		t.Error("expected diagnostics, got none")
@@ -113,11 +113,11 @@ import (
 
 func assertNoDiags(t *testing.T, src []byte) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	blocks := ExtractBlocks(f)
+	blocks := ExtractBlocks(file)
 	diags := Check(fset, "test.go", src, blocks)
 	if len(diags) != 0 {
 		t.Errorf("expected no diagnostics, got %d: %v", len(diags), diags)
@@ -188,11 +188,11 @@ func TestCheckerFixerAgreement(t *testing.T) {
 func assertCheckerFixerAgree(t *testing.T, src []byte) {
 	t.Helper()
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatalf("parse error: %v\n%s", err, src)
 	}
-	changed := string(Fix(fset, src, ExtractBlocks(f))) != string(src)
+	changed := string(Fix(fset, src, ExtractBlocks(file))) != string(src)
 
 	fsetCheck := token.NewFileSet()
 	fCheck, _ := parser.ParseFile(fsetCheck, "test.go", src, parser.ParseComments)
@@ -209,11 +209,11 @@ func assertCheckerFixerAgree(t *testing.T, src []byte) {
 
 func assertFixResult(t *testing.T, src []byte, want string) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	blocks := ExtractBlocks(f)
+	blocks := ExtractBlocks(file)
 	got := string(Fix(fset, src, blocks))
 	if got != want {
 		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", got, want)

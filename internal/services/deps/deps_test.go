@@ -10,9 +10,9 @@ import (
 
 func TestRunUpdate_Success(t *testing.T) {
 	var out, errW bytes.Buffer
-	r := runner{exec: fakeExec(nil)}
+	run := runner{exec: fakeExec(nil)}
 
-	err := r.runUpdate(&out, &errW)
+	err := run.runUpdate(&out, &errW)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -31,9 +31,9 @@ func TestRunUpdate_Success(t *testing.T) {
 
 func TestRunUpdate_FirstStepFails(t *testing.T) {
 	var out, errW bytes.Buffer
-	r := runner{exec: fakeExecFailAt(1)}
+	run := runner{exec: fakeExecFailAt(1)}
 
-	err := r.runUpdate(&out, &errW)
+	err := run.runUpdate(&out, &errW)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -47,9 +47,9 @@ func TestRunUpdate_FirstStepFails(t *testing.T) {
 
 func TestRunUpdate_MiddleStepFails(t *testing.T) {
 	var out, errW bytes.Buffer
-	r := runner{exec: fakeExecFailAt(2)}
+	run := runner{exec: fakeExecFailAt(2)}
 
-	err := r.runUpdate(&out, &errW)
+	err := run.runUpdate(&out, &errW)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -70,21 +70,21 @@ func TestRunUpdate_MiddleStepFails(t *testing.T) {
 	}
 }
 
-func fakeExecFailAt(n int) func(io.Writer, io.Writer, ...string) error {
+func fakeExecFailAt(failAt int) func(io.Writer, io.Writer, ...string) error {
 	call := 0
 	return func(io.Writer, io.Writer, ...string) error {
 		call++
-		if call == n {
-			return fmt.Errorf("step %d failed", n)
+		if call == failAt {
+			return fmt.Errorf("step %d failed", failAt)
 		}
 		return nil
 	}
 }
 
 func TestRunUpdate_NilWriters(t *testing.T) {
-	r := runner{exec: fakeExec(nil)}
+	run := runner{exec: fakeExec(nil)}
 
-	err := r.runUpdate(nil, nil)
+	err := run.runUpdate(nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

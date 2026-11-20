@@ -26,10 +26,10 @@ func TestNewCoverageCommand_Flags(t *testing.T) {
 }
 
 func TestNewCoverageCommand_FlagDefaults(t *testing.T) {
-	fl := NewCoverageCommand().Flags()
-	assertStringDefaults(t, fl,
+	flags := NewCoverageCommand().Flags()
+	assertStringDefaults(t, flags,
 		map[string]string{"src-prefix": "pkg", "test-prefix": "tests"})
-	assertBoolDefaults(t, fl, map[string]bool{"no-html": false})
+	assertBoolDefaults(t, flags, map[string]bool{"no-html": false})
 }
 
 func TestNewCoverageCommand_AcceptsMaxOneArg(t *testing.T) {

@@ -37,9 +37,9 @@ func TestFmtDuration(t *testing.T) {
 		{60 * time.Second, "1m00s"},
 		{7*time.Minute + 45*time.Second, "7m45s"},
 	}
-	for _, tt := range tests {
-		if got := fmtDuration(tt.d); got != tt.want {
-			t.Errorf("fmtDuration(%v) = %q, want %q", tt.d, got, tt.want)
+	for _, tc := range tests {
+		if got := fmtDuration(tc.d); got != tc.want {
+			t.Errorf("fmtDuration(%v) = %q, want %q", tc.d, got, tc.want)
 		}
 	}
 }
@@ -49,7 +49,7 @@ func TestRun_OutputContainsTiming(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
 			return []string{"example.com/mod/pkg/a"}, nil
@@ -59,16 +59,16 @@ func TestRun_OutputContainsTiming(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0})
+	err := job.run(Opts{Out: &buf, DefaultThreshold: 80.0})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	s := buf.String()
-	if !strings.Contains(s, "TIME") {
-		t.Errorf("output missing TIME column header: %s", s)
+	output := buf.String()
+	if !strings.Contains(output, "TIME") {
+		t.Errorf("output missing TIME column header: %s", output)
 	}
-	if !strings.Contains(s, "Total time:") {
-		t.Errorf("output missing total time: %s", s)
+	if !strings.Contains(output, "Total time:") {
+		t.Errorf("output missing total time: %s", output)
 	}
 }
 
@@ -81,8 +81,8 @@ func TestPrintResults_UsesWallTime(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{}
-	err := r.printResults(&buf, results, nil, modName, 3*time.Second)
+	run := runner{}
+	err := run.printResults(&buf, results, nil, modName, 3*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -100,10 +100,10 @@ func TestCheckPackage_OutputContainsTime(t *testing.T) {
 	testutil.MakePkgDir(t, pkgRel)
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
+	res := run.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
 	if !strings.Contains(res.output, "0.0s") {
 		t.Errorf("output missing duration: %s", res.output)
 	}

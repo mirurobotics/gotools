@@ -29,8 +29,8 @@ func TestGoListPackages(t *testing.T) {
 		t.Fatalf("GoListPackages: %v", err)
 	}
 	found := false
-	for _, p := range pkgs {
-		if p == "testmod/mypkg" {
+	for _, pkg := range pkgs {
+		if pkg == "testmod/mypkg" {
 			found = true
 		}
 	}

@@ -3,43 +3,43 @@ package commentedcode
 import "go/ast"
 
 func anyPlausibleDecl(decls []ast.Decl) bool {
-	for _, d := range decls {
-		if plausibleDecl(d) {
+	for _, decl := range decls {
+		if plausibleDecl(decl) {
 			return true
 		}
 	}
 	return false
 }
 
-func plausibleDecl(d ast.Decl) bool {
-	if fd, isFunc := d.(*ast.FuncDecl); isFunc {
-		return fd.Body != nil
+func plausibleDecl(decl ast.Decl) bool {
+	if funcDecl, isFunc := decl.(*ast.FuncDecl); isFunc {
+		return funcDecl.Body != nil
 	}
-	gd, isGen := d.(*ast.GenDecl)
-	return isGen && (len(gd.Specs) > 1 || allPlausibleSpecs(gd.Specs))
+	genDecl, isGen := decl.(*ast.GenDecl)
+	return isGen && (len(genDecl.Specs) > 1 || allPlausibleSpecs(genDecl.Specs))
 }
 
 func allPlausibleSpecs(specs []ast.Spec) bool {
-	for _, s := range specs {
-		if !plausibleSpec(s) {
+	for _, spec := range specs {
+		if !plausibleSpec(spec) {
 			return false
 		}
 	}
 	return true
 }
 
-func plausibleSpec(s ast.Spec) bool {
-	switch x := s.(type) {
+func plausibleSpec(spec ast.Spec) bool {
+	switch spec := spec.(type) {
 	case *ast.ValueSpec:
-		return len(x.Values) > 0 || isComposite(x.Type)
+		return len(spec.Values) > 0 || isComposite(spec.Type)
 	case *ast.TypeSpec:
-		return x.Assign.IsValid() || isComposite(x.Type)
+		return spec.Assign.IsValid() || isComposite(spec.Type)
 	}
 	return true
 }
 
-func isComposite(e ast.Expr) bool {
-	switch e.(type) {
+func isComposite(expr ast.Expr) bool {
+	switch expr.(type) {
 	case nil, *ast.Ident, *ast.SelectorExpr:
 		return false
 	}

@@ -22,8 +22,8 @@ func f() {
 }
 `
 	candidates := findCandidates(t, src, 25)
-	for _, c := range candidates {
-		if c.Collapsed == "fn(arg)" {
+	for _, cand := range candidates {
+		if cand.Collapsed == "fn(arg)" {
 			t.Error(
 				"should not collapse fn(arg) when gofmt" +
 					" alignment would exceed limit",
@@ -51,8 +51,8 @@ func f() {
 `
 	candidates := findCandidates(t, src, 26)
 	found := false
-	for _, c := range candidates {
-		if c.Collapsed == "fn(arg)" {
+	for _, cand := range candidates {
+		if cand.Collapsed == "fn(arg)" {
 			found = true
 		}
 	}
@@ -77,8 +77,8 @@ func f() {
 }
 `
 	candidates := findCandidates(t, src, 29)
-	for _, c := range candidates {
-		if c.Collapsed == "fn2(arg)" {
+	for _, cand := range candidates {
+		if cand.Collapsed == "fn2(arg)" {
 			t.Error(
 				"should not collapse fn2(arg) when" +
 					" result exceeds limit",
@@ -106,8 +106,8 @@ func f() {
 }
 `
 	candidates := findCandidates(t, src, 27)
-	for _, c := range candidates {
-		if c.Collapsed == "S{A: 1}" {
+	for _, cand := range candidates {
+		if cand.Collapsed == "S{A: 1}" {
 			t.Error(
 				"should not collapse S{A: 1} when gofmt" +
 					" alignment of &S{...} exceeds limit",
@@ -137,8 +137,8 @@ func f() {
 }
 `
 	candidates := findCandidates(t, src, 34)
-	for _, c := range candidates {
-		if c.Collapsed == "fn(arg)" {
+	for _, cand := range candidates {
+		if cand.Collapsed == "fn(arg)" {
 			t.Error(
 				"should not collapse fn(arg) when sibling with" +
 					" multi-line value has a longer key",

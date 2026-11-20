@@ -29,21 +29,21 @@ func TestProgress_WriteHeader(t *testing.T) {
 				"-------  ------  -------\n",
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			Progress{Enabled: tt.enabled, Table: testTable()}.WriteHeader(&buf, 12, 3)
-			if buf.String() != tt.want {
-				t.Errorf("got:\n%q\nwant:\n%q", buf.String(), tt.want)
+			Progress{Enabled: tc.enabled, Table: testTable()}.WriteHeader(&buf, 12, 3)
+			if buf.String() != tc.want {
+				t.Errorf("got:\n%q\nwant:\n%q", buf.String(), tc.want)
 			}
 		})
 	}
 }
 
 func TestRunEach_DefaultsParallelism(t *testing.T) {
-	p := Progress{Enabled: false, Table: emptyTable()}
+	progress := Progress{Enabled: false, Table: emptyTable()}
 	id := func(i int) int { return i }
-	got := RunEach(p, &bytes.Buffer{}, 2, 0, id, nil)
+	got := RunEach(progress, &bytes.Buffer{}, 2, 0, id, nil)
 	if len(got) != 2 || got[1] != 1 {
 		t.Errorf("results = %v", got)
 	}
@@ -97,19 +97,19 @@ func runEach12(t *testing.T, enabled bool) string {
 	t.Helper()
 	var buf bytes.Buffer
 	var peak atomic.Int32
-	row := func(v int) string { return fmt.Sprintf("PASS  pkg%d\nmore\n", v/10) }
-	p := Progress{Enabled: enabled, Table: emptyTable()}
-	got := RunEach(p, &buf, 12, 2, trackedRun(&peak), row)
+	row := func(val int) string { return fmt.Sprintf("PASS  pkg%d\nmore\n", val/10) }
+	progress := Progress{Enabled: enabled, Table: emptyTable()}
+	got := RunEach(progress, &buf, 12, 2, trackedRun(&peak), row)
 	if len(got) != 12 {
 		t.Fatalf("got %d results, want 12", len(got))
 	}
-	for i, v := range got {
-		if v != i*10 {
+	for i, val := range got {
+		if val != i*10 {
 			t.Fatalf("results = %v", got)
 		}
 	}
-	if p := peak.Load(); p != 2 {
-		t.Errorf("%d calls ran at once, want 2", p)
+	if maxSeen := peak.Load(); maxSeen != 2 {
+		t.Errorf("%d calls ran at once, want 2", maxSeen)
 	}
 	return buf.String()
 }

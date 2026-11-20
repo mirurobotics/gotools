@@ -209,15 +209,15 @@ func TestFuncBody_NilLitBody(t *testing.T) {
 func TestCountLines_ShortSource(t *testing.T) {
 	src := "package p\n\nfunc F() {\n\tx := 1\n\t_ = x\n}\n"
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "p.go", src, 0)
+	file, err := parser.ParseFile(fset, "p.go", src, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fn, ok := f.Decls[0].(*ast.FuncDecl)
+	decl, ok := file.Decls[0].(*ast.FuncDecl)
 	if !ok {
-		t.Fatalf("decl is %T, want *ast.FuncDecl", f.Decls[0])
+		t.Fatalf("decl is %T, want *ast.FuncDecl", file.Decls[0])
 	}
-	body := fn.Body
+	body := decl.Body
 	lines := [][]byte{[]byte("package p"), nil, []byte("func F() {"), []byte("x := 1")}
 	if got := countLines(fset, body, lines); got != 1 {
 		t.Errorf("countLines = %d, want 1", got)
@@ -308,13 +308,13 @@ func TestCheck_TrailingCommentOnVarLiteralNotCounted(t *testing.T) {
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	filename := tt.filename
+	filename := tc.filename
 	if filename == "" {
 		filename = "test.go"
 	}
-	fset, f := linttest.Parse(t, filename, tt.src)
-	diags := Check(fset, filename, f, []byte(tt.src), tt.maxLen)
-	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
+	fset, file := linttest.Parse(t, filename, tc.src)
+	diags := Check(fset, filename, file, []byte(tc.src), tc.maxLen)
+	linttest.AssertCount(t, diags, tc.wantN, tc.wantMsg)
 }

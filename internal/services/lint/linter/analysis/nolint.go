@@ -6,21 +6,23 @@ import (
 	"strings"
 )
 
-// HasNolint reports whether any comment in cg is a nolint directive naming rule.
-func HasNolint(cg *ast.CommentGroup, rule string) bool {
-	for _, c := range cg.List {
-		if NolintsRule(c.Text, rule) {
+// HasNolint reports whether any comment in group is a nolint directive naming rule.
+func HasNolint(group *ast.CommentGroup, rule string) bool {
+	for _, comment := range group.List {
+		if NolintsRule(comment.Text, rule) {
 			return true
 		}
 	}
 	return false
 }
 
-// NolintOnLines reports whether a nolint naming rule sits on a line in [from, to].
-func NolintOnLines(fset *token.FileSet, f *ast.File, rule string, from, to int) bool {
-	for _, c := range Comments(f) {
-		line := fset.Position(c.Pos()).Line
-		if line >= from && line <= to && NolintsRule(c.Text, rule) {
+// NolintOnLines reports whether a nolint naming rule sits on a line in [from, through].
+func NolintOnLines(
+	fset *token.FileSet, file *ast.File, rule string, from, through int,
+) bool {
+	for _, comment := range Comments(file) {
+		line := fset.Position(comment.Pos()).Line
+		if line >= from && line <= through && NolintsRule(comment.Text, rule) {
 			return true
 		}
 	}

@@ -177,21 +177,21 @@ func TestVisualWidth(t *testing.T) {
 
 func parseFile(t *testing.T, src string) *ast.File {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return f
+	return file
 }
 
-func findFirstCallExpr(f *ast.File) *ast.CallExpr {
+func findFirstCallExpr(file *ast.File) *ast.CallExpr {
 	var call *ast.CallExpr
-	ast.Inspect(f, func(n ast.Node) bool {
+	ast.Inspect(file, func(node ast.Node) bool {
 		if call != nil {
 			return false
 		}
-		if c, ok := n.(*ast.CallExpr); ok {
-			call = c
+		if callExpr, ok := node.(*ast.CallExpr); ok {
+			call = callExpr
 			return false
 		}
 		return true
@@ -199,13 +199,13 @@ func findFirstCallExpr(f *ast.File) *ast.CallExpr {
 	return call
 }
 
-func findFirstAssign(f *ast.File) *ast.AssignStmt {
+func findFirstAssign(file *ast.File) *ast.AssignStmt {
 	var assign *ast.AssignStmt
-	ast.Inspect(f, func(n ast.Node) bool {
+	ast.Inspect(file, func(node ast.Node) bool {
 		if assign != nil {
 			return false
 		}
-		if a, ok := n.(*ast.AssignStmt); ok {
+		if a, ok := node.(*ast.AssignStmt); ok {
 			assign = a
 			return false
 		}

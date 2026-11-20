@@ -12,11 +12,11 @@ import (
 func Check(
 	fset *token.FileSet,
 	filename string,
-	f *ast.File,
+	file *ast.File,
 	src []byte,
 	maxLineWidth, tabWidth int,
 ) []analysis.Diagnostic {
-	candidates := FindCandidates(fset, f, src, maxLineWidth, tabWidth)
+	candidates := FindCandidates(fset, file, src, maxLineWidth, tabWidth)
 	return analysis.CheckCandidates(
 		fset, filename, candidates,
 		"multi-line expression can be collapsed to single line",
@@ -36,37 +36,37 @@ type collapseInput struct {
 // FindCandidates returns multi-line calls and literals that fit on one line.
 func FindCandidates(
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	src []byte,
 	maxLineWidth, tabWidth int,
 ) []analysis.Candidate {
 	var candidates []analysis.Candidate
 	var stack []ast.Node
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		if n == nil {
+	ast.Inspect(file, func(node ast.Node) bool {
+		if node == nil {
 			stack = stack[:len(stack)-1]
 			return false
 		}
 
 		var input collapseInput
-		switch expr := n.(type) {
+		switch expr := node.(type) {
 		case *ast.CallExpr:
 			input = collapseInputFromCall(expr)
 		case *ast.CompositeLit:
 			input = collapseInputFromLit(expr)
 		default:
-			stack = append(stack, n)
+			stack = append(stack, node)
 			return true
 		}
 
-		delta := kvAlignDelta(fset, stack, n, src, tabWidth)
-		if c, ok := tryCollapse(
-			fset, input, src, maxLineWidth, tabWidth, f, delta,
+		delta := kvAlignDelta(fset, stack, node, src, tabWidth)
+		if cand, ok := tryCollapse(
+			fset, input, src, maxLineWidth, tabWidth, file, delta,
 		); ok {
-			candidates = append(candidates, c)
+			candidates = append(candidates, cand)
 		}
-		stack = append(stack, n)
+		stack = append(stack, node)
 		return true
 	})
 
@@ -104,55 +104,55 @@ func collapseInputFromLit(lit *ast.CompositeLit) collapseInput {
 func kvAlignDelta(
 	fset *token.FileSet,
 	stack []ast.Node,
-	n ast.Node,
+	node ast.Node,
 	src []byte,
 	tabWidth int,
 ) int {
-	nLine := fset.Position(n.Pos()).Line
+	nLine := fset.Position(node.Pos()).Line
 	for i := len(stack) - 1; i >= 1; i-- {
-		kv, ok := stack[i].(*ast.KeyValueExpr)
+		pair, ok := stack[i].(*ast.KeyValueExpr)
 		if !ok {
 			continue
 		}
-		if n.Pos() < kv.Value.Pos() {
+		if node.Pos() < pair.Value.Pos() {
 			continue
 		}
-		if fset.Position(kv.Key.Pos()).Line != nLine {
+		if fset.Position(pair.Key.Pos()).Line != nLine {
 			continue
 		}
 		parent, ok := stack[i-1].(*ast.CompositeLit)
 		if !ok {
 			continue
 		}
-		return keyAlignDelta(fset, kv, parent, src, tabWidth)
+		return keyAlignDelta(fset, pair, parent, src, tabWidth)
 	}
 	return 0
 }
 
 func keyAlignDelta(
 	fset *token.FileSet,
-	kv *ast.KeyValueExpr,
+	pair *ast.KeyValueExpr,
 	parent *ast.CompositeLit,
 	src []byte,
 	tabWidth int,
 ) int {
-	currentW := nodeWidth(fset, kv.Key, src, tabWidth)
+	currentW := nodeWidth(fset, pair.Key, src, tabWidth)
 	maxW := currentW
 	for _, elt := range parent.Elts {
 		sib, ok := elt.(*ast.KeyValueExpr)
-		if !ok || sib == kv {
+		if !ok || sib == pair {
 			continue
 		}
-		if w := nodeWidth(fset, sib.Key, src, tabWidth); w > maxW {
-			maxW = w
+		if width := nodeWidth(fset, sib.Key, src, tabWidth); width > maxW {
+			maxW = width
 		}
 	}
 	return maxW - currentW
 }
 
-func nodeWidth(fset *token.FileSet, n ast.Node, src []byte, tabWidth int) int {
-	start := fset.Position(n.Pos()).Offset
-	end := fset.Position(n.End()).Offset
+func nodeWidth(fset *token.FileSet, node ast.Node, src []byte, tabWidth int) int {
+	start := fset.Position(node.Pos()).Offset
+	end := fset.Position(node.End()).Offset
 	return analysis.VisualWidth(string(src[start:end]), tabWidth)
 }
 
@@ -161,16 +161,16 @@ func tryCollapse(
 	input collapseInput,
 	src []byte,
 	maxLineWidth, tabWidth int,
-	f *ast.File,
+	file *ast.File,
 	alignDelta int,
 ) (analysis.Candidate, bool) {
-	if shouldExclude(fset, f, input) {
+	if shouldExclude(fset, file, input) {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 	return buildCollapsed(fset, input, src, maxLineWidth, tabWidth, alignDelta)
 }
 
-func shouldExclude(fset *token.FileSet, f *ast.File, input collapseInput) bool {
+func shouldExclude(fset *token.FileSet, file *ast.File, input collapseInput) bool {
 	if fset.Position(input.openPos).Line == fset.Position(input.closePos).Line {
 		return true
 	}
@@ -185,7 +185,7 @@ func shouldExclude(fset *token.FileSet, f *ast.File, input collapseInput) bool {
 			return true
 		}
 	}
-	if analysis.HasCommentsBetween(fset, f, input.openPos, input.closePos) {
+	if analysis.HasCommentsBetween(fset, file, input.openPos, input.closePos) {
 		return true
 	}
 	return hasRawStringWithNewlines(input.items)
@@ -194,11 +194,11 @@ func shouldExclude(fset *token.FileSet, f *ast.File, input collapseInput) bool {
 func hasRawStringWithNewlines(exprs []ast.Expr) bool {
 	for _, expr := range exprs {
 		found := false
-		ast.Inspect(expr, func(n ast.Node) bool {
+		ast.Inspect(expr, func(node ast.Node) bool {
 			if found {
 				return false
 			}
-			lit, ok := n.(*ast.BasicLit)
+			lit, ok := node.(*ast.BasicLit)
 			if ok && isMultiLineRawString(lit) {
 				found = true
 				return false

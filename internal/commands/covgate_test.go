@@ -31,12 +31,12 @@ func TestNewCovgateCommand_Flags(t *testing.T) {
 }
 
 func TestNewCovgateCommand_FlagDefaults(t *testing.T) {
-	fl := NewCovgateCommand().Flags()
-	assertStringDefaults(t, fl, map[string]string{
+	flags := NewCovgateCommand().Flags()
+	assertStringDefaults(t, flags, map[string]string{
 		"packages": "./...", "exclude": "", "src-prefix": "pkg", "test-dir": "",
 	})
-	assertFloatDefaults(t, fl, map[string]float64{"default-threshold": 80.0})
-	assertIntDefaults(t, fl, map[string]int{"parallelism": 0})
+	assertFloatDefaults(t, flags, map[string]float64{"default-threshold": 80.0})
+	assertIntDefaults(t, flags, map[string]int{"parallelism": 0})
 }
 
 func TestNewCovgateCommand_Help(t *testing.T) {

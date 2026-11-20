@@ -23,11 +23,11 @@ func TestVersionLess(t *testing.T) {
 		{"prerelease comparison", "v1.0.0-alpha", "v1.0.0-beta", true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := VersionLess(tt.a, tt.b)
-			if got != tt.want {
-				t.Errorf("VersionLess(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := VersionLess(tc.a, tc.b)
+			if got != tc.want {
+				t.Errorf("VersionLess(%q, %q) = %v, want %v", tc.a, tc.b, got, tc.want)
 			}
 		})
 	}
@@ -56,15 +56,15 @@ func TestSplitVersionParts(t *testing.T) {
 		{"", nil},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got := SplitVersionParts(tt.input)
-			if len(got) != len(tt.want) {
-				t.Fatalf("len = %d, want %d: %v", len(got), len(tt.want), got)
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			got := SplitVersionParts(tc.input)
+			if len(got) != len(tc.want) {
+				t.Fatalf("len = %d, want %d: %v", len(got), len(tc.want), got)
 			}
 			for i := range got {
-				if got[i] != tt.want[i] {
-					t.Errorf("index %d: got %q, want %q", i, got[i], tt.want[i])
+				if got[i] != tc.want[i] {
+					t.Errorf("index %d: got %q, want %q", i, got[i], tc.want[i])
 				}
 			}
 		})
@@ -84,14 +84,14 @@ func TestParseNum(t *testing.T) {
 		{"12abc", 0, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			n, ok := ParseNum(tt.input)
-			if n != tt.wantN || ok != tt.wantOK {
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			num, ok := ParseNum(tc.input)
+			if num != tc.wantN || ok != tc.wantOK {
 				t.Errorf(
 					"ParseNum(%q) = (%d, %v), want (%d, %v)",
-					tt.input, n, ok,
-					tt.wantN, tt.wantOK,
+					tc.input, num, ok,
+					tc.wantN, tc.wantOK,
 				)
 			}
 		})
@@ -115,14 +115,14 @@ func TestFilterTags(t *testing.T) {
 
 func TestPrevious_Success(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	run := runner{
 		gitTags: fakeGitTags([]string{
 			"v1.0.0", "v2.0.0", "v1.5.0",
 			"v2.0.0-beta", "v1.0.0-rc1",
 		}, nil),
 	}
 
-	got, err := r.previous("v", nil)
+	got, err := run.previous("v", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,9 +133,9 @@ func TestPrevious_Success(t *testing.T) {
 
 func TestPrevious_NoMatch(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{gitTags: fakeGitTags([]string{"v1.0.0-beta", "release-1.0"}, nil)}
+	run := runner{gitTags: fakeGitTags([]string{"v1.0.0-beta", "release-1.0"}, nil)}
 
-	_, err := r.previous("v", nil)
+	_, err := run.previous("v", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -143,9 +143,9 @@ func TestPrevious_NoMatch(t *testing.T) {
 
 func TestPrevious_GitError(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{gitTags: fakeGitTags(nil, fmt.Errorf("git failed"))}
+	run := runner{gitTags: fakeGitTags(nil, fmt.Errorf("git failed"))}
 
-	_, err := r.previous("v", nil)
+	_, err := run.previous("v", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -153,11 +153,11 @@ func TestPrevious_GitError(t *testing.T) {
 
 func TestLatest_IncludesPrerelease(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	run := runner{
 		gitTags: fakeGitTags([]string{"v1.0.0", "v2.0.0", "v2.1.0-beta.1"}, nil),
 	}
 
-	got, err := r.latest("v", nil)
+	got, err := run.latest("v", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,9 +168,9 @@ func TestLatest_IncludesPrerelease(t *testing.T) {
 
 func TestLatest_NoMatch(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{gitTags: fakeGitTags([]string{"release-1.0"}, nil)}
+	run := runner{gitTags: fakeGitTags([]string{"release-1.0"}, nil)}
 
-	_, err := r.latest("v", nil)
+	_, err := run.latest("v", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -178,9 +178,9 @@ func TestLatest_NoMatch(t *testing.T) {
 
 func TestLatest_GitError(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{gitTags: fakeGitTags(nil, fmt.Errorf("git failed"))}
+	run := runner{gitTags: fakeGitTags(nil, fmt.Errorf("git failed"))}
 
-	_, err := r.latest("v", nil)
+	_, err := run.latest("v", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -192,11 +192,11 @@ func fakeGitTags(tags []string, err error) func(io.Writer) ([]string, error) {
 
 func TestCurrent_Success(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	run := runner{
 		currentTag: func(io.Writer) (string, error) { return "v1.2.3", nil },
 	}
 
-	got, err := r.current(nil)
+	got, err := run.current(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,13 +207,13 @@ func TestCurrent_Success(t *testing.T) {
 
 func TestCurrent_Error(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	run := runner{
 		currentTag: func(io.Writer) (string, error) {
 			return "", fmt.Errorf("no tag on HEAD")
 		},
 	}
 
-	_, err := r.current(nil)
+	_, err := run.current(nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
