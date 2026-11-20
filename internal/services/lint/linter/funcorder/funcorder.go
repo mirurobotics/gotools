@@ -14,7 +14,7 @@ import (
 // Check reports functions that are out of control-flow order.
 func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
 	graph := build(file)
-	order, below, tucked := graph.order()
+	order, below := graph.order()
 	var diags []analysis.Diagnostic
 	add := func(decl ast.Decl, msg string) {
 		diags = append(diags, analysis.Diagnostic{
@@ -34,17 +34,12 @@ func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diag
 			add(graph.decls[typeIdx], graph.typeMessage(typeIdx, uses[typeIdx]))
 		}
 	}
-	for _, typeIdx := range slices.Sorted(maps.Keys(tucked)) {
-		if msg := graph.heldMessage(typeIdx, tucked[typeIdx], order); msg != "" {
-			add(graph.decls[typeIdx], msg)
-		}
-	}
 	return diags
 }
 
 // Fix returns src with its declarations reordered, or nil when already ordered.
 func Fix(fset *token.FileSet, file *ast.File, src []byte) []byte {
-	order, _, _ := build(file).order()
+	order, _ := build(file).order()
 	if slices.IsSorted(order) {
 		return nil
 	}
