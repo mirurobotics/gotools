@@ -10,9 +10,10 @@
 //     is followed by every const and var block directly below it, then its
 //     methods; Fix moves them together, leaving the blocks from the first
 //     initialized var on if moving them would reorder initialized vars;
-//   - a type without methods, followed by the run of const blocks directly
-//     below it that use it, sits directly above its first user, a function or
-//     var block; a type with methods and its blocks count as one.
+//   - a type declared on its own without methods, followed by the run of
+//     const blocks directly below it that use it, sits directly above its
+//     first user, a function or var block; a type with methods and its blocks
+//     count as one.
 //
 // Calls are matched by name and methods only through their receiver. Call
 // cycles are skipped. //nolint:funcorder on a function's doc lifts the caller
