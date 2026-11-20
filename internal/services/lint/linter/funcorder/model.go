@@ -30,7 +30,6 @@ func build(f *ast.File) *model {
 		plain:      nil,
 		typeOwner:  nil,
 		typeBlocks: nil,
-		owner:      nil,
 		opener:     nil,
 		decls:      f.Decls,
 	}
@@ -53,7 +52,6 @@ func build(f *ast.File) *model {
 	m.plain = m.plainTypes()
 	m.typeOwner = m.attachToTypes()
 	m.typeBlocks = attached(m.typeOwner)
-	m.owner = m.attach(false)
 	return m
 }
 
@@ -114,7 +112,6 @@ type model struct {
 	plain      map[int][]int
 	typeOwner  map[int]int
 	typeBlocks map[int][]int
-	owner      map[int]int
 	opener     map[int]int
 	decls      []ast.Decl
 }

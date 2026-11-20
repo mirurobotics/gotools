@@ -33,10 +33,7 @@ func (m *model) arrange(settled bool) ([]int, map[int]bool) {
 }
 
 func (m *model) units(settled bool) [][]int {
-	owner := m.owner
-	if settled {
-		owner = m.attach(true)
-	}
+	owner := m.attach(settled)
 	blocks := attached(owner)
 	var units [][]int
 	group := map[string]int{}
