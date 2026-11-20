@@ -91,3 +91,13 @@ func TestFix_PlainTypeCarriesItsConsts(t *testing.T) {
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
+
+func TestFix_PlainTypeIgnoresConstUsers(t *testing.T) {
+	src := []string{
+		"type Kind int\n", "func Run() { _ = x }\n", "const x = Kind(1)\n",
+		"func g() {}\n", "func f(k Kind) {}\n",
+	}
+	want := []string{src[1], src[2], src[3], src[0], src[4]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}

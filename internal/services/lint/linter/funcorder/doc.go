@@ -11,7 +11,7 @@
 //     them together, leaving the blocks from the first initialized var on if
 //     moving them would reorder initialized vars;
 //   - a type without methods, followed by its const blocks, sits directly
-//     above its first user, a function or const or var block; a type with
+//     above its first user, a function or var block; a type with
 //     methods and its blocks count as one.
 //
 // Calls are matched by name and methods only through their receiver. Call

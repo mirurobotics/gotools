@@ -13,23 +13,14 @@ type use struct{ user, at int }
 type plainType struct{ head, users []int }
 
 func (m *model) plainTypes() map[int]plainType {
-	heads := map[int][]int{}
-	inHead := map[int]bool{}
+	plain := map[int]plainType{}
 	for t, d := range m.decls {
 		ts := soloTypeSpec(d)
 		if _, ok := m.heads[typeName(ts)]; ts == nil || ok {
 			continue
 		}
-		heads[t] = constHead(m.decls, t)
-		for _, i := range heads[t] {
-			inHead[i] = true
-		}
-	}
-	plain := map[int]plainType{}
-	for t, head := range heads {
-		users := usersOf(soloTypeSpec(m.decls[t]), m.decls, inHead)
-		if len(users) > 0 {
-			plain[t] = plainType{head: head, users: users}
+		if users := usersOf(ts, m.decls); len(users) > 0 {
+			plain[t] = plainType{head: constHead(m.decls, t), users: users}
 		}
 	}
 	return plain
@@ -128,11 +119,10 @@ func constHead(decls []ast.Decl, t int) []int {
 	return head
 }
 
-func usersOf(ts *ast.TypeSpec, decls []ast.Decl, inHead map[int]bool) []int {
+func usersOf(ts *ast.TypeSpec, decls []ast.Decl) []int {
 	var users []int
 	for i, d := range decls {
-		gd, ok := d.(*ast.GenDecl)
-		if inHead[i] || ok && gd.Tok == token.TYPE {
+		if gd, ok := d.(*ast.GenDecl); ok && gd.Tok != token.VAR {
 			continue
 		}
 		if refersTo(d, ts) {
