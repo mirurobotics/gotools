@@ -10,64 +10,28 @@ import (
 
 type use struct{ user, at int }
 
-type plainType struct{ head, users []int }
-
-func (m *model) plainTypes() map[int]plainType {
-	plain := map[int]plainType{}
+func (m *model) plainTypes() map[int][]int {
+	plain := map[int][]int{}
 	for t, d := range m.decls {
 		ts := soloTypeSpec(d)
-		if _, ok := m.heads[typeName(ts)]; ts == nil || ok {
+		isMethod := func(x *fn) bool { return x != nil && x.recv == typeName(ts) }
+		if ts == nil || slices.ContainsFunc(m.fns, isMethod) {
 			continue
 		}
 		if users := usersOf(ts, m.decls); len(users) > 0 {
-			plain[t] = plainType{head: constHead(m.decls, t, ts), users: users}
+			plain[t] = users
 		}
-	}
-	taken := m.headMembers(plain)
-	for t, p := range plain {
-		p.head = append(m.constLead(t, taken), p.head...)
-		plain[t] = p
 	}
 	return plain
 }
 
-func (m *model) headMembers(plain map[int]plainType) map[int]bool {
-	taken := map[int]bool{}
-	for _, head := range m.heads {
-		for _, i := range head {
-			taken[i] = true
-		}
-	}
-	for _, p := range plain {
-		for _, i := range p.head {
-			taken[i] = true
-		}
-	}
-	return taken
-}
-
-func (m *model) constLead(t int, taken map[int]bool) []int {
-	ts := soloTypeSpec(m.decls[t])
-	first := slices.IndexFunc(m.fns, func(x *fn) bool { return x != nil })
-	var lead []int
-	for i := t - 1; i > first && m.leadsType(i, ts, taken); i-- {
-		lead = append([]int{i}, lead...)
-	}
-	return lead
-}
-
-func (m *model) leadsType(i int, ts *ast.TypeSpec, taken map[int]bool) bool {
-	gd, ok := m.decls[i].(*ast.GenDecl)
-	return ok && gd.Tok == token.CONST && !taken[i] && !refersTo(gd, ts)
-}
-
 func (m *model) typePlaced(t int, uses map[int]use) bool {
-	at, head := uses[t].at, m.plain[t].head
+	at, head := uses[t].at, m.plainHead(t)
 	if t > at {
 		return false
 	}
 	for i := head[len(head)-1] + 1; i < at; i++ {
-		if !m.inPlain(i) || uses[m.plainOf[i]].at != at {
+		if p, ok := m.plainOf(i); !ok || uses[p].at != at {
 			return false
 		}
 	}
@@ -75,8 +39,16 @@ func (m *model) typePlaced(t int, uses map[int]use) bool {
 }
 
 func (m *model) inPlain(i int) bool {
-	_, ok := m.plainOf[i]
+	_, ok := m.plainOf(i)
 	return ok
+}
+
+func (m *model) plainOf(i int) (int, bool) {
+	if o, ok := m.owner[i]; ok {
+		i = o
+	}
+	_, ok := m.plain[i]
+	return i, ok
 }
 
 func (m *model) typeMessage(t int, u use) string {
@@ -127,7 +99,7 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 	uses := m.firstUses(units, func(i int) int { return pos[i] })
 	above := map[int][]int{}
 	for _, t := range slices.Sorted(maps.Keys(uses)) {
-		above[uses[t].at] = append(above[uses[t].at], m.plain[t].head...)
+		above[uses[t].at] = append(above[uses[t].at], m.plainHead(t)...)
 	}
 	var placed []int
 	for p, i := range out {
@@ -145,11 +117,22 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 		}
 	}
 	uses := map[int]use{}
-	for t, p := range m.plain {
-		u := slices.MinFunc(p.users, func(a, b int) int { return start[a] - start[b] })
+	for t, users := range m.plain {
+		u := slices.MinFunc(users, func(a, b int) int { return start[a] - start[b] })
 		uses[t] = use{user: u, at: start[u]}
 	}
 	return uses
+}
+
+func (m *model) plainHead(t int) []int {
+	head := []int{t}
+	for i, o := range m.owner {
+		if o == t {
+			head = append(head, i)
+		}
+	}
+	slices.Sort(head)
+	return head
 }
 
 func soloTypeSpec(d ast.Decl) *ast.TypeSpec {
@@ -179,18 +162,6 @@ func usersOf(ts *ast.TypeSpec, decls []ast.Decl) []int {
 		}
 	}
 	return users
-}
-
-func constHead(decls []ast.Decl, t int, ts *ast.TypeSpec) []int {
-	head := []int{t}
-	for i := t + 1; i < len(decls); i++ {
-		gd, ok := decls[i].(*ast.GenDecl)
-		if !ok || gd.Tok != token.CONST || !refersTo(gd, ts) {
-			break
-		}
-		head = append(head, i)
-	}
-	return head
 }
 
 func refersTo(n ast.Node, ts *ast.TypeSpec) bool {

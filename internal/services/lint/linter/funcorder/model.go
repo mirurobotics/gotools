@@ -19,17 +19,17 @@ type fn struct {
 	callees         []int
 	callers         []int
 	cycleCallers    []int
-	waitsInCycle    bool
+	comp            int
 }
 
 func build(f *ast.File) *model {
 	m := &model{
 		fns:      make([]*fn, len(f.Decls)),
 		typeDecl: map[string]int{},
-		heads:    nil,
 		initVars: nil,
 		plain:    nil,
-		plainOf:  nil,
+		owner:    nil,
+		opener:   nil,
 		decls:    f.Decls,
 	}
 	byName := map[string]int{}
@@ -42,19 +42,14 @@ func build(f *ast.File) *model {
 			m.fns[j].hasInFileCaller = true
 		}
 	}
+	m.markComponents()
 	for _, x := range m.funcs() {
 		m.linkCallees(x)
 	}
-	m.markCycleWaits()
-	m.heads = m.typeHeads()
+	m.opener = m.cycleOpeners()
 	m.initVars = m.initVarDecls()
 	m.plain = m.plainTypes()
-	m.plainOf = map[int]int{}
-	for t, p := range m.plain {
-		for _, i := range p.head {
-			m.plainOf[i] = t
-		}
-	}
+	m.owner = m.attach(false)
 	return m
 }
 
@@ -111,10 +106,10 @@ func refIdents(n ast.Node, onSel func(*ast.SelectorExpr), ref func(*ast.Ident) b
 type model struct {
 	fns      []*fn
 	typeDecl map[string]int
-	heads    map[string][]int
 	initVars map[int]bool
-	plain    map[int]plainType
-	plainOf  map[int]int
+	plain    map[int][]int
+	owner    map[int]int
+	opener   map[int]int
 	decls    []ast.Decl
 }
 
@@ -133,12 +128,27 @@ func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
 	}
 }
 
+func (m *model) markComponents() {
+	t := &tarjan{
+		fns:     m.fns,
+		index:   map[int]int{},
+		low:     map[int]int{},
+		stack:   nil,
+		onStack: map[int]bool{},
+	}
+	for _, x := range m.funcs() {
+		if _, seen := t.index[x.idx]; !seen {
+			t.visit(x.idx)
+		}
+	}
+}
+
 func (m *model) linkCallees(x *fn) {
 	for _, j := range x.callees {
 		to := m.fns[j]
 		switch {
 		case !enforced(x, to):
-		case m.reaches(j, x.idx):
+		case to.comp == x.comp:
 			to.cycleCallers = append(to.cycleCallers, x.idx)
 		default:
 			to.callers = append(to.callers, x.idx)
@@ -146,60 +156,19 @@ func (m *model) linkCallees(x *fn) {
 	}
 }
 
-func (m *model) markCycleWaits() {
+func (m *model) cycleOpeners() map[int]int {
+	opener := map[int]int{}
 	for _, x := range m.funcs() {
-		inCycleOnly := len(x.callers) == 0 && len(x.cycleCallers) > 0
-		x.waitsInCycle = inCycleOnly && !m.opensCycle(x)
-	}
-}
-
-func (m *model) opensCycle(x *fn) bool {
-	for _, y := range m.funcs() {
-		inCycle := y != x && !y.exempt && m.reaches(x.idx, y.idx)
-		inCycle = inCycle && m.reaches(y.idx, x.idx)
-		if inCycle && (y.idx < x.idx || len(y.callers) > 0) {
-			return false
+		_, seen := opener[x.comp]
+		switch {
+		case x.exempt:
+		case len(x.callers) > 0:
+			opener[x.comp] = -1
+		case !seen:
+			opener[x.comp] = x.idx
 		}
 	}
-	return true
-}
-
-func (m *model) reaches(from, to int) bool {
-	seen := map[int]bool{}
-	stack := []int{from}
-	for len(stack) > 0 {
-		n := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		if n == to {
-			return true
-		}
-		if !seen[n] {
-			seen[n] = true
-			stack = append(stack, m.fns[n].callees...)
-		}
-	}
-	return false
-}
-
-func (m *model) typeHeads() map[string][]int {
-	isType := map[int]bool{}
-	for _, i := range m.typeDecl {
-		isType[i] = true
-	}
-	soloType := map[string]int{}
-	for i, d := range m.decls {
-		if ts := soloTypeSpec(d); ts != nil {
-			soloType[ts.Name.Name] = i
-		}
-	}
-	heads := map[string][]int{}
-	for _, x := range m.funcs() {
-		t, ok := soloType[x.recv]
-		if _, seen := heads[x.recv]; ok && !seen {
-			heads[x.recv] = m.typeHead(t, isType)
-		}
-	}
-	return heads
+	return opener
 }
 
 func (m *model) funcs() []*fn {
@@ -212,14 +181,6 @@ func (m *model) funcs() []*fn {
 	return out
 }
 
-func (m *model) typeHead(t int, isType map[int]bool) []int {
-	head := []int{t}
-	for i := t + 1; i < len(m.fns) && m.fns[i] == nil && !isType[i]; i++ {
-		head = append(head, i)
-	}
-	return head
-}
-
 func (m *model) initVarDecls() map[int]bool {
 	initVars := map[int]bool{}
 	for i, d := range m.decls {
@@ -228,6 +189,11 @@ func (m *model) initVarDecls() map[int]bool {
 		}
 	}
 	return initVars
+}
+
+func (m *model) waitsInCycle(x *fn) bool {
+	inCycleOnly := len(x.callers) == 0 && len(x.cycleCallers) > 0
+	return inCycleOnly && m.opener[x.comp] != x.idx
 }
 
 func (m *model) next(i int) []int {
@@ -266,7 +232,7 @@ func newFn(i int, d *ast.FuncDecl) *fn {
 		callees:         nil,
 		callers:         nil,
 		cycleCallers:    nil,
-		waitsInCycle:    false,
+		comp:            0,
 	}
 	if x.recv != "" {
 		x.name = x.recv + "." + x.name
@@ -306,4 +272,36 @@ func hasInitializer(d *ast.GenDecl) bool {
 		vs, ok := s.(*ast.ValueSpec)
 		return ok && len(vs.Values) > 0
 	})
+}
+
+type tarjan struct {
+	fns     []*fn
+	index   map[int]int
+	low     map[int]int
+	stack   []int
+	onStack map[int]bool
+}
+
+func (t *tarjan) visit(i int) {
+	n := len(t.index)
+	t.index[i], t.low[i] = n, n
+	t.stack = append(t.stack, i)
+	t.onStack[i] = true
+	for _, j := range t.fns[i].callees {
+		if _, seen := t.index[j]; !seen {
+			t.visit(j)
+		}
+		if t.onStack[j] {
+			t.low[i] = min(t.low[i], t.low[j])
+		}
+	}
+	if t.low[i] != t.index[i] {
+		return
+	}
+	k := slices.Index(t.stack, i)
+	for _, j := range t.stack[k:] {
+		t.onStack[j] = false
+		t.fns[j].comp = i
+	}
+	t.stack = t.stack[:k]
 }

@@ -1,10 +1,6 @@
 package funcorder
 
-import (
-	"go/ast"
-	"go/token"
-	"slices"
-)
+import "slices"
 
 func (m *model) order() ([]int, map[int]bool) {
 	out, below := m.arrange(false)
@@ -37,71 +33,29 @@ func (m *model) arrange(settled bool) ([]int, map[int]bool) {
 }
 
 func (m *model) units(settled bool) [][]int {
-	heads := m.heads
+	owner := m.owner
 	if settled {
-		heads = m.settledHeads()
+		owner = m.attach(true)
 	}
+	blocks := attached(owner)
 	var units [][]int
 	group := map[string]int{}
-	glued := map[int]bool{}
-	for _, head := range heads {
-		for _, i := range head {
-			glued[i] = true
-		}
-	}
-	lead := m.leads(glued, settled)
 	for i, x := range m.fns {
+		_, owned := owner[i]
+		_, plain := m.plain[i]
 		switch {
-		case glued[i] || m.inPlain(i):
+		case owned || plain:
 		case x == nil || x.recv == "":
-			units = appendFree(units, i, lead)
+			units = append(units, append(blocks[i], i))
 		case group[x.recv] > 0:
 			u := group[x.recv] - 1
 			units[u] = append(units[u], i)
 		default:
 			group[x.recv] = len(units) + 1
-			units = append(units, unitHead(heads, x.recv, i))
+			units = append(units, append(blocks[i], i))
 		}
 	}
 	return units
-}
-
-func (m *model) settledHeads() map[string][]int {
-	isInit := func(i int) bool { return m.initVars[i] }
-	heads := map[string][]int{}
-	for recv, head := range m.heads {
-		heads[recv] = head
-		if k := slices.IndexFunc(head, isInit); k > 0 && !m.placed(recv) {
-			heads[recv] = head[:k]
-		}
-	}
-	return heads
-}
-
-func (m *model) placed(recv string) bool {
-	isMethod := func(x *fn) bool { return x != nil && x.recv == recv }
-	head := m.heads[recv]
-	return head[len(head)-1] == slices.IndexFunc(m.fns, isMethod)-1
-}
-
-func (m *model) leads(glued map[int]bool, settled bool) map[int]bool {
-	first := slices.IndexFunc(m.fns, func(x *fn) bool { return x != nil })
-	lead := map[int]bool{}
-	for i, x := range m.fns {
-		isFree := x != nil && x.recv == ""
-		for j := i - 1; isFree && j > first && m.leadable(j, glued, settled); j-- {
-			lead[j] = true
-		}
-	}
-	return lead
-}
-
-func (m *model) leadable(i int, glued map[int]bool, settled bool) bool {
-	gd, ok := m.decls[i].(*ast.GenDecl)
-	if !ok || glued[i] || m.inPlain(i) || settled && m.initVars[i] {
-		return false
-	}
-	return gd.Tok == token.CONST || gd.Tok == token.VAR
 }
 
 func (m *model) keepsInitOrder(order []int) bool {
@@ -133,7 +87,7 @@ func (m *model) ready(x *fn, done map[int]bool) bool {
 			return false
 		}
 	}
-	if x.waitsInCycle && !slices.ContainsFunc(x.cycleCallers, isDone) {
+	if m.waitsInCycle(x) && !slices.ContainsFunc(x.cycleCallers, isDone) {
 		return false
 	}
 	return m.ranked(x, isDone)
@@ -146,21 +100,6 @@ func (m *model) ranked(y *fn, isDone func(int) bool) bool {
 		}
 	}
 	return true
-}
-
-func appendFree(units [][]int, i int, lead map[int]bool) [][]int {
-	if n := len(units); n > 0 && lead[units[n-1][len(units[n-1])-1]] {
-		units[n-1] = append(units[n-1], i)
-		return units
-	}
-	return append(units, []int{i})
-}
-
-func unitHead(heads map[string][]int, recv string, i int) []int {
-	if head, ok := heads[recv]; ok {
-		return append(slices.Clip(head), i)
-	}
-	return []int{i}
 }
 
 func mustPrecede(x, y *fn) bool {

@@ -148,8 +148,9 @@ func (m *model) grouped(x *fn) string {
 			"method %q should be grouped with the other methods of %q", x.name, x.recv,
 		)
 	}
-	head, ok := m.heads[x.recv]
-	if prev >= 0 || !ok || head[0] > x.idx || m.placed(x.recv) {
+	t, ok := m.typeDecl[x.recv]
+	headed := ok && t < x.idx && owns(m.owner, x.idx, t)
+	if prev >= 0 || !headed || owns(m.owner, x.idx, x.idx-1) {
 		return ""
 	}
 	return fmt.Sprintf("type %q should be directly above its methods", x.recv)
