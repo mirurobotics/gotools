@@ -35,6 +35,7 @@ func TestCheck_ReadOutsideAssertKeepsGroup(t *testing.T) {
 	got := build()
 	assert.Equal(t, 1, got.A)
 	require.Positive(t, -got.N)
+	assert.Len(t, string(got.Name), len(got.Items))
 	assert.Equal(t, 2, got.B)
 	err := other()
 	assert.Equal(t, 3, got.C)
@@ -56,6 +57,7 @@ func TestX(t *testing.T) {
 	var got T
 	assert.Equal(t, 1, got.A)
 	require.NoError(t, got.Start())
+	require.True(t, mutate(got))
 	assert.Equal(t, 2, got.B)
 	assert.Equal(t, 3, got.C)
 }
@@ -72,8 +74,9 @@ func TestZ(t *testing.T) {
 	var got T
 	assert.Equal(t, 1, got.A)
 	require.Positive(t, -got.N)
+	assert.Len(t, string(got.Name), len(got.Items))
 	assert.Equal(t, 2, got.B)
 	assert.Equal(t, 3, got.C)
 }
-`, 37)
+`, 38)
 }

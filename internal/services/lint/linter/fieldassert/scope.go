@@ -202,10 +202,25 @@ func identKey(id *ast.Ident) any {
 
 func mayChange(n ast.Node) bool {
 	switch n := n.(type) {
-	case *ast.CallExpr, *ast.FuncLit:
+	case *ast.CallExpr:
+		return !isPureBuiltin(n.Fun)
+	case *ast.FuncLit:
 		return true
 	case *ast.UnaryExpr:
 		return n.Op == token.AND
+	}
+	return false
+}
+
+func isPureBuiltin(fun ast.Expr) bool {
+	id, ok := fun.(*ast.Ident)
+	if !ok || id.Obj != nil {
+		return false
+	}
+	switch id.Name {
+	case "len", "cap", "string", "int", "int64", "uint", "uint64",
+		"float64", "bool", "byte", "rune":
+		return true
 	}
 	return false
 }
