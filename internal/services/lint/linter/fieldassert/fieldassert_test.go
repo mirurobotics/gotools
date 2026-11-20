@@ -116,7 +116,7 @@ func TestCheck_SwappedArgsCounted(t *testing.T) {
 		"got.A, 1)\n\tassert.Exactlyf(t, got.B, 2, \"msg\")\n\tassert.EqualValues(t, got.C, 3)",
 		"got.A, -1)\n\tassert.Equal(t, got.B, -2)\n\tassert.Equal(t, got.C, -3)",
 		"got.A, true)\n\tassert.Equal(t, got.B, false)\n\tassert.Equal(t, got.C, (nil))",
-		"got.A, T{})\n\tassert.Equal(t, got.B, []int{1})\n\tassert.Equal(t, got.C, http.MethodGet)",
+		"got.A, T{X: 1})\n\tassert.Equal(t, got.B, []int{1})\n\tassert.Equal(t, got.C, http.MethodGet)",
 	}
 	for _, b := range bodies {
 		assertLines(t, "foo_test.go", "func TestX(t *testing.T) {\n\tgot := build()\n"+
@@ -135,6 +135,8 @@ func TestCheck_ExpectedFieldsWithoutStructAllowed(t *testing.T) {
 	assert.Equal(t, tc.wantOK, false)
 	assert.Equal(t, tc.wantID, ident)
 	assert.Equal(t, code, 200)
+	assert.Equal(t, tc.wantIDs, []string{a.ID})
+	assert.Equal(t, tc.wantMap, T{X: a.ID})
 }
 `)
 }

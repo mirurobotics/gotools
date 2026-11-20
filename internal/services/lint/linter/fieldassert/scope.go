@@ -6,6 +6,16 @@ import (
 	"maps"
 )
 
+type scope struct {
+	params  map[string]bool
+	objects []binding
+}
+
+type binding struct {
+	name     string
+	from, to token.Pos
+}
+
 func closeAssigned(open map[string]*fieldGroup, s ast.Stmt) {
 	for _, name := range assignedNames(s) {
 		maps.DeleteFunc(open, func(_ string, g *fieldGroup) bool {

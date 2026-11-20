@@ -1,6 +1,10 @@
 package fieldassert
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
+)
 
 func TestCheck_ShadowingAssertObjectFlagged(t *testing.T) {
 	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
@@ -40,6 +44,7 @@ func TestCheck_ReassignedValueAllowed(t *testing.T) {
 	assert.Equal(t, 2, got.B)
 	got.n++
 	assert.Equal(t, 3, got.C)
+	assert.Equal(t, 3, got.G)
 	var got, other = build(), 1
 	assert.Equal(t, 4, got.D)
 	assert.Equal(t, 5, got.E)
@@ -104,4 +109,26 @@ func TestCheck_ShadowedHelperParamFlagged(t *testing.T) {
 	})
 }
 `, 19)
+}
+
+func TestCheck_VersionNamedPackageIsConstant(t *testing.T) {
+	src := `package foo
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"k8s.io/api/core/v1"
+)
+
+func TestX(t *testing.T) {
+	assert.Equal(t, got.A, v1.PodRunning)
+	assert.Equal(t, got.B, v1.PodFailed)
+	assert.Equal(t, got.C, v1.PodPending)
+}
+`
+	fset, f := linttest.Parse(t, "foo_test.go", src)
+	linttest.AssertLines(t, Check(fset, "foo_test.go", f), []int{11},
+		"3 asserts compare fields of got one at a time; compare the whole value"+
+			" in one assert, or move the checks into a helper that takes got")
 }

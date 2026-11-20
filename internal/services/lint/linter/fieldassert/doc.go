@@ -7,15 +7,15 @@
 //	assert.Equal(t, "x", got.B)
 //	assert.Equal(t, true, got.C)
 //
-// is reported once it covers MinFieldAsserts (3) distinct fields; reassigning
-// the value starts a new group. Two field checks are often targeted (an ID and
-// a status); from three on the test rebuilds the struct by hand and silently
-// stops covering it when a field is added. Compare the whole value instead.
+// is reported once it covers MinFieldAsserts (3) distinct fields. Assigning to
+// or incrementing the value or one of its fields starts a new group. Two field
+// checks are often targeted (an ID and a status); from three on the test
+// rebuilds the struct by hand and silently stops covering it when a field is
+// added. Compare the whole value instead.
 //
 // The actual argument decides the group, so table tests comparing tc.wantA to
 // got.A are grouped by got; the expected one counts only when the actual is a
-// literal or package constant (swapped arguments). Asserts inside a function or
-// closure that takes the checked value as a parameter are allowed: that is a
-// dedicated check helper. A method's receiver and the parameters of enclosing
-// functions count too, so t.Run closures inside a helper are allowed.
+// literal or package constant (swapped arguments). Asserts in a dedicated check
+// helper, a function that takes the value as a parameter or receiver, are
+// allowed, including in closures inside it such as t.Run.
 package fieldassert

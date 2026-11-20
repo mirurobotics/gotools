@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"go/types"
 	"maps"
+	"path"
 	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
@@ -21,16 +22,6 @@ type checker struct {
 	testify  map[string]bool
 	imports  map[string]bool
 	diags    []analysis.Diagnostic
-}
-
-type scope struct {
-	params  map[string]bool
-	objects []binding
-}
-
-type binding struct {
-	name     string
-	from, to token.Pos
 }
 
 type fieldGroup struct {
@@ -203,8 +194,12 @@ func (c *checker) asField(e ast.Expr) *ast.SelectorExpr {
 
 func (c *checker) isConstant(e ast.Expr) bool {
 	switch x := ast.Unparen(e).(type) {
-	case *ast.BasicLit, *ast.CompositeLit:
+	case *ast.BasicLit:
 		return true
+	case *ast.CompositeLit:
+		return c.allConstant(x.Elts)
+	case *ast.KeyValueExpr:
+		return c.isConstant(x.Value)
 	case *ast.UnaryExpr:
 		return c.isConstant(x.X)
 	case *ast.Ident:
@@ -214,6 +209,15 @@ func (c *checker) isConstant(e ast.Expr) bool {
 		return ok && c.imports[id.Name]
 	}
 	return false
+}
+
+func (c *checker) allConstant(elts []ast.Expr) bool {
+	for _, e := range elts {
+		if !c.isConstant(e) {
+			return false
+		}
+	}
+	return true
 }
 
 func isEqualityFunc(name string) bool {
@@ -243,6 +247,7 @@ func importNames(f *ast.File) map[string]bool {
 	names := make(map[string]bool)
 	for _, imp := range f.Imports {
 		names[analysis.ImportName(imp)] = true
+		names[path.Base(analysis.ImportPath(imp))] = true
 	}
 	return names
 }

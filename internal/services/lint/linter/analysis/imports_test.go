@@ -12,11 +12,12 @@ import (
 	"gopkg.in/yaml.v3"
 	"github.com/google/go-cmp/cmp"
 	"v2"
+	"github.com/mattn/go-sqlite3"
 	` + "`raw/pkg`" + `
 )
 `
 	f := parseTestFile(t, src)
-	want := []string{"context", "ctx2", "chi", "yaml", "cmp", "v2", "pkg"}
+	want := []string{"context", "ctx2", "chi", "yaml", "cmp", "v2", "sqlite3", "pkg"}
 	for i, imp := range f.Imports {
 		if got := ImportName(imp); got != want[i] {
 			t.Errorf("import %d: got %q, want %q", i, got, want[i])
