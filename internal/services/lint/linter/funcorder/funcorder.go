@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"maps"
 	"slices"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
@@ -14,11 +13,7 @@ import (
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	m := build(f)
 	var diags []analysis.Diagnostic
-	for _, i := range m.fnIdx {
-		x := m.fns[i]
-		if x.exempt {
-			continue
-		}
+	for _, x := range m.funcs() {
 		line := fset.Position(x.decl.Pos()).Line
 		for _, msg := range m.violations(x) {
 			diags = append(diags, analysis.Diagnostic{
@@ -42,6 +37,9 @@ func Fix(fset *token.FileSet, f *ast.File, src []byte) []byte {
 
 func (m *model) violations(x *fn) []string {
 	checks := []func(*fn) string{m.stepdown, m.rankOrder, m.belowType, m.grouped}
+	if x.exempt {
+		checks = checks[2:]
+	}
 	var msgs []string
 	for _, check := range checks {
 		if msg := check(x); msg != "" {
@@ -63,8 +61,8 @@ func (m *model) rankOrder(x *fn) string {
 	if x.rank != 0 {
 		return ""
 	}
-	for _, i := range m.fnIdx {
-		if y := m.fns[i]; i < x.idx && mustPrecede(x, y) {
+	for _, y := range m.funcs() {
+		if y.idx < x.idx && mustPrecede(x, y) {
 			return fmt.Sprintf("%q should be above unexported %q", x.name, y.name)
 		}
 	}
@@ -80,10 +78,9 @@ func (m *model) belowType(x *fn) string {
 
 func (m *model) grouped(x *fn) string {
 	prev := -1
-	for _, i := range m.fnIdx {
-		y := m.fns[i]
-		if i < x.idx && x.recv != "" && y.recv == x.recv && !y.exempt {
-			prev = i
+	for _, y := range m.funcs() {
+		if y.idx < x.idx && x.recv != "" && y.recv == x.recv {
+			prev = y.idx
 		}
 	}
 	if prev < 0 || prev == x.idx-1 {
@@ -111,9 +108,8 @@ func (m *model) order() []int {
 func (m *model) units() [][]int {
 	var units [][]int
 	group := map[string]int{}
-	for i := range m.decls {
-		x := m.fns[i]
-		if x == nil || x.recv == "" || x.exempt {
+	for i, x := range m.fns {
+		if x == nil || x.recv == "" {
 			units = append(units, []int{i})
 			continue
 		}
@@ -129,15 +125,19 @@ func (m *model) units() [][]int {
 
 func (m *model) unitReady(u []int, done map[int]bool) bool {
 	x := m.fns[u[0]]
-	if x == nil || x.recv == "" || x.exempt {
+	if x == nil || x.recv == "" {
 		return m.ready(x, done)
 	}
-	t, ok := m.typeDecl[x.recv]
-	withGroup := maps.Clone(done)
-	for _, i := range u {
-		withGroup[i] = true
+	if t, ok := m.typeDecl[x.recv]; ok && !done[t] {
+		return false
 	}
-	return (!ok || done[t]) && m.ranked(x, withGroup)
+	inGroup := func(i int) bool { return done[i] || slices.Contains(u, i) }
+	for _, i := range u {
+		if !m.ranked(m.fns[i], inGroup) {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *model) ready(x *fn, done map[int]bool) bool {
@@ -148,12 +148,12 @@ func (m *model) ready(x *fn, done map[int]bool) bool {
 	if len(x.callers) > 0 && !slices.ContainsFunc(x.callers, isDone) {
 		return false
 	}
-	return m.ranked(x, done)
+	return m.ranked(x, isDone)
 }
 
-func (m *model) ranked(y *fn, done map[int]bool) bool {
-	for _, i := range m.fnIdx {
-		if mustPrecede(m.fns[i], y) && !done[i] {
+func (m *model) ranked(y *fn, isDone func(int) bool) bool {
+	for _, x := range m.funcs() {
+		if mustPrecede(x, y) && !isDone(x.idx) {
 			return false
 		}
 	}

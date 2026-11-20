@@ -19,30 +19,33 @@ type fn struct {
 }
 
 type model struct {
-	decls    []ast.Decl
-	fns      map[int]*fn
-	fnIdx    []int
+	fns      []*fn
 	typeDecl map[string]int
 }
 
 func build(f *ast.File) *model {
-	m := &model{
-		decls:    f.Decls,
-		fns:      map[int]*fn{},
-		fnIdx:    nil,
-		typeDecl: map[string]int{},
-	}
+	m := &model{fns: make([]*fn, len(f.Decls)), typeDecl: map[string]int{}}
 	byName := map[string]int{}
 	for i, d := range f.Decls {
 		m.addDecl(i, d, byName)
 	}
-	for _, i := range m.fnIdx {
-		m.fns[i].callees = callees(m.fns[i], byName)
+	for _, x := range m.funcs() {
+		x.callees = callees(x, byName)
 	}
-	for _, i := range m.fnIdx {
-		m.linkCallees(m.fns[i])
+	for _, x := range m.funcs() {
+		m.linkCallees(x)
 	}
 	return m
+}
+
+func (m *model) funcs() []*fn {
+	var out []*fn
+	for _, x := range m.fns {
+		if x != nil {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
@@ -54,7 +57,6 @@ func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
 	case *ast.FuncDecl:
 		x := newFn(i, d)
 		m.fns[i] = x
-		m.fnIdx = append(m.fnIdx, i)
 		if callable(d) {
 			byName[x.name] = i
 		}
@@ -141,7 +143,7 @@ func callees(x *fn, byName map[string]int) []int {
 		return nil
 	}
 	recv := recvName(x.decl)
-	sels := map[*ast.Ident]bool{}
+	skip := map[*ast.Ident]bool{}
 	var out []int
 	add := func(key string) {
 		if j, ok := byName[key]; ok && j != x.idx && !slices.Contains(out, j) {
@@ -151,12 +153,16 @@ func callees(x *fn, byName map[string]int) []int {
 	ast.Inspect(x.decl.Body, func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.SelectorExpr:
-			sels[n.Sel] = true
+			skip[n.Sel] = true
 			if id, ok := n.X.(*ast.Ident); ok && recv != "" && id.Name == recv {
 				add(x.recv + "." + n.Sel.Name)
 			}
+		case *ast.KeyValueExpr:
+			if k, ok := n.Key.(*ast.Ident); ok {
+				skip[k] = true
+			}
 		case *ast.Ident:
-			if !sels[n] && (n.Obj == nil || n.Obj.Kind == ast.Fun) {
+			if !skip[n] && (n.Obj == nil || n.Obj.Kind == ast.Fun) {
 				add(n.Name)
 			}
 		}

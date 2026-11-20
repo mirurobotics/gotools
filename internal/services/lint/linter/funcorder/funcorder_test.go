@@ -75,6 +75,25 @@ func (t T) h() {}
 //nolint:funcorder // kept last
 func (t T) E() { t.h() }
 `,
+		"exempt method inside its group": `package p
+
+type T struct{}
+
+func (t T) A() {}
+
+//nolint:funcorder // kept here
+func (t T) e() {}
+
+func (t T) B() {}
+`,
+		"composite literal key": `package p
+
+type T struct{ helper int }
+
+func helper() {}
+
+func build() T { return T{helper: 1} }
+`,
 		"function without body": `package p
 
 func Asm()
@@ -171,6 +190,13 @@ func TestFix_MultiLineTrailingComment(t *testing.T) {
 	helper := "func helper() {} /* a\nb */\n"
 	run := "func Run() { helper() }\n"
 	assertFix(t, "package p\n\n"+helper+"\n"+run, "package p\n\n"+run+"\n"+helper)
+}
+
+func TestFix_UnexportedTypeBelowExported(t *testing.T) {
+	typ := "package p\n\ntype runner struct{}\n"
+	run := "func (r runner) run() {}\n"
+	newFn := "func New() runner { return runner{} }\n"
+	assertFix(t, typ+"\n"+run+"\n"+newFn, typ+"\n"+newFn+"\n"+run)
 }
 
 func TestFix(t *testing.T) {
