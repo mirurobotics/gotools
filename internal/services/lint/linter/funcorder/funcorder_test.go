@@ -166,9 +166,9 @@ func (t T) Run() {
 `,
 		"composite literal key": `package p
 
-type T struct{ helper int }
-
 func helper() {}
+
+type T struct{ helper int }
 
 func build() T { return T{helper: 1} }
 `,

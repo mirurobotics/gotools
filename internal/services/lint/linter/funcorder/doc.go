@@ -6,16 +6,14 @@
 //     entry points down through their helpers;
 //   - an exported entry point (a function nothing in the file calls), main or
 //     init sits above unexported functions that nothing in the file calls;
-//   - a type's methods sit together below the type, ordered by the same rules;
-//     a type declared on its own sits directly above its methods, after the
-//     const and var blocks directly below it, and Fix moves them together;
-//     if that would reorder initialized vars, the type moves without its
-//     blocks from the first initialized var on.
+//   - a type's methods sit together below the type. A type declared on its own
+//     sits directly above its methods, after the const and var blocks below
+//     it, and Fix moves them together, leaving the blocks from the first
+//     initialized var on if moving them would reorder initialized vars;
+//   - a type without methods sits directly above its first user, a function
+//     or const or var block; a type with methods and its blocks count as one.
 //
-// Calls are matched by name, and methods only through their receiver, so
-// calls across files or through other values are not constrained. Recursion
-// and call cycles are skipped. //nolint:funcorder on a function's doc lifts
-// the caller and entry point rules; an exempt method still stays with its
-// type. Fix moves each declaration with its comments and places a moved
-// helper right after its last caller.
+// Calls are matched by name and methods only through their receiver. Call
+// cycles are skipped. //nolint:funcorder on a function's doc lifts the caller
+// and entry point rules. Fix moves each declaration with its comments.
 package funcorder

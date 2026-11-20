@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"maps"
 	"slices"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
@@ -14,14 +15,22 @@ import (
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	m := build(f)
 	var diags []analysis.Diagnostic
+	add := func(d ast.Decl, msg string) {
+		diags = append(diags, analysis.Diagnostic{
+			File:    filename,
+			Line:    fset.Position(d.Pos()).Line,
+			Message: msg,
+		})
+	}
 	for _, x := range m.funcs() {
-		line := fset.Position(x.decl.Pos()).Line
 		for _, msg := range m.violations(x) {
-			diags = append(diags, analysis.Diagnostic{
-				File:    filename,
-				Line:    line,
-				Message: msg,
-			})
+			add(x.decl, msg)
+		}
+	}
+	uses := m.firstUses(m.units(m.heads), func(i int) int { return i })
+	for _, t := range slices.Sorted(maps.Keys(uses)) {
+		if !m.typePlaced(t, uses) {
+			add(f.Decls[t], m.typeMessage(t, uses[t]))
 		}
 	}
 	return diags
@@ -114,8 +123,9 @@ func (m *model) arrange(heads map[string][]int) []int {
 	unitReady := func(u []int) bool { return m.unitReady(u, done) }
 	fnReady := func(i int) bool { return m.ready(m.fns[i], done) }
 	emitUnit := func(u []int) { kahn(u, fnReady, mark) }
-	kahn(m.units(heads), unitReady, emitUnit)
-	return out
+	units := m.units(heads)
+	kahn(units, unitReady, emitUnit)
+	return m.placeTypes(units, out)
 }
 
 func (m *model) keepsInitOrder(order []int) bool {
@@ -157,7 +167,7 @@ func (m *model) units(heads map[string][]int) [][]int {
 	}
 	for i, x := range m.fns {
 		switch {
-		case glued[i]:
+		case glued[i] || m.plain[i] != nil:
 		case x == nil || x.recv == "":
 			units = append(units, []int{i})
 		case group[x.recv] > 0:

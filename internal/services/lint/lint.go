@@ -13,11 +13,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter"
 )
 
-type stepTiming struct {
-	name     string
-	duration time.Duration
-}
-
 // LintOpts holds the options for the lint orchestrator.
 type LintOpts struct {
 	Paths string
@@ -58,6 +53,11 @@ func RunLint(opts LintOpts) error {
 	return nil
 }
 
+type stepTiming struct {
+	name     string
+	duration time.Duration
+}
+
 func runLintSteps(
 	opts LintOpts,
 ) (failures []string, timings []stepTiming, fatal error) {
@@ -92,6 +92,11 @@ func runLintSteps(
 		timings = append(timings, t...)
 	}
 	return failures, timings, nil
+}
+
+type stepResult struct {
+	timing stepTiming
+	failed bool
 }
 
 func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming) {
@@ -139,11 +144,6 @@ func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
 		}))
 	}
 	return collectResults(results)
-}
-
-type stepResult struct {
-	timing stepTiming
-	failed bool
 }
 
 func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTiming) {

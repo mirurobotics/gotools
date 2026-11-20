@@ -9,20 +9,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter"
 )
 
-// LinterFlags holds the linter flags shared by check and lint.
-type LinterFlags struct {
-	MaxLineWidth    int
-	TabWidth        int
-	MaxFuncLen      int
-	MaxFileLen      int
-	MaxNestDepth    int
-	MaxParamCount   int
-	Exclude         string
-	Rule            string
-	MaxDocLines     int
-	MaxDocFileLines int
-}
-
 // CheckOpts holds the options for the check command.
 type CheckOpts struct {
 	Path  string
@@ -54,6 +40,20 @@ func RunCheck(opts CheckOpts) (diags, fixed int, err error) {
 	}
 
 	return diags, fixed, nil
+}
+
+// LinterFlags holds the linter flags shared by check and lint.
+type LinterFlags struct {
+	MaxLineWidth    int
+	TabWidth        int
+	MaxFuncLen      int
+	MaxFileLen      int
+	MaxNestDepth    int
+	MaxParamCount   int
+	Exclude         string
+	Rule            string
+	MaxDocLines     int
+	MaxDocFileLines int
 }
 
 // BuildLinterConfig builds a linter.Config from the shared flag values.

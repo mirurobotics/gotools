@@ -8,12 +8,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-type line struct {
-	pos      token.Pos
-	text     string
-	indented bool
-}
-
 type source struct {
 	tf  *token.File
 	src []byte
@@ -23,6 +17,12 @@ func (s source) before(pos token.Pos) string {
 	off := s.tf.Offset(pos)
 	start := analysis.LineStartOffset(s.src, off)
 	return strings.TrimPrefix(string(s.src[start:off]), "\uFEFF")
+}
+
+type line struct {
+	pos      token.Pos
+	text     string
+	indented bool
 }
 
 func runs(s source, cg *ast.CommentGroup) [][]line {

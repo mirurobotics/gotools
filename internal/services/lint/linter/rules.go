@@ -125,12 +125,6 @@ type checkInput struct {
 	src  []byte
 }
 
-type ruleEntry struct {
-	rule    Rule
-	fixable bool
-	check   func(checkInput) []analysis.Diagnostic
-}
-
 func runChecks(in checkInput, cfg Config, includeFixable bool) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 	for _, rc := range ruleCheckers(cfg) {
@@ -143,6 +137,12 @@ func runChecks(in checkInput, cfg Config, includeFixable bool) []analysis.Diagno
 		diags = append(diags, rc.check(in)...)
 	}
 	return diags
+}
+
+type ruleEntry struct {
+	rule    Rule
+	fixable bool
+	check   func(checkInput) []analysis.Diagnostic
 }
 
 func ruleCheckers(cfg Config) []ruleEntry {

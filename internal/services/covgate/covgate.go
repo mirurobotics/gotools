@@ -25,11 +25,6 @@ type Opts struct {
 	Out                io.Writer
 }
 
-type workItem struct {
-	pkg      string
-	testOnly bool
-}
-
 // Run checks per-package coverage against thresholds.
 func Run(opts Opts) error {
 	progress := gocover.Progress{Enabled: opts.Parallelism == 0, Table: table()}
@@ -42,6 +37,11 @@ func Run(opts Opts) error {
 		progress:           progress,
 	}
 	return r.run(opts)
+}
+
+type workItem struct {
+	pkg      string
+	testOnly bool
 }
 
 type runner struct {

@@ -26,6 +26,8 @@ func build(f *ast.File) *model {
 		typeDecl: map[string]int{},
 		heads:    nil,
 		initVars: nil,
+		plain:    nil,
+		decls:    f.Decls,
 	}
 	byName := map[string]int{}
 	for i, d := range f.Decls {
@@ -42,6 +44,7 @@ func build(f *ast.File) *model {
 	}
 	m.heads = m.typeHeads(f.Decls)
 	m.initVars = initVarDecls(f.Decls)
+	m.plain = m.plainTypes(f.Decls)
 	return m
 }
 
@@ -50,6 +53,8 @@ type model struct {
 	typeDecl map[string]int
 	heads    map[string][]int
 	initVars map[int]bool
+	plain    map[int][]int
+	decls    []ast.Decl
 }
 
 func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
@@ -100,12 +105,8 @@ func (m *model) typeHeads(decls []ast.Decl) map[string][]int {
 	}
 	soloType := map[string]int{}
 	for i, d := range decls {
-		gd, ok := d.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		if names := typeNames(gd); len(gd.Specs) == 1 && len(names) == 1 {
-			soloType[names[0]] = i
+		if ts := soloTypeSpec(d); ts != nil {
+			soloType[ts.Name.Name] = i
 		}
 	}
 	heads := map[string][]int{}

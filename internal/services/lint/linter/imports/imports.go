@@ -18,15 +18,6 @@ const (
 
 const internalPrefix = "github.com/mirurobotics/"
 
-// Import represents a single import statement.
-type Import struct {
-	Path  string
-	Name  string // alias, or "" if none; "." for dot imports
-	Pos   token.Pos
-	End   token.Pos
-	Group ImportGroup
-}
-
 // ImportBlock represents one import declaration (single or grouped).
 type ImportBlock struct {
 	Imports   []Import
@@ -64,6 +55,15 @@ func newImportBlock(gd *ast.GenDecl) ImportBlock {
 		}
 	}
 	return block
+}
+
+// Import represents a single import statement.
+type Import struct {
+	Path  string
+	Name  string // alias, or "" if none; "." for dot imports
+	Pos   token.Pos
+	End   token.Pos
+	Group ImportGroup
 }
 
 func newImport(is *ast.ImportSpec) Import {

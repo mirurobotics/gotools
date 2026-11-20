@@ -213,12 +213,6 @@ func TestProcessFile_FileLen(t *testing.T) {
 	}
 }
 
-type fixResult struct {
-	diags int
-	fixed int
-	src   string
-}
-
 func TestFindGoFiles(t *testing.T) {
 	dir := t.TempDir()
 	for _, rel := range []string{
@@ -286,6 +280,12 @@ func writeFile(t *testing.T, path, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+type fixResult struct {
+	diags int
+	fixed int
+	src   string
 }
 
 func assertFixed(t *testing.T, diags, fixed int, got string, want fixResult) {
