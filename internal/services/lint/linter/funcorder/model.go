@@ -156,7 +156,7 @@ func callees(x *fn, byName map[string]int) []int {
 				add(x.recv + "." + n.Sel.Name)
 			}
 		case *ast.Ident:
-			if !sels[n] {
+			if !sels[n] && (n.Obj == nil || n.Obj.Kind == ast.Fun) {
 				add(n.Name)
 			}
 		}
@@ -173,7 +173,7 @@ func recvName(d *ast.FuncDecl) string {
 }
 
 func enforced(from, to *fn) bool {
-	if to.exempt || from.recv != "" && to.recv == "" && to.rank == 0 {
+	if from.exempt || to.exempt || from.recv != "" && to.recv == "" && to.rank == 0 {
 		return false
 	}
 	return to.rank >= from.rank

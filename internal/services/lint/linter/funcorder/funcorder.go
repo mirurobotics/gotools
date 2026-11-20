@@ -185,7 +185,7 @@ func render(fset *token.FileSet, f *ast.File, src []byte, order []int) []byte {
 	out := slices.Clone(src[:start])
 	chunks := make([][]byte, len(f.Decls))
 	for i, d := range f.Decls {
-		end := lineAfter(src, tf.Offset(d.End()))
+		end := lineAfter(src, tf.Offset(declEnd(tf, f, d)))
 		chunks[i] = trimChunk(src[start:end])
 		start = end
 	}
@@ -194,6 +194,16 @@ func render(fset *token.FileSet, f *ast.File, src []byte, order []int) []byte {
 		out = append(out, chunks[i]...)
 	}
 	return append(out, src[start:]...)
+}
+
+func declEnd(tf *token.File, f *ast.File, d ast.Decl) token.Pos {
+	end := d.End()
+	for _, cg := range f.Comments {
+		if cg.Pos() >= end && tf.Line(cg.Pos()) == tf.Line(end) {
+			end = cg.End()
+		}
+	}
+	return end
 }
 
 func lineAfter(src []byte, off int) int {

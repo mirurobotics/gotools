@@ -58,11 +58,30 @@ func helper() {}
 // Run runs.
 func Run() { helper() }
 `,
+		"shadowing local": `package p
+
+func Value() {}
+
+func Run() { Value := 1; _ = Value }
+`,
+		"exempt caller": `package p
+
+type T struct{}
+
+func (t T) A() {}
+
+func (t T) h() {}
+
+//nolint:funcorder // kept last
+func (t T) E() { t.h() }
+`,
 		"function without body": `package p
 
 func Asm()
 
 func Run() {}
+
+func (s []int) bad() {}
 `,
 	}
 	for name, src := range cases {
@@ -141,6 +160,17 @@ func New() runner { return runner{} }
 `,
 		`"New" should be above unexported "runner.Run"`,
 	)
+}
+
+func TestCheck_ParenReceiver(t *testing.T) {
+	assertMessages(t, "package p\n\nfunc (t (T)) m() {}\n\ntype T struct{}\n",
+		`method "T.m" should be below type "T"`)
+}
+
+func TestFix_MultiLineTrailingComment(t *testing.T) {
+	helper := "func helper() {} /* a\nb */\n"
+	run := "func Run() { helper() }\n"
+	assertFix(t, "package p\n\n"+helper+"\n"+run, "package p\n\n"+run+"\n"+helper)
 }
 
 func TestFix(t *testing.T) {
@@ -226,6 +256,14 @@ func assertMessages(t *testing.T, src string, want ...string) {
 	diags := Check(fset, "a.go", f)
 	if got, exp := messages(diags), strings.Join(want, "\n"); got != exp {
 		t.Errorf("messages:\n%s\nwant:\n%s", got, exp)
+	}
+	fixed := Fix(fset, f, []byte(src))
+	if (fixed == nil) != (len(diags) == 0) {
+		t.Errorf("Fix changed = %v, Check found %d", fixed != nil, len(diags))
+	}
+	if fixed != nil {
+		fset, f = linttest.Parse(t, "a.go", string(fixed))
+		assertClean(t, Check(fset, "a.go", f))
 	}
 }
 

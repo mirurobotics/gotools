@@ -17,6 +17,7 @@ func TestBaseIdent(t *testing.T) {
 		{"*pkg.T", "T"},
 		{"T[K]", "T"},
 		{"*T[K, V]", "T"},
+		{"*(T)", "T"},
 		{"[]T", ""},
 	}
 	for _, tt := range tests {
