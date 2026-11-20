@@ -49,6 +49,7 @@ func TestCheck_ReassignedValueAllowed(t *testing.T) {
 	assert.Equal(t, 4, got.D)
 	assert.Equal(t, 5, got.E)
 	got.n, x = 1, 2
+	*ptr() = 1
 	assert.Equal(t, 6, got.F)
 }
 `)

@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"maps"
 	"path"
 	"strings"
 
@@ -26,7 +25,7 @@ type checker struct {
 
 type fieldGroup struct {
 	base   string
-	root   string
+	root   *ast.Ident
 	calls  []*ast.CallExpr
 	fields map[string]bool
 }
@@ -48,48 +47,25 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		imports:  importNames(f),
 		diags:    nil,
 	}
-	top := scope{params: map[string]bool{}, objects: nil}
-	for _, decl := range f.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if ok && fn.Body != nil {
-			c.walkFunc(fn.Recv, fn.Type, fn.Body, top)
-		}
-	}
-	return c.diags
-}
-
-func (c *checker) walkFunc(
-	recv *ast.FieldList, ft *ast.FuncType, body *ast.BlockStmt, outer scope,
-) {
-	sc := scope{params: maps.Clone(outer.params), objects: outer.objects}
-	for _, name := range localDefs(body) {
-		delete(sc.params, name)
-	}
-	addNames(sc.params, recv)
-	addNames(sc.params, ft.Params)
-	sc.objects = append(sc.objects[:len(sc.objects):len(sc.objects)],
-		c.assertObjects(body)...)
-	ast.Inspect(body, func(n ast.Node) bool {
+	ast.Inspect(f, func(n ast.Node) bool {
 		switch n := n.(type) {
-		case *ast.FuncLit:
-			c.walkFunc(nil, n.Type, n.Body, sc)
-			return false
 		case *ast.BlockStmt:
-			c.checkStmts(n.List, sc)
+			c.checkStmts(n.List)
 		case *ast.CaseClause:
-			c.checkStmts(n.Body, sc)
+			c.checkStmts(n.Body)
 		case *ast.CommClause:
-			c.checkStmts(n.Body, sc)
+			c.checkStmts(n.Body)
 		}
 		return true
 	})
+	return c.diags
 }
 
-func (c *checker) checkStmts(stmts []ast.Stmt, sc scope) {
+func (c *checker) checkStmts(stmts []ast.Stmt) {
 	var groups []*fieldGroup
 	open := make(map[string]*fieldGroup)
 	for _, s := range stmts {
-		call, sel := c.fieldArg(s, sc)
+		call, sel := c.fieldArg(s)
 		if sel == nil {
 			closeAssigned(open, s)
 			continue
@@ -98,7 +74,7 @@ func (c *checker) checkStmts(stmts []ast.Stmt, sc scope) {
 		g := open[base]
 		if g == nil {
 			g = &fieldGroup{
-				base: base, root: rootName(sel.X),
+				base: base, root: rootIdent(sel.X),
 				calls: nil, fields: map[string]bool{},
 			}
 			open[base] = g
@@ -108,7 +84,7 @@ func (c *checker) checkStmts(stmts []ast.Stmt, sc scope) {
 		g.fields[sel.Sel.Name] = true
 	}
 	for _, g := range groups {
-		if len(g.fields) >= MinFieldAsserts && !sc.params[g.root] {
+		if len(g.fields) >= MinFieldAsserts && !isParam(g.root) {
 			c.report(g)
 		}
 	}
@@ -124,14 +100,14 @@ func (c *checker) report(g *fieldGroup) {
 		"%d asserts compare fields of %s one at a time; compare the whole value in one assert",
 		len(g.calls), g.base,
 	)
-	if g.root != "" {
-		msg += ", or move the checks into a helper that takes " + g.root
+	if g.root != nil {
+		msg += ", or move the checks into a helper that takes " + g.root.Name
 	}
 	c.diags = append(c.diags,
 		analysis.Diagnostic{File: c.filename, Line: first, Message: msg})
 }
 
-func (c *checker) fieldArg(s ast.Stmt, sc scope) (*ast.CallExpr, *ast.SelectorExpr) {
+func (c *checker) fieldArg(s ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
 	es, ok := s.(*ast.ExprStmt)
 	if !ok {
 		return nil, nil
@@ -140,7 +116,7 @@ func (c *checker) fieldArg(s ast.Stmt, sc scope) (*ast.CallExpr, *ast.SelectorEx
 	if !ok {
 		return nil, nil
 	}
-	expected, actual, ok := c.comparedValues(call, sc)
+	expected, actual, ok := c.comparedValues(call)
 	if !ok {
 		return nil, nil
 	}
@@ -157,7 +133,7 @@ func (c *checker) fieldArg(s ast.Stmt, sc scope) (*ast.CallExpr, *ast.SelectorEx
 }
 
 func (c *checker) comparedValues(
-	call *ast.CallExpr, sc scope,
+	call *ast.CallExpr,
 ) (expected, actual ast.Expr, ok bool) {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok || !isEqualityFunc(sel.Sel.Name) {
@@ -169,8 +145,8 @@ func (c *checker) comparedValues(
 	}
 	first := 0
 	switch {
-	case sc.isObject(recv):
-	case c.testify[recv.Name]:
+	case c.isAssertObject(recv):
+	case recv.Obj == nil && c.testify[recv.Name]:
 		first = 1
 	default:
 		return nil, nil, false

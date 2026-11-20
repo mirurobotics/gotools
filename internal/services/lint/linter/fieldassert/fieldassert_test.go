@@ -220,9 +220,16 @@ func TestX(t *testing.T) {
 	tassert.Equal(t, 1, got.A)
 	tassert.Equal(t, 2, got.B)
 	tassert.Equal(t, 3, got.C)
-	_ = other.New(t)
-	_ = New(t)
-	_ = tassert.Other(t)
+	o1 := other.New(t)
+	o2 := New(t)
+	o3 := tassert.Other(t)
+	o4 := x
+	o5 := (tassert).New(t)
+	o1.Equal(1, got.D)
+	o2.Equal(1, got.D)
+	o3.Equal(1, got.D)
+	o4.Equal(1, got.D)
+	o5.Equal(1, got.D)
 }
 `
 	fset, f := linttest.Parse(t, "foo_test.go", src)
