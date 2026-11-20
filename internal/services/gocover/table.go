@@ -66,7 +66,7 @@ func strArgs(strs []string) []any {
 	return args
 }
 
-// RunEach runs run(0..count-1), parallelism at a time, streaming row output.
+// RunEach runs run(0..count-1), parallelism at a time, streaming rows when enabled.
 func RunEach[T any](
 	progress Progress,
 	out io.Writer,

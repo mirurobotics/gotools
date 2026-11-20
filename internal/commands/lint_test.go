@@ -64,17 +64,18 @@ func TestSharedLinterFlags_ConsistentBetweenCheckAndLint(t *testing.T) {
 		shared = append(shared, name)
 	}
 	for _, name := range shared {
-		flag, pflag := check.Lookup(name), lint.Lookup(name)
-		if flag == nil || pflag == nil {
+		checkFlag, lintFlag := check.Lookup(name), lint.Lookup(name)
+		if checkFlag == nil || lintFlag == nil {
 			t.Errorf(
-				"flag %q missing in check=%v, lint=%v", name, flag == nil, pflag == nil,
+				"flag %q missing in check=%v, lint=%v",
+				name, checkFlag == nil, lintFlag == nil,
 			)
 			continue
 		}
-		if flag.DefValue != pflag.DefValue {
+		if checkFlag.DefValue != lintFlag.DefValue {
 			t.Errorf(
 				"flag %q default mismatch: check=%q, lint=%q",
-				name, flag.DefValue, pflag.DefValue,
+				name, checkFlag.DefValue, lintFlag.DefValue,
 			)
 		}
 	}

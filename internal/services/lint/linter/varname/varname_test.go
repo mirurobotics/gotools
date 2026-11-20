@@ -179,6 +179,21 @@ func run() error {
 	assertFlagged(t, "foo.go", src, 4)
 }
 
+func TestCheck_ShadowingShortNameFlaggedTwice(t *testing.T) {
+	src := `package foo
+
+func run(cond bool) {
+	n := 1
+	if cond {
+		n := 2
+		_ = n
+	}
+	_ = n
+}
+`
+	assertFlagged(t, "foo.go", src, 4, 6)
+}
+
 func TestCheck_NewNameBesideReusedFlagged(t *testing.T) {
 	src := `package foo
 
