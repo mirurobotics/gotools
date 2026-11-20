@@ -137,7 +137,7 @@ func TestFix_PlainTypeLeavesUnrelatedConsts(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
-func TestFix_PlainTypeAboveConstUser(t *testing.T) {
+func TestFix_PlainTypeSkipsConstUser(t *testing.T) {
 	src := []string{"const C P = 0\n", "var a = 1\n", "func f(P) {}\n", "type P int\n"}
 	want := []string{src[0], src[1], src[3], src[2]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
