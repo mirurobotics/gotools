@@ -14,10 +14,10 @@ echo "=== Running lint and covgate in parallel... ==="
 # file writes racing with covgate's concurrent compilation of the same module.
 export LINT_FIX=0
 
-./scripts/lint.sh &
+./scripts/go/lint.sh &
 lint_pid=$!
 
-./scripts/covgate.sh &
+./scripts/go/covgate.sh &
 covgate_pid=$!
 
 ./scripts/lint-surface.sh &

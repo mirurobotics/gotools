@@ -23,10 +23,10 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: ./go.mod
+          go-version-file: ./go/go.mod
 
       - name: Run Linters
-        run: LINT_FIX=0 ./scripts/lint.sh
+        run: LINT_FIX=0 ./scripts/go/lint.sh
 
   test:
     timeout-minutes: 10
@@ -39,10 +39,10 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: ./go.mod
+          go-version-file: ./go/go.mod
 
       - name: Run Tests
-        run: ./scripts/covgate.sh
+        run: ./scripts/go/covgate.sh
 
   surface-lint:
     # yamllint disable-line rule:line-length
