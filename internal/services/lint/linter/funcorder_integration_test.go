@@ -29,6 +29,28 @@ func TestRun_Fix_FuncOrderExcluded(t *testing.T) {
 	assertFixed(t, diags, fixed, got, fixResult{diags: 0, fixed: 0, src: unorderedSrc})
 }
 
+func TestAdoptFix_KeepsSourceWhenFixDoesNotParse(t *testing.T) {
+	src := []byte(unorderedSrc)
+	fset, f, err := reparse("foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := checkInput{fset, "foo.go", f, src}
+	got, gotFset, gotF, err := adoptOrderFix(in, []byte("func {"))
+	kept := string(got) == unorderedSrc && gotFset == fset && gotF == f
+	if err == nil || !kept {
+		t.Errorf("adoptOrderFix = %q, %v; want original and error", got, err)
+	}
+	var w strings.Builder
+	if n := warnFixSkipped(&w, "foo.go", err); n != 1 {
+		t.Errorf("warnFixSkipped counted %d, want 1", n)
+	}
+	want := "warning: foo.go: funcorder fix produced invalid Go: "
+	if !strings.HasPrefix(w.String(), want) {
+		t.Errorf("warning = %q", w.String())
+	}
+}
+
 func TestRun_Check_FuncOrder(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir+"/foo.go", unorderedSrc)

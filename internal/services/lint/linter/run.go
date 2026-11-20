@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,7 +121,8 @@ func processFixMode(
 	if err != nil {
 		return 0, false, err
 	}
-	fixed, fset, f = applyOrderFixer(path, fixed, fset, f, cfg)
+	fixed, fset, f, err = applyOrderFixer(path, fixed, fset, f, cfg)
+	skipped := warnFixSkipped(cfg.Err, path, err)
 
 	didFix := string(fixed) != string(src)
 	if didFix {
@@ -136,7 +138,7 @@ func processFixMode(
 	for _, d := range diags {
 		_, _ = fmt.Fprintln(cfg.Out, d)
 	}
-	return len(diags), didFix, nil
+	return len(diags) + skipped, didFix, nil
 }
 
 func processCheckMode(
@@ -170,4 +172,13 @@ func skipDir(name string) bool {
 		return true
 	}
 	return strings.HasPrefix(name, ".")
+}
+
+func warnFixSkipped(w io.Writer, path string, err error) int {
+	if err == nil {
+		return 0
+	}
+	const msg = "warning: %s: funcorder fix produced invalid Go: %v\n"
+	_, _ = fmt.Fprintf(w, msg, path, err)
+	return 1
 }

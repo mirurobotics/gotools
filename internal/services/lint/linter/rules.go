@@ -270,17 +270,23 @@ func applyOrderFixer(
 	fset *token.FileSet,
 	f *ast.File,
 	cfg Config,
-) ([]byte, *token.FileSet, *ast.File) {
+) ([]byte, *token.FileSet, *ast.File, error) {
 	if !cfg.runRule(RuleFuncOrder) {
-		return src, fset, f
+		return src, fset, f, nil
 	}
-	fixed := funcorder.Fix(fset, f, src)
+	in := checkInput{fset, path, f, src}
+	return adoptOrderFix(in, funcorder.Fix(fset, f, src))
+}
+
+func adoptOrderFix(
+	in checkInput, fixed []byte,
+) ([]byte, *token.FileSet, *ast.File, error) {
 	if fixed == nil {
-		return src, fset, f
+		return in.src, in.fset, in.f, nil
 	}
-	newFset, newF, err := reparse(path, fixed)
+	fset, f, err := reparse(in.path, fixed)
 	if err != nil {
-		return src, fset, f
+		return in.src, in.fset, in.f, err
 	}
-	return fixed, newFset, newF
+	return fixed, fset, f, nil
 }
