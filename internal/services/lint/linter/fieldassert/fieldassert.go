@@ -15,24 +15,6 @@ import (
 // MinFieldAsserts is how many distinct fields asserted on one value trigger a report.
 const MinFieldAsserts = 3
 
-type checker struct {
-	fset     *token.FileSet
-	filename string
-	f        *ast.File
-	testify  map[string]bool
-	imports  map[string]bool
-	results  map[*ast.Field]bool
-	diags    []analysis.Diagnostic
-}
-
-type fieldGroup struct {
-	base   string
-	root   *ast.Ident
-	deps   map[any]bool
-	calls  []*ast.CallExpr
-	fields map[string]bool
-}
-
 // Check reports runs of testify asserts that compare one value field by field.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	if !analysis.IsTestFile(filename) {
@@ -63,6 +45,24 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		return true
 	})
 	return c.diags
+}
+
+type fieldGroup struct {
+	base   string
+	root   *ast.Ident
+	deps   map[any]bool
+	calls  []*ast.CallExpr
+	fields map[string]bool
+}
+
+type checker struct {
+	fset     *token.FileSet
+	filename string
+	f        *ast.File
+	testify  map[string]bool
+	imports  map[string]bool
+	results  map[*ast.Field]bool
+	diags    []analysis.Diagnostic
 }
 
 func (c *checker) checkStmts(stmts []ast.Stmt) {

@@ -30,11 +30,73 @@ func a() { a(); b() }
 
 func z() {}
 `,
-		"exported callee of unexported caller": `package p
-
-func Get() int { return 1 }
+		"exported callee below unexported caller": `package p
 
 func get() int { return Get() }
+
+func Get() int { return 1 }
+`,
+		"shared helper below last caller": `package p
+
+func A() { a1(); h() }
+
+func a1() {}
+
+func B() { b1(); h() }
+
+func b1() {}
+
+func h() {}
+`,
+		"cycle member is not an entry point": `package p
+
+func Run() { a() }
+
+func a() { b() }
+
+func b() { a() }
+
+func Other() {}
+`,
+		"exported cycle member is not an entry point": `package p
+
+func c() {}
+
+func a() { B() }
+
+func B() { a() }
+`,
+		"grouped type declaration": `package p
+
+type (
+	A struct{}
+	B struct{}
+)
+
+func Run() {}
+
+func (a A) Get() {}
+`,
+		"enum and interface assertion between type and methods": `package p
+
+type Kind int
+
+const (
+	A Kind = iota
+	B
+)
+
+var _ fmt.Stringer = A
+
+func (k Kind) String() string { return "" }
+`,
+		"exported entry above unexported entry": `package p
+
+func Run() { helper() }
+
+func helper() {}
+
+func unused() {}
 `,
 		"entry points and blank functions": `package main
 
@@ -88,11 +150,11 @@ func (t T) B() {}
 `,
 		"shadowed receiver": `package p
 
-type T struct{}
-
 type U struct{}
 
 func (u U) Help() {}
+
+type T struct{}
 
 func (t T) Help() {}
 
@@ -104,9 +166,9 @@ func (t T) Run() {
 `,
 		"composite literal key": `package p
 
-type T struct{ helper int }
-
 func helper() {}
+
+type T struct{ helper int }
 
 func build() T { return T{helper: 1} }
 `,
@@ -133,9 +195,129 @@ func other() { helper() }
 
 func Run() { other(); _ = helper }
 `,
-		`"helper" should be below its first caller "other"`,
-		`"other" should be below its first caller "Run"`,
-		`"Run" should be above unexported "helper"`,
+		`"helper" should be below its last caller "Run"`,
+		`"other" should be below its last caller "Run"`,
+	)
+}
+
+func TestCheck_SharedHelperBelowLastCaller(t *testing.T) {
+	assertMessages(t, `package p
+
+func A() { a1(); h() }
+
+func h() {}
+
+func a1() {}
+
+func B() { b1(); h() }
+
+func b1() {}
+`,
+		`"h" should be below its last caller "B"`,
+	)
+}
+
+func TestCheck_ExportedMethodEntryFirst(t *testing.T) {
+	assertMessages(t, `package p
+
+type T struct{}
+
+func (T) a() {}
+
+func (T) B() {}
+`,
+		`"T.B" should be above unexported "T.a"`,
+	)
+}
+
+func TestCheck_TypeAboveMethods(t *testing.T) {
+	assertMessages(t, `package p
+
+type runner struct{}
+
+func Run() { r := runner{}; r.run() }
+
+func (r runner) run() {}
+`,
+		`type "runner" should be directly above its methods`,
+	)
+}
+
+func TestCheck_TypeAboveAnotherTypesMethods(t *testing.T) {
+	assertMessages(t, `package p
+
+type T struct{}
+
+type U struct{}
+
+func (U) A() {}
+
+func (T) B() {}
+`,
+		`type "T" should be directly above its methods`,
+	)
+	assertMessages(t, `package p
+
+type T struct{}
+
+type Rule string
+
+const R Rule = "r"
+
+func (T) M() {}
+`,
+		`type "T" should be directly above its methods`,
+	)
+}
+
+func TestCheck_OnlyMovedTypeLosesItsVars(t *testing.T) {
+	assertMessages(t, `package p
+
+type Kind int
+
+var kindNames = record("k")
+
+func (Kind) String() string { return "" }
+
+type Config struct{}
+
+var defaultConfig = record("c")
+
+func Load() {}
+
+var ErrBad = record("e")
+
+func (Config) Validate() {}
+`,
+		`type "Config" should be directly above its methods`,
+	)
+}
+
+func TestCheck_ExportedCalledInFile(t *testing.T) {
+	assertMessages(t, `package p
+
+func Load(path string) int { return loadFile(path) }
+
+func Parse(b []byte) int { return validate(b) }
+
+func loadFile(path string) int { return Parse(read(path)) }
+
+func read(path string) []byte { return nil }
+
+func validate(b []byte) int { return len(b) }
+`,
+		`"Parse" should be below its last caller "loadFile"`,
+	)
+}
+
+func TestCheck_ExportedEntryFirst(t *testing.T) {
+	assertMessages(t, `package p
+
+func unused() {}
+
+func Run() {}
+`,
+		`"Run" should be above unexported "unused"`,
 	)
 }
 
@@ -152,7 +334,8 @@ func (t T) Value() int { return Run() + help() }
 
 func help() int { return 1 }
 `,
-		`"Get" should be below its first caller "Run"`,
+		`"Get" should be below its last caller "Run"`,
+		`"Run" should be below its last caller "T.Value"`,
 	)
 }
 
@@ -169,16 +352,14 @@ func free() {}
 
 func (t T) Other() {}
 `,
-		`"T.helper" should be below its first caller "T.Run"`,
+		`"T.helper" should be below its last caller "T.Run"`,
 		`method "T.helper" should be below type "T"`,
-		`"T.Run" should be above unexported "T.helper"`,
 		`method "T.Run" should be grouped with the other methods of "T"`,
-		`"T.Other" should be above unexported "T.helper"`,
 		`method "T.Other" should be grouped with the other methods of "T"`,
 	)
 }
 
-func TestCheck_UnexportedTypeMethods(t *testing.T) {
+func TestCheck_UnexportedTypeMethodsStayWithType(t *testing.T) {
 	assertMessages(t, `package p
 
 type runner struct{}
@@ -192,115 +373,12 @@ func (runner) Wait() {}
 func (r (runner)) wrapped() {}
 
 func New() runner { return runner{} }
-`,
-		`"New" should be above unexported "runner.Run"`,
-	)
+`)
 }
 
 func TestCheck_ParenReceiver(t *testing.T) {
 	assertMessages(t, "package p\n\nfunc (t (T)) m() {}\n\ntype T struct{}\n",
 		`method "T.m" should be below type "T"`)
-}
-
-func TestFix_MultiLineTrailingComment(t *testing.T) {
-	helper := "func helper() {} /* a\nb */\n"
-	run := "func Run() { helper() }\n"
-	assertFix(t, "package p\n\n"+helper+"\n"+run, "package p\n\n"+run+"\n"+helper)
-}
-
-func TestFix_UnexportedTypeBelowExported(t *testing.T) {
-	typ := "package p\n\ntype runner struct{}\n"
-	run := "func (r runner) run() {}\n"
-	newFn := "func New() runner { return runner{} }\n"
-	assertFix(t, typ+"\n"+run+"\n"+newFn, typ+"\n"+newFn+"\n"+run)
-}
-
-func TestFix_PackageLineComment(t *testing.T) {
-	head := "package p /* a\nb */\n\n"
-	assertFix(t, head+"func helper() {}\n\nfunc Run() { helper() }\n",
-		head+"func Run() { helper() }\n\nfunc helper() {}\n")
-}
-
-func TestFix_SharedLines(t *testing.T) {
-	assertFix(t, "package p; func helper() {}; func Run() {\n\thelper()\n}\n",
-		"package p\nfunc Run() {\n\thelper()\n}\n\nfunc helper() {}\n")
-}
-
-func TestFix(t *testing.T) {
-	src := `package p
-
-import "fmt"
-
-// helper prints.
-func helper() { fmt.Println() }
-
-// Section comment.
-
-const x = 1
-
-func (t T) b() { helper() }
-
-// T is a type.
-type T struct{}
-
-func (t T) A() { t.b() }
-
-func unrelated() {}
-
-// Run runs.
-func Run() { helper() } // trailing
-
-// end of file
-`
-	want := `package p
-
-import "fmt"
-
-// Section comment.
-
-const x = 1
-
-// T is a type.
-type T struct{}
-
-func (t T) A() { t.b() }
-
-func (t T) b() { helper() }
-
-// Run runs.
-func Run() { helper() } // trailing
-
-// helper prints.
-func helper() { fmt.Println() }
-
-func unrelated() {}
-
-// end of file
-`
-	assertFix(t, src, want)
-}
-
-func TestFix_NoTrailingNewline(t *testing.T) {
-	assertFix(t, "package p\n\nfunc a() {}\n\nfunc B() { a() }",
-		"package p\n\nfunc B() { a() }\n\nfunc a() {}\n")
-}
-
-func TestFix_AlreadyOrdered(t *testing.T) {
-	src := "package p\n\nfunc A() { b() }\n\nfunc b() {}\n"
-	fset, f := linttest.Parse(t, "a.go", src)
-	if got := Fix(fset, f, nil); got != nil {
-		t.Errorf("Fix = %q, want nil", got)
-	}
-}
-
-func TestKahn_NothingReady(t *testing.T) {
-	var got []int
-	kahn([]int{1, 2}, func(int) bool { return false }, func(i int) {
-		got = append(got, i)
-	})
-	if len(got) != 2 || got[0] != 1 || got[1] != 2 {
-		t.Errorf("got %v, want [1 2]", got)
-	}
 }
 
 func assertMessages(t *testing.T, src string, want ...string) {
@@ -317,16 +395,6 @@ func assertMessages(t *testing.T, src string, want ...string) {
 	if fixed != nil {
 		assertStable(t, string(fixed))
 	}
-}
-
-func assertFix(t *testing.T, src, want string) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "a.go", src)
-	got := string(Fix(fset, f, []byte(src)))
-	if got != want {
-		t.Fatalf("Fix:\n%s\nwant:\n%s", got, want)
-	}
-	assertStable(t, got)
 }
 
 func messages(diags []analysis.Diagnostic) string {

@@ -7,10 +7,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/cmdutil"
 )
 
-type runner struct {
-	exec func(out io.Writer, errW io.Writer, args ...string) error
-}
-
 // RunUpdate updates all Go dependencies.
 func RunUpdate(out io.Writer, errW io.Writer) error {
 	r := runner{exec: defaultExec}
@@ -22,6 +18,10 @@ func defaultExec(out io.Writer, errW io.Writer, args ...string) error {
 	cmd.Stdout = out
 	cmd.Stderr = errW
 	return cmd.Run()
+}
+
+type runner struct {
+	exec func(out io.Writer, errW io.Writer, args ...string) error
 }
 
 func (r *runner) runUpdate(out io.Writer, errW io.Writer) error {

@@ -19,13 +19,6 @@ type Opts struct {
 	Out         io.Writer
 }
 
-type runner struct {
-	goModule       func() (string, error)
-	goListPackages func(string) ([]string, error)
-	measure        func(pkg string, testPaths []string) (float64, []byte, error)
-	progress       gocover.Progress
-}
-
 // Run ratchets up .covgate thresholds.
 func Run(opts Opts) error {
 	progress := gocover.Progress{Enabled: opts.Parallelism == 0, Table: table()}
@@ -36,6 +29,26 @@ func Run(opts Opts) error {
 		progress:       progress,
 	}
 	return r.run(opts)
+}
+
+type ratchetCtx struct {
+	module    string
+	srcPrefix string
+	testDir   string
+}
+
+type ratchetResult struct {
+	output    string
+	updated   int
+	unchanged int
+	failed    int
+}
+
+type runner struct {
+	goModule       func() (string, error)
+	goListPackages func(string) ([]string, error)
+	measure        func(pkg string, testPaths []string) (float64, []byte, error)
+	progress       gocover.Progress
 }
 
 func (r *runner) run(opts Opts) error {
@@ -120,25 +133,12 @@ func (r *runner) ratchetPackage(pkg, module, srcPrefix, testDir string) ratchetR
 	return ratchetExisting(covgateFile, current, actual, relPkg)
 }
 
-type ratchetCtx struct {
-	module    string
-	srcPrefix string
-	testDir   string
-}
-
 func table() gocover.Table {
 	return gocover.Table{
 		Format: "%-6s  %8s  %8s  %s\n",
 		Names:  []string{"STATUS", "PREVIOUS", "CURRENT", "PACKAGE"},
 		Dashes: []string{"------", "--------", "-------", "-------"},
 	}
-}
-
-type ratchetResult struct {
-	output    string
-	updated   int
-	unchanged int
-	failed    int
 }
 
 func ratchetExisting(

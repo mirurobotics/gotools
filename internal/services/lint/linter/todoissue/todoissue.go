@@ -15,11 +15,6 @@ const message = "TODO comment must include an issue link (an http or https URL) 
 
 const linkPattern = `(?i)https?://[\w-]+(\.[\w-]+)+`
 
-type line struct {
-	num  int
-	text string
-}
-
 // Check reports TODO comments with no issue link in the TODO or its continuation lines.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	link := regexp.MustCompile(linkPattern)
@@ -37,6 +32,11 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		}
 	}
 	return diags
+}
+
+type line struct {
+	num  int
+	text string
 }
 
 func groupLines(fset *token.FileSet, cg *ast.CommentGroup) []line {

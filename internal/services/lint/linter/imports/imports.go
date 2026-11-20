@@ -7,26 +7,6 @@ import (
 	"strings"
 )
 
-// ImportGroup represents the category of an import path.
-type ImportGroup int
-
-const (
-	GroupStd      ImportGroup = 0
-	GroupInternal ImportGroup = 1
-	GroupExternal ImportGroup = 2
-)
-
-const internalPrefix = "github.com/mirurobotics/"
-
-// Import represents a single import statement.
-type Import struct {
-	Path  string
-	Name  string // alias, or "" if none; "." for dot imports
-	Pos   token.Pos
-	End   token.Pos
-	Group ImportGroup
-}
-
 // ImportBlock represents one import declaration (single or grouped).
 type ImportBlock struct {
 	Imports   []Import
@@ -66,6 +46,15 @@ func newImportBlock(gd *ast.GenDecl) ImportBlock {
 	return block
 }
 
+// Import represents a single import statement.
+type Import struct {
+	Path  string
+	Name  string // alias, or "" if none; "." for dot imports
+	Pos   token.Pos
+	End   token.Pos
+	Group ImportGroup
+}
+
 func newImport(is *ast.ImportSpec) Import {
 	path, _ := strconv.Unquote(is.Path.Value)
 	imp := Import{
@@ -80,6 +69,17 @@ func newImport(is *ast.ImportSpec) Import {
 	}
 	return imp
 }
+
+const internalPrefix = "github.com/mirurobotics/"
+
+// ImportGroup represents the category of an import path.
+type ImportGroup int
+
+const (
+	GroupStd      ImportGroup = 0
+	GroupInternal ImportGroup = 1
+	GroupExternal ImportGroup = 2
+)
 
 func classify(path string) ImportGroup {
 	first := path

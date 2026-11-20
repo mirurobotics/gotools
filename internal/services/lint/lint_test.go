@@ -253,16 +253,6 @@ func fakeGolangci(t *testing.T, exitCode int) string {
 	return writeScript(t, "golangci-lint", body+fmt.Sprintf("exit %d\n", exitCode))
 }
 
-func writeScript(t *testing.T, name, body string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), name)
-	//nolint:gosec // G306: test executable
-	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
 func fakeGoTool(t *testing.T, bin string) {
 	t.Helper()
 	body := "if [ \"$*\" = \"tool -n golangci-lint\" ]; then\n" +
@@ -272,6 +262,16 @@ func fakeGoTool(t *testing.T, bin string) {
 		"fi\n"
 	goBin := writeScript(t, "go", body)
 	t.Setenv("PATH", filepath.Dir(goBin))
+}
+
+func writeScript(t *testing.T, name, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	//nolint:gosec // G306: test executable
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func timingNames(timings []stepTiming) []string {

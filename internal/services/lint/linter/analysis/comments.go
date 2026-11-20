@@ -6,12 +6,6 @@ import (
 	"strings"
 )
 
-// NamedDoc pairs a doc comment group with the single name it documents, if any.
-type NamedDoc struct {
-	Name *ast.Ident
-	Doc  *ast.CommentGroup
-}
-
 // DocGroups returns the doc comment groups outside function bodies.
 func DocGroups(f *ast.File) []*ast.CommentGroup {
 	named := NamedDocs(f)
@@ -20,6 +14,12 @@ func DocGroups(f *ast.File) []*ast.CommentGroup {
 		docs[i] = d.Doc
 	}
 	return docs
+}
+
+// NamedDoc pairs a doc comment group with the single name it documents, if any.
+type NamedDoc struct {
+	Name *ast.Ident
+	Doc  *ast.CommentGroup
 }
 
 // NamedDocs pairs doc groups outside function bodies with their single name, if any.

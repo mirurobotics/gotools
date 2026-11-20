@@ -213,12 +213,6 @@ func TestProcessFile_FileLen(t *testing.T) {
 	}
 }
 
-type fixResult struct {
-	diags int
-	fixed int
-	src   string
-}
-
 func TestFindGoFiles(t *testing.T) {
 	dir := t.TempDir()
 	for _, rel := range []string{
@@ -234,6 +228,15 @@ func TestFindGoFiles(t *testing.T) {
 	if strings.Join(files, ",") != strings.Join(want, ",") {
 		t.Errorf("got %v, want %v", files, want)
 	}
+}
+
+func cfgExcluding(rules ...Rule) Config {
+	cfg := defaultCfg()
+	cfg.Exclude = make(map[Rule]bool, len(rules))
+	for _, r := range rules {
+		cfg.Exclude[r] = true
+	}
+	return cfg
 }
 
 func defaultCfg() Config {
@@ -252,25 +255,6 @@ func defaultCfg() Config {
 	}
 }
 
-func cfgExcluding(rules ...Rule) Config {
-	cfg := defaultCfg()
-	cfg.Exclude = make(map[Rule]bool, len(rules))
-	for _, r := range rules {
-		cfg.Exclude[r] = true
-	}
-	return cfg
-}
-
-func writeFile(t *testing.T, path, content string) {
-	dir := path[:len(path)-len(path[strings.LastIndex(path, "/")+1:])]
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func runFix(t *testing.T, cfg Config, src string) (diags, fixed int, got string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -286,6 +270,22 @@ func runFix(t *testing.T, cfg Config, src string) (diags, fixed int, got string)
 		t.Fatal(err)
 	}
 	return diags, fixed, string(content)
+}
+
+func writeFile(t *testing.T, path, content string) {
+	dir := path[:len(path)-len(path[strings.LastIndex(path, "/")+1:])]
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type fixResult struct {
+	diags int
+	fixed int
+	src   string
 }
 
 func assertFixed(t *testing.T, diags, fixed int, got string, want fixResult) {

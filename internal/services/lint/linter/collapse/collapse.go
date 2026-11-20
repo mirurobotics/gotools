@@ -8,16 +8,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-type collapseInput struct {
-	exprStart token.Pos
-	openPos   token.Pos
-	closePos  token.Pos
-	items     []ast.Expr
-	openStr   string
-	closeStr  string
-	ellipsis  bool
-}
-
 // Check reports diagnostics for multi-line expressions that could be collapsed.
 func Check(
 	fset *token.FileSet,
@@ -31,6 +21,16 @@ func Check(
 		fset, filename, candidates,
 		"multi-line expression can be collapsed to single line",
 	)
+}
+
+type collapseInput struct {
+	exprStart token.Pos
+	openPos   token.Pos
+	closePos  token.Pos
+	items     []ast.Expr
+	openStr   string
+	closeStr  string
+	ellipsis  bool
 }
 
 // FindCandidates returns multi-line calls and literals that fit on one line.
