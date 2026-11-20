@@ -220,6 +220,24 @@ func Get() string {
 	assertFixResult(t, src, want)
 }
 
+func assertFixResult(t *testing.T, src, want string) {
+	got := fixSource(t, src)
+	if got != want {
+		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func fixSource(t *testing.T, src string) string {
+	srcBytes := []byte(src)
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates := FindCandidates(fset, f, srcBytes, 88, 4)
+	return string(analysis.Fix(fset, srcBytes, candidates))
+}
+
 func TestFuncsig_ExactlyAtLimit(t *testing.T) {
 	src := `package foo
 
@@ -260,22 +278,4 @@ func Get(
 	if len(candidates) != 0 {
 		t.Fatalf("expected 0 candidates past limit, got %d", len(candidates))
 	}
-}
-
-func assertFixResult(t *testing.T, src, want string) {
-	got := fixSource(t, src)
-	if got != want {
-		t.Errorf("fix produced unexpected result.\ngot:\n%s\nwant:\n%s", got, want)
-	}
-}
-
-func fixSource(t *testing.T, src string) string {
-	srcBytes := []byte(src)
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	candidates := FindCandidates(fset, f, srcBytes, 88, 4)
-	return string(analysis.Fix(fset, srcBytes, candidates))
 }

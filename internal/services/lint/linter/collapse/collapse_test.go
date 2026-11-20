@@ -221,6 +221,27 @@ func f() {
 	assertFixResult(t, src, want)
 }
 
+func assertFixResult(t *testing.T, src, want string) {
+	got := fixSource(t, src)
+	if got != want {
+		t.Errorf(
+			"collapse fix produced unexpected result.\ngot:\n%s\nwant:\n%s",
+			got, want,
+		)
+	}
+}
+
+func fixSource(t *testing.T, src string) string {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates := FindCandidates(fset, f, []byte(src), 88, 4)
+	return string(analysis.Fix(fset, []byte(src), candidates))
+}
+
 func TestVisualWidth(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -268,27 +289,6 @@ func TestLineStartOffset(t *testing.T) {
 			}
 		})
 	}
-}
-
-func assertFixResult(t *testing.T, src, want string) {
-	got := fixSource(t, src)
-	if got != want {
-		t.Errorf(
-			"collapse fix produced unexpected result.\ngot:\n%s\nwant:\n%s",
-			got, want,
-		)
-	}
-}
-
-func fixSource(t *testing.T, src string) string {
-	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	candidates := FindCandidates(fset, f, []byte(src), 88, 4)
-	return string(analysis.Fix(fset, []byte(src), candidates))
 }
 
 func findCandidates(t *testing.T, src string, limit int) []analysis.Candidate {

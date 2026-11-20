@@ -140,6 +140,10 @@ func TestRun_WithFailure(t *testing.T) {
 	}
 }
 
+func fakeMeasure(cov float64) func(string, []string) (float64, []byte, error) {
+	return func(string, []string) (float64, []byte, error) { return cov, nil, nil }
+}
+
 func TestRun_NilWriter(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{
@@ -246,10 +250,6 @@ func TestMeasure_TestFailure(t *testing.T) {
 	if len(output) == 0 {
 		t.Error("expected non-empty output")
 	}
-}
-
-func fakeMeasure(cov float64) func(string, []string) (float64, []byte, error) {
-	return func(string, []string) (float64, []byte, error) { return cov, nil, nil }
 }
 
 func assertOutput(t *testing.T, out string, want, unwanted []string) {

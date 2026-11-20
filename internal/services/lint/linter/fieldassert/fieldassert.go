@@ -47,6 +47,32 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return c.diags
 }
 
+func testifyNames(f *ast.File) map[string]bool {
+	names := make(map[string]bool)
+	for _, imp := range f.Imports {
+		if isTestifyPath(analysis.ImportPath(imp)) {
+			names[analysis.ImportName(imp)] = true
+		}
+	}
+	return names
+}
+
+func isTestifyPath(p string) bool {
+	const prefix = "github.com/stretchr/testify/"
+	return p == prefix+"assert" || p == prefix+"require"
+}
+
+func importNames(f *ast.File) map[string]bool {
+	names := make(map[string]bool)
+	for _, imp := range f.Imports {
+		names[analysis.ImportName(imp)] = true
+		if imp.Name == nil {
+			names[path.Base(analysis.ImportPath(imp))] = true
+		}
+	}
+	return names
+}
+
 type fieldGroup struct {
 	base   string
 	root   *ast.Ident
@@ -93,23 +119,6 @@ func (c *checker) checkStmts(stmts []ast.Stmt) {
 			c.report(g)
 		}
 	}
-}
-
-func (c *checker) report(g *fieldGroup) {
-	first := c.fset.Position(g.calls[0].Pos()).Line
-	last := c.fset.Position(g.calls[len(g.calls)-1].End()).Line
-	if analysis.NolintOnLines(c.fset, c.f, "fieldassert", first, last) {
-		return
-	}
-	msg := fmt.Sprintf(
-		"%d asserts compare fields of %s one at a time; compare the whole value in one assert",
-		len(g.calls), g.base,
-	)
-	if g.root != nil {
-		msg += ", or move the checks into a helper that takes " + g.root.Name
-	}
-	c.diags = append(c.diags,
-		analysis.Diagnostic{File: c.filename, Line: first, Message: msg})
 }
 
 func (c *checker) fieldArg(s ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
@@ -169,36 +178,27 @@ func (c *checker) allConstant(elts []ast.Expr) bool {
 	return true
 }
 
+func (c *checker) report(g *fieldGroup) {
+	first := c.fset.Position(g.calls[0].Pos()).Line
+	last := c.fset.Position(g.calls[len(g.calls)-1].End()).Line
+	if analysis.NolintOnLines(c.fset, c.f, "fieldassert", first, last) {
+		return
+	}
+	msg := fmt.Sprintf(
+		"%d asserts compare fields of %s one at a time; compare the whole value in one assert",
+		len(g.calls), g.base,
+	)
+	if g.root != nil {
+		msg += ", or move the checks into a helper that takes " + g.root.Name
+	}
+	c.diags = append(c.diags,
+		analysis.Diagnostic{File: c.filename, Line: first, Message: msg})
+}
+
 func isEqualityFunc(name string) bool {
 	switch strings.TrimSuffix(name, "f") {
 	case "Equal", "EqualValues", "Exactly", "EqualExportedValues":
 		return true
 	}
 	return false
-}
-
-func testifyNames(f *ast.File) map[string]bool {
-	names := make(map[string]bool)
-	for _, imp := range f.Imports {
-		if isTestifyPath(analysis.ImportPath(imp)) {
-			names[analysis.ImportName(imp)] = true
-		}
-	}
-	return names
-}
-
-func isTestifyPath(p string) bool {
-	const prefix = "github.com/stretchr/testify/"
-	return p == prefix+"assert" || p == prefix+"require"
-}
-
-func importNames(f *ast.File) map[string]bool {
-	names := make(map[string]bool)
-	for _, imp := range f.Imports {
-		names[analysis.ImportName(imp)] = true
-		if imp.Name == nil {
-			names[path.Base(analysis.ImportPath(imp))] = true
-		}
-	}
-	return names
 }

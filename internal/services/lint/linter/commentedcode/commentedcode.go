@@ -50,6 +50,16 @@ func findCode(s source, cg *ast.CommentGroup) token.Pos {
 	return token.NoPos
 }
 
+func firstNonBlank(run []line) token.Pos {
+	last := len(run) - 1
+	for _, l := range run[:last] {
+		if strings.TrimSpace(l.text) != "" {
+			return l.pos
+		}
+	}
+	return run[last].pos
+}
+
 func perLine(run []line) token.Pos {
 	if len(run) == 1 {
 		return token.NoPos
@@ -60,14 +70,4 @@ func perLine(run []line) token.Pos {
 		}
 	}
 	return token.NoPos
-}
-
-func firstNonBlank(run []line) token.Pos {
-	last := len(run) - 1
-	for _, l := range run[:last] {
-		if strings.TrimSpace(l.text) != "" {
-			return l.pos
-		}
-	}
-	return run[last].pos
 }

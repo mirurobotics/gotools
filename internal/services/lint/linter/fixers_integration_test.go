@@ -111,6 +111,40 @@ func TestIntegration_AllThreeRules(t *testing.T) {
 		fixResult{diags: 0, fixed: 1, src: collapsedSrc("foo")})
 }
 
+func collapsibleSrc(pkg string) string {
+	return "package " + pkg + `
+
+import (
+	"strings"
+	"os"
+)
+
+func Code() int {
+	return 42
+}
+
+func f() {
+	_ = strings.ToUpper(
+		os.Getenv("hello"),
+	)
+}
+`
+}
+
+func collapsedSrc(pkg string) string {
+	return "package " + pkg + `
+
+import (
+	"os"
+	"strings"
+)
+
+func Code() int { return 42 }
+
+func f() { _ = strings.ToUpper(os.Getenv("hello")) }
+`
+}
+
 func TestIntegration_FuncsigOnly(t *testing.T) {
 	diags, fixed, got := runFix(t, defaultCfg(), `package foo
 
@@ -188,38 +222,4 @@ func f() {
 	if fixed != 0 {
 		t.Errorf("expected 0 fixed on second pass (idempotent), got %d", fixed)
 	}
-}
-
-func collapsibleSrc(pkg string) string {
-	return "package " + pkg + `
-
-import (
-	"strings"
-	"os"
-)
-
-func Code() int {
-	return 42
-}
-
-func f() {
-	_ = strings.ToUpper(
-		os.Getenv("hello"),
-	)
-}
-`
-}
-
-func collapsedSrc(pkg string) string {
-	return "package " + pkg + `
-
-import (
-	"os"
-	"strings"
-)
-
-func Code() int { return 42 }
-
-func f() { _ = strings.ToUpper(os.Getenv("hello")) }
-`
 }

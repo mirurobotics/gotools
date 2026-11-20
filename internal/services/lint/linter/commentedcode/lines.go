@@ -71,10 +71,6 @@ func blockLines(s source, opener token.Pos, body string) []line {
 	return out
 }
 
-func isIndented(s string) bool {
-	return strings.HasPrefix(s, "\t") || strings.HasPrefix(s, "  ")
-}
-
 func commonIndent(texts []string) string {
 	prefix, first := "", true
 	for _, t := range texts {
@@ -90,6 +86,10 @@ func commonIndent(texts []string) string {
 		}
 	}
 	return prefix
+}
+
+func isIndented(s string) bool {
+	return strings.HasPrefix(s, "\t") || strings.HasPrefix(s, "  ")
 }
 
 func joinText(run []line) string {

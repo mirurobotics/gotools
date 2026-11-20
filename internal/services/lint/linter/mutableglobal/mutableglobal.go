@@ -47,6 +47,11 @@ func declMutableNames(fset *token.FileSet, f *ast.File, gd *ast.GenDecl) []*ast.
 	return names
 }
 
+func hasNolint(fset *token.FileSet, f *ast.File, pos token.Pos) bool {
+	line := fset.Position(pos).Line
+	return analysis.NolintOnLines(fset, f, "mutableglobal", line-1, line)
+}
+
 func mutableNames(vs *ast.ValueSpec) []*ast.Ident {
 	var names []*ast.Ident
 	for i, name := range vs.Names {
@@ -98,9 +103,4 @@ func isErrorConstructor(call *ast.CallExpr) bool {
 		return true
 	}
 	return false
-}
-
-func hasNolint(fset *token.FileSet, f *ast.File, pos token.Pos) bool {
-	line := fset.Position(pos).Line
-	return analysis.NolintOnLines(fset, f, "mutableglobal", line-1, line)
 }

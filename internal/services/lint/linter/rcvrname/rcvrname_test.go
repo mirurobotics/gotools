@@ -144,15 +144,15 @@ func TestCheck_NoMethods(t *testing.T) {
 	})
 }
 
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "test.go", tt.src)
+	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
+}
+
 func TestReceiverTypeName_Unnamed(t *testing.T) {
 	arr := &ast.ArrayType{Lbrack: 0, Len: nil, Elt: nil}
 	if got := receiverTypeName(arr); got != "" {
 		t.Errorf("receiverTypeName([]T) = %q, want empty", got)
 	}
-}
-
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
 }

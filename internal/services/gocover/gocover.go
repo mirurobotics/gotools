@@ -63,6 +63,19 @@ func GoListTestPackages(pattern string) ([]string, error) {
 	return NonEmptyLines(out), nil
 }
 
+// NonEmptyLines splits a string into non-empty, trimmed lines.
+func NonEmptyLines(s string) []string {
+	var lines []string
+	scanner := bufio.NewScanner(strings.NewReader(s))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			lines = append(lines, line)
+		}
+	}
+	return lines
+}
+
 // GetThreshold reads the .covgate threshold, falling back to the default.
 func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
 	if v, ok := LookupThreshold(pkgDir); ok {
@@ -108,14 +121,6 @@ func BuildTestPaths(pkg, relPkg, srcPrefix, testDir string) []string {
 // Measure runs tests for pkg with coverage and returns the percentage and output.
 func Measure(pkg string, testPaths []string) (float64, []byte, error) {
 	return MeasureWithEnv(pkg, testPaths, nil)
-}
-
-// RunTests runs go test on the given paths without coverage instrumentation.
-func RunTests(paths []string) ([]byte, error) {
-	args := make([]string, 0, 1+len(paths))
-	args = append(args, "test")
-	args = append(args, paths...)
-	return cmdutil.GoCommand(args...).CombinedOutput()
 }
 
 // MeasureWithEnv is Measure with extraEnv appended to the test environment.
@@ -166,6 +171,23 @@ func ExtractCoverage(coverFile string) (float64, error) {
 	return val, nil
 }
 
+// ExecOutput runs a command with GOWORK=off and returns its stdout.
+func ExecOutput(errW io.Writer, name string, args ...string) (string, error) {
+	if errW == nil {
+		errW = os.Stderr
+	}
+	//nolint:gosec,noctx // G204: trusted subprocess
+	cmd := exec.Command(name, args...)
+	cmd.Env = append(os.Environ(), "GOWORK=off")
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = errW
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
 // ParseCoverageOutput extracts total coverage from "go tool cover -func" output.
 func ParseCoverageOutput(text string) (float64, error) {
 	scanner := bufio.NewScanner(strings.NewReader(text))
@@ -187,32 +209,10 @@ func ParseCoverageOutput(text string) (float64, error) {
 	return 0, fmt.Errorf("no total coverage line found in output")
 }
 
-// ExecOutput runs a command with GOWORK=off and returns its stdout.
-func ExecOutput(errW io.Writer, name string, args ...string) (string, error) {
-	if errW == nil {
-		errW = os.Stderr
-	}
-	//nolint:gosec,noctx // G204: trusted subprocess
-	cmd := exec.Command(name, args...)
-	cmd.Env = append(os.Environ(), "GOWORK=off")
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = errW
-	if err := cmd.Run(); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
-}
-
-// NonEmptyLines splits a string into non-empty, trimmed lines.
-func NonEmptyLines(s string) []string {
-	var lines []string
-	scanner := bufio.NewScanner(strings.NewReader(s))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" {
-			lines = append(lines, line)
-		}
-	}
-	return lines
+// RunTests runs go test on the given paths without coverage instrumentation.
+func RunTests(paths []string) ([]byte, error) {
+	args := make([]string, 0, 1+len(paths))
+	args = append(args, "test")
+	args = append(args, paths...)
+	return cmdutil.GoCommand(args...).CombinedOutput()
 }

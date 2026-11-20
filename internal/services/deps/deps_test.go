@@ -70,6 +70,17 @@ func TestRunUpdate_MiddleStepFails(t *testing.T) {
 	}
 }
 
+func fakeExecFailAt(n int) func(io.Writer, io.Writer, ...string) error {
+	call := 0
+	return func(io.Writer, io.Writer, ...string) error {
+		call++
+		if call == n {
+			return fmt.Errorf("step %d failed", n)
+		}
+		return nil
+	}
+}
+
 func TestRunUpdate_NilWriters(t *testing.T) {
 	r := runner{exec: fakeExec(nil)}
 
@@ -81,15 +92,4 @@ func TestRunUpdate_NilWriters(t *testing.T) {
 
 func fakeExec(err error) func(io.Writer, io.Writer, ...string) error {
 	return func(io.Writer, io.Writer, ...string) error { return err }
-}
-
-func fakeExecFailAt(n int) func(io.Writer, io.Writer, ...string) error {
-	call := 0
-	return func(io.Writer, io.Writer, ...string) error {
-		call++
-		if call == n {
-			return fmt.Errorf("step %d failed", n)
-		}
-		return nil
-	}
 }

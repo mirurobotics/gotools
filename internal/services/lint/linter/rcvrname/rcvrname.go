@@ -45,6 +45,13 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
+func receiverTypeName(expr ast.Expr) string {
+	if id := analysis.BaseIdent(expr); id != nil {
+		return id.Name
+	}
+	return ""
+}
+
 func checkRecvName(recvName, typeName, prev string) []string {
 	var msgs []string
 	if len(recvName) > 2 {
@@ -60,11 +67,4 @@ func checkRecvName(recvName, typeName, prev string) []string {
 		))
 	}
 	return msgs
-}
-
-func receiverTypeName(expr ast.Expr) string {
-	if id := analysis.BaseIdent(expr); id != nil {
-		return id.Name
-	}
-	return ""
 }

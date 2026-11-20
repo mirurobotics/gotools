@@ -46,6 +46,35 @@ func Run(path string, doFix bool, cfg Config) (int, int, error) {
 	return totalDiags, filesFixed, nil
 }
 
+// FindGoFiles returns .go files under root, skipping hidden, vendor, testdata, codegen.
+func FindGoFiles(root string) ([]string, error) {
+	var files []string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if skipDir(info.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(path) == ".go" {
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files, err
+}
+
+func skipDir(name string) bool {
+	switch name {
+	case "vendor", "testdata", "codegen":
+		return true
+	}
+	return strings.HasPrefix(name, ".")
+}
+
 // ProcessFile lints or fixes a single file.
 func ProcessFile(path string, doFix bool, cfg Config) (int, bool, error) {
 	info, err := os.Stat(path)
@@ -73,27 +102,6 @@ func ProcessFile(path string, doFix bool, cfg Config) (int, bool, error) {
 		return processFixMode(path, src, fset, f, blocks, info, cfg)
 	}
 	return processCheckMode(path, src, fset, f, blocks, cfg)
-}
-
-// FindGoFiles returns .go files under root, skipping hidden, vendor, testdata, codegen.
-func FindGoFiles(root string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			if skipDir(info.Name()) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if filepath.Ext(path) == ".go" {
-			files = append(files, path)
-		}
-		return nil
-	})
-	return files, err
 }
 
 func processFixMode(
@@ -141,6 +149,21 @@ func processFixMode(
 	return len(diags) + skipped, didFix, nil
 }
 
+func reparse(path string, src []byte) (*token.FileSet, *ast.File, error) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, path, src, parser.ParseComments)
+	return fset, f, err
+}
+
+func warnFixSkipped(w io.Writer, path string, err error) int {
+	if err == nil {
+		return 0
+	}
+	const msg = "warning: %s: funcorder fix produced invalid Go: %v\n"
+	_, _ = fmt.Fprintf(w, msg, path, err)
+	return 1
+}
+
 func processCheckMode(
 	path string,
 	src []byte,
@@ -158,27 +181,4 @@ func processCheckMode(
 		_, _ = fmt.Fprintln(cfg.Out, d)
 	}
 	return len(diags), false, nil
-}
-
-func reparse(path string, src []byte) (*token.FileSet, *ast.File, error) {
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, path, src, parser.ParseComments)
-	return fset, f, err
-}
-
-func skipDir(name string) bool {
-	switch name {
-	case "vendor", "testdata", "codegen":
-		return true
-	}
-	return strings.HasPrefix(name, ".")
-}
-
-func warnFixSkipped(w io.Writer, path string, err error) int {
-	if err == nil {
-		return 0
-	}
-	const msg = "warning: %s: funcorder fix produced invalid Go: %v\n"
-	_, _ = fmt.Fprintf(w, msg, path, err)
-	return 1
 }

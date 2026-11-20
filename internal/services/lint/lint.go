@@ -94,35 +94,39 @@ func runLintSteps(
 	return failures, timings, nil
 }
 
+func runCustomLinter(opts LintOpts) (bool, error) {
+	cfg, err := BuildLinterConfig(opts.LinterFlags)
+	if err != nil {
+		return false, err
+	}
+	cfg.Out = opts.Out
+	cfg.Err = opts.Err
+
+	totalDiags := 0
+	for _, p := range strings.Split(opts.Paths, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		_, _ = fmt.Fprintf(opts.Out, "Running custom linter on %s...\n", p)
+		diags, fixed, runErr := linter.Run(p, opts.DoFix, cfg)
+		if runErr != nil {
+			return false, fmt.Errorf("custom linter on %s: %w", p, runErr)
+		}
+		if opts.DoFix && fixed > 0 {
+			_, _ = fmt.Fprintf(opts.Out, "%d file(s) fixed in %s.\n", fixed, p)
+		}
+		if diags > 0 {
+			_, _ = fmt.Fprintf(opts.Out, "%d violation(s) found in %s.\n", diags, p)
+		}
+		totalDiags += diags
+	}
+	return totalDiags > 0, nil
+}
+
 type stepResult struct {
 	timing stepTiming
 	failed bool
-}
-
-func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming) {
-	targets := goosTargets(opts.GOOS)
-	results := make([]stepResult, 0, len(targets))
-	for _, goos := range targets {
-		step := fmt.Sprintf("golangci-lint (%s)", goos)
-		results = append(results, timedRun(step, func() error {
-			return RunGolangciGOOS(opts.Out, opts.Err, opts.NewFromRev, goos)
-		}))
-	}
-	return collectResults(results)
-}
-
-func goosTargets(raw string) []string {
-	var targets []string
-	seen := map[string]bool{runtime.GOOS: true}
-	for _, goos := range strings.Split(raw, ",") {
-		goos = strings.TrimSpace(goos)
-		if goos == "" || seen[goos] {
-			continue
-		}
-		seen[goos] = true
-		targets = append(targets, goos)
-	}
-	return targets
 }
 
 func runAnalyzers(opts LintOpts) (failures []string, timings []stepTiming) {
@@ -175,6 +179,32 @@ func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTimin
 	return collectResults([]stepResult{gcR, dcR})
 }
 
+func runGolangciTargets(opts LintOpts) (failures []string, timings []stepTiming) {
+	targets := goosTargets(opts.GOOS)
+	results := make([]stepResult, 0, len(targets))
+	for _, goos := range targets {
+		step := fmt.Sprintf("golangci-lint (%s)", goos)
+		results = append(results, timedRun(step, func() error {
+			return RunGolangciGOOS(opts.Out, opts.Err, opts.NewFromRev, goos)
+		}))
+	}
+	return collectResults(results)
+}
+
+func goosTargets(raw string) []string {
+	var targets []string
+	seen := map[string]bool{runtime.GOOS: true}
+	for _, goos := range strings.Split(raw, ",") {
+		goos = strings.TrimSpace(goos)
+		if goos == "" || seen[goos] {
+			continue
+		}
+		seen[goos] = true
+		targets = append(targets, goos)
+	}
+	return targets
+}
+
 func timedRun(name string, fn func() error) stepResult {
 	start := time.Now()
 	err := fn()
@@ -213,34 +243,4 @@ func fmtDuration(d time.Duration) string {
 	m := int(d.Minutes())
 	s := d - time.Duration(m)*time.Minute
 	return fmt.Sprintf("%dm%02.0fs", m, s.Seconds())
-}
-
-func runCustomLinter(opts LintOpts) (bool, error) {
-	cfg, err := BuildLinterConfig(opts.LinterFlags)
-	if err != nil {
-		return false, err
-	}
-	cfg.Out = opts.Out
-	cfg.Err = opts.Err
-
-	totalDiags := 0
-	for _, p := range strings.Split(opts.Paths, ",") {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		_, _ = fmt.Fprintf(opts.Out, "Running custom linter on %s...\n", p)
-		diags, fixed, runErr := linter.Run(p, opts.DoFix, cfg)
-		if runErr != nil {
-			return false, fmt.Errorf("custom linter on %s: %w", p, runErr)
-		}
-		if opts.DoFix && fixed > 0 {
-			_, _ = fmt.Fprintf(opts.Out, "%d file(s) fixed in %s.\n", fixed, p)
-		}
-		if diags > 0 {
-			_, _ = fmt.Fprintf(opts.Out, "%d violation(s) found in %s.\n", diags, p)
-		}
-		totalDiags += diags
-	}
-	return totalDiags > 0, nil
 }

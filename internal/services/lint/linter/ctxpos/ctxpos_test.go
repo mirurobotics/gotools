@@ -190,6 +190,12 @@ func TestCheck_NonContextSelectorBeforeContext(t *testing.T) {
 	})
 }
 
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, "test.go", tt.src)
+	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
+}
+
 func TestFuncParams_NilParams(t *testing.T) {
 	//nolint:exhaustruct // only Type matters here
 	fn := &ast.FuncDecl{Type: &ast.FuncType{}}
@@ -223,10 +229,4 @@ func TestCtxParamIndex(t *testing.T) {
 			}
 		})
 	}
-}
-
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
 }

@@ -43,10 +43,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diagnostics(fset, f, filename, lines)
 }
 
-func breaks(fset *token.FileSet, a, b token.Pos) bool {
-	return fset.Position(a).Line != fset.Position(b).Line
-}
-
 func markStringChain(e *ast.BinaryExpr, concat map[*ast.BinaryExpr]bool) {
 	if _, decided := concat[e]; e.Op != token.ADD || decided {
 		return
@@ -73,6 +69,10 @@ func markStringChain(e *ast.BinaryExpr, concat map[*ast.BinaryExpr]bool) {
 	for _, n := range nodes {
 		concat[n] = hasLit
 	}
+}
+
+func breaks(fset *token.FileSet, a, b token.Pos) bool {
+	return fset.Position(a).Line != fset.Position(b).Line
 }
 
 func flag(fset *token.FileSet, lines map[int]int, start, brk token.Pos) {

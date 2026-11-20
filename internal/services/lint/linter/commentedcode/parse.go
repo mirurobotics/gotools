@@ -51,6 +51,21 @@ func isProse(fset *token.FileSet, src string, f *ast.File) bool {
 	return spacedDot(fset, src, f) || hasNonASCIIIdent(f)
 }
 
+func spacedDot(fset *token.FileSet, src string, f *ast.File) bool {
+	found := false
+	ast.Inspect(f, func(n ast.Node) bool {
+		if sel, ok := n.(*ast.SelectorExpr); ok {
+			from := fset.Position(sel.X.End()).Offset
+			gap := src[from:fset.Position(sel.Sel.Pos()).Offset]
+			if gap != "." && !strings.Contains(gap, "\n") {
+				found = true
+			}
+		}
+		return !found
+	})
+	return found
+}
+
 func hasNonASCIIIdent(f *ast.File) bool {
 	found := false
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -69,21 +84,6 @@ func isASCII(s string) bool {
 		}
 	}
 	return true
-}
-
-func spacedDot(fset *token.FileSet, src string, f *ast.File) bool {
-	found := false
-	ast.Inspect(f, func(n ast.Node) bool {
-		if sel, ok := n.(*ast.SelectorExpr); ok {
-			from := fset.Position(sel.X.End()).Offset
-			gap := src[from:fset.Position(sel.Sel.Pos()).Offset]
-			if gap != "." && !strings.Contains(gap, "\n") {
-				found = true
-			}
-		}
-		return !found
-	})
-	return found
 }
 
 func firstBody(f *ast.File) *ast.BlockStmt {
@@ -111,6 +111,18 @@ func plausible(st ast.Stmt) bool {
 	return true
 }
 
+func isCallOrRecv(e ast.Expr) bool {
+	switch x := e.(type) {
+	case *ast.CallExpr:
+		return true
+	case *ast.UnaryExpr:
+		return x.Op == token.ARROW
+	case *ast.ParenExpr:
+		return isCallOrRecv(x.X)
+	}
+	return false
+}
+
 func allAssignable(lhs []ast.Expr) bool {
 	for _, e := range lhs {
 		if !isAssignable(e) {
@@ -126,18 +138,6 @@ func isAssignable(e ast.Expr) bool {
 		return true
 	case *ast.ParenExpr:
 		return isAssignable(x.X)
-	}
-	return false
-}
-
-func isCallOrRecv(e ast.Expr) bool {
-	switch x := e.(type) {
-	case *ast.CallExpr:
-		return true
-	case *ast.UnaryExpr:
-		return x.Op == token.ARROW
-	case *ast.ParenExpr:
-		return isCallOrRecv(x.X)
 	}
 	return false
 }

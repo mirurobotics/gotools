@@ -58,6 +58,29 @@ func allowedGroups(f *ast.File) allowed {
 	return ok
 }
 
+func funcPublic(d *ast.FuncDecl) bool {
+	if !d.Name.IsExported() {
+		return false
+	}
+	if d.Recv == nil || len(d.Recv.List) == 0 {
+		return true
+	}
+	name := analysis.BaseIdent(d.Recv.List[0].Type)
+	return name == nil || name.IsExported()
+}
+
+func firstProse(cg *ast.CommentGroup) *ast.Comment {
+	if analysis.HasNolint(cg, "privdoc") {
+		return nil
+	}
+	for _, c := range cg.List {
+		if analysis.ProseLineCount(&ast.CommentGroup{List: []*ast.Comment{c}}) > 0 {
+			return c
+		}
+	}
+	return nil
+}
+
 type allowed map[*ast.CommentGroup]bool
 
 func (ok allowed) genDecl(d *ast.GenDecl) {
@@ -133,17 +156,6 @@ func fieldPublic(field *ast.Field) bool {
 	return name == nil || name.IsExported()
 }
 
-func funcPublic(d *ast.FuncDecl) bool {
-	if !d.Name.IsExported() {
-		return false
-	}
-	if d.Recv == nil || len(d.Recv.List) == 0 {
-		return true
-	}
-	name := analysis.BaseIdent(d.Recv.List[0].Type)
-	return name == nil || name.IsExported()
-}
-
 func anyExported(names []*ast.Ident) bool {
 	for _, n := range names {
 		if n.IsExported() {
@@ -151,16 +163,4 @@ func anyExported(names []*ast.Ident) bool {
 		}
 	}
 	return false
-}
-
-func firstProse(cg *ast.CommentGroup) *ast.Comment {
-	if analysis.HasNolint(cg, "privdoc") {
-		return nil
-	}
-	for _, c := range cg.List {
-		if analysis.ProseLineCount(&ast.CommentGroup{List: []*ast.Comment{c}}) > 0 {
-			return c
-		}
-	}
-	return nil
 }

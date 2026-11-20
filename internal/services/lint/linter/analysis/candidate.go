@@ -40,25 +40,6 @@ func Fix(fset *token.FileSet, src []byte, candidates []Candidate) []byte {
 	return src
 }
 
-// CheckCandidates converts candidates into diagnostics with the given message.
-func CheckCandidates(
-	fset *token.FileSet,
-	filename string,
-	candidates []Candidate,
-	message string,
-) []Diagnostic {
-	diags := make([]Diagnostic, 0, len(candidates))
-	for _, c := range candidates {
-		pos := fset.Position(c.Pos)
-		diags = append(diags, Diagnostic{
-			File:    filename,
-			Line:    pos.Line,
-			Message: message,
-		})
-	}
-	return diags
-}
-
 func filterOverlapping(fset *token.FileSet, candidates []Candidate) []Candidate {
 	if len(candidates) <= 1 {
 		return candidates
@@ -83,4 +64,23 @@ func overlapsAny(fset *token.FileSet, c Candidate, kept []Candidate) bool {
 		}
 	}
 	return false
+}
+
+// CheckCandidates converts candidates into diagnostics with the given message.
+func CheckCandidates(
+	fset *token.FileSet,
+	filename string,
+	candidates []Candidate,
+	message string,
+) []Diagnostic {
+	diags := make([]Diagnostic, 0, len(candidates))
+	for _, c := range candidates {
+		pos := fset.Position(c.Pos)
+		diags = append(diags, Diagnostic{
+			File:    filename,
+			Line:    pos.Line,
+			Message: message,
+		})
+	}
+	return diags
 }

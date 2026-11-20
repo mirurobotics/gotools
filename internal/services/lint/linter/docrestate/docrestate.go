@@ -121,6 +121,17 @@ func isPluralS(r []rune, i int) bool {
 	return r[i] == 's' && (i+1 == len(r) || !unicode.IsLower(r[i+1]))
 }
 
+func isFiller(w string) bool {
+	switch w {
+	case "a", "an", "the", "this", "that", "it", "its", "is", "are", "be",
+		"new", "returns", "creates", "constructs", "makes", "builds",
+		"type", "struct", "interface", "func", "function", "method",
+		"value", "instance", "object", "given", "for", "of":
+		return true
+	}
+	return false
+}
+
 func matchesAny(w string, nameWords []string) bool {
 	for _, n := range nameWords {
 		if inflects(w, n) || inflects(n, w) {
@@ -129,8 +140,6 @@ func matchesAny(w string, nameWords []string) bool {
 	}
 	return false
 }
-
-const minStemLen = 4
 
 func inflects(w, base string) bool {
 	suffix, ok := strings.CutPrefix(w, base)
@@ -167,13 +176,4 @@ func takesShortSuffix(base, suffix string) bool {
 	return false
 }
 
-func isFiller(w string) bool {
-	switch w {
-	case "a", "an", "the", "this", "that", "it", "its", "is", "are", "be",
-		"new", "returns", "creates", "constructs", "makes", "builds",
-		"type", "struct", "interface", "func", "function", "method",
-		"value", "instance", "object", "given", "for", "of":
-		return true
-	}
-	return false
-}
+const minStemLen = 4

@@ -39,6 +39,39 @@ type line struct {
 	text string
 }
 
+func unlinkedTODOs(lines []line, link *regexp.Regexp) []int {
+	var out []int
+	open, linked := 0, false
+	closeScope := func() {
+		if open != 0 && !linked {
+			out = append(out, open)
+		}
+		open = 0
+	}
+	for _, l := range lines {
+		if l.text == "" || isTODO(l.text) {
+			closeScope()
+		}
+		if isTODO(l.text) {
+			open, linked = l.num, false
+		}
+		if open != 0 && link.MatchString(l.text) {
+			linked = true
+		}
+	}
+	closeScope()
+	return out
+}
+
+func isTODO(text string) bool {
+	rest, ok := strings.CutPrefix(text, "TODO")
+	if !ok || rest == "" {
+		return ok
+	}
+	r := []rune(rest)[0]
+	return r == ':' || r == '(' || unicode.IsSpace(r)
+}
+
 func groupLines(fset *token.FileSet, cg *ast.CommentGroup) []line {
 	var lines []line
 	for _, c := range cg.List {
@@ -86,37 +119,4 @@ func stripMarkers(text string) string {
 	text = strings.TrimSpace(text)
 	text = strings.TrimSpace(strings.TrimPrefix(text, "*"))
 	return strings.TrimSpace(strings.TrimPrefix(text, "- "))
-}
-
-func unlinkedTODOs(lines []line, link *regexp.Regexp) []int {
-	var out []int
-	open, linked := 0, false
-	closeScope := func() {
-		if open != 0 && !linked {
-			out = append(out, open)
-		}
-		open = 0
-	}
-	for _, l := range lines {
-		if l.text == "" || isTODO(l.text) {
-			closeScope()
-		}
-		if isTODO(l.text) {
-			open, linked = l.num, false
-		}
-		if open != 0 && link.MatchString(l.text) {
-			linked = true
-		}
-	}
-	closeScope()
-	return out
-}
-
-func isTODO(text string) bool {
-	rest, ok := strings.CutPrefix(text, "TODO")
-	if !ok || rest == "" {
-		return ok
-	}
-	r := []rune(rest)[0]
-	return r == ':' || r == '(' || unicode.IsSpace(r)
 }
