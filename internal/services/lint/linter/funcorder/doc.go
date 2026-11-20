@@ -1,28 +1,21 @@
 // Package funcorder orders a file's functions by control flow, callers first.
 //
 // Within a file:
-//   - a function sits below every function in the file that calls or
-//     references it, exported or not, so a file reads top to bottom from its
-//     entry points down through their helpers;
-//   - helpers follow depth-first in call order, so each file has one order: a
-//     function sits directly below its last caller, after the functions that
-//     caller calls first and their helpers. A type's methods count as one
-//     caller, and a const or var block between functions moves below the
+//   - a function sits directly below its last caller, exported or not, after
+//     the functions that caller calls first and their helpers, so a file reads
+//     depth-first in call order and has one order. A type's methods count as
+//     one caller; a const or var block between functions moves below the
 //     calls it splits;
 //   - an exported entry point (a function nothing in the file calls), main or
 //     init sits above unexported functions that nothing in the file calls;
 //   - a type's methods sit together below the type. A type declared on its own
-//     is followed by every const and var block directly below it, then its
-//     methods; Fix moves them together, leaving the blocks from the first
-//     initialized var on if moving them would reorder initialized vars;
-//   - a type declared on its own without methods, followed by the run of
-//     const blocks directly below it that use it, sits directly above its
-//     first user, a function or var block; a type with methods and its blocks
-//     count as one.
+//     is followed by the const and var blocks directly below it, then its
+//     methods; Fix leaves behind blocks that would reorder initialized vars;
+//   - a type declared on its own without methods sits directly above its first
+//     user, a function or var block, with the const blocks below it using it.
 //
-// Calls are matched by name and methods only through their receiver. Calls
-// within a cycle don't order its members, though the depth-first walk still
-// follows them. //nolint:funcorder on a function's doc lifts the caller,
-// call order and entry point rules. Fix moves each declaration with its
-// comments.
+// Calls are matched by name, methods only through their receiver. Calls within
+// a cycle don't order its members. //nolint:funcorder on a function's doc
+// lifts the caller, call order and entry point rules. Fix moves each
+// declaration with its comments.
 package funcorder

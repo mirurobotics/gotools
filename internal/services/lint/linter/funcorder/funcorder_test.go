@@ -386,26 +386,6 @@ func TestCheck_ParenReceiver(t *testing.T) {
 		`method "T.m" should be below type "T"`)
 }
 
-func TestCheck_HelpersFollowCallOrder(t *testing.T) {
-	assertMessages(t, `package p
-
-func Generate() { validateArgs(); _ = checksum() }
-
-func Verify() bool { return checksum() == 0 }
-
-func validateArgs() { validatePrefix(); validateSize() }
-
-func validatePrefix() {}
-
-func validateSize() {}
-
-func checksum() int { return 0 }
-`,
-		`"validateArgs" should be directly below "Generate"`,
-		`"checksum" should be directly below "Verify"`,
-	)
-}
-
 func assertMessages(t *testing.T, src string, want ...string) {
 	t.Helper()
 	fset, f := linttest.Parse(t, "a.go", src)

@@ -49,7 +49,6 @@ type layout struct {
 
 func (l *layout) unitReady(key int) bool { return l.m.unitReady(l.unit[key], l.done) }
 
-// unitNext lists the units a unit's functions call, in call order.
 func (l *layout) unitNext(key int) []int {
 	var next []int
 	for _, i := range l.out {
@@ -73,9 +72,6 @@ func (l *layout) emitUnit(key int, below bool) {
 
 func (l *layout) fnReady(i int) bool { return l.m.ready(l.m.fns[i], l.done) }
 
-// walk emits items depth-first: after an item comes the first ready item it
-// leads to, else the first ready item left, else the first item left. emit
-// learns whether an item came after one that leads to it.
 func walk(
 	items []int, ready func(int) bool, next func(int) []int, emit func(int, bool),
 ) {
