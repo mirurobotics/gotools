@@ -156,7 +156,7 @@ func (c *checker) comparedValues(
 	first := 0
 	switch {
 	case c.isAssertObject(recv):
-	case recv.Obj == nil && c.testify[recv.Name]:
+	case c.isTestifyPkg(recv):
 		first = 1
 	default:
 		return nil, nil, false

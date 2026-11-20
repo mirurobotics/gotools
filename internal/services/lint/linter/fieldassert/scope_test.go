@@ -290,3 +290,21 @@ func TestX(t *testing.T) {
 	fset, f := linttest.Parse(t, "foo_test.go", src)
 	linttest.AssertLines(t, Check(fset, "foo_test.go", f), []int{12}, "")
 }
+
+func TestCheck_AddressTakenOrRangeAssignStartsNewGroup(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	var got T
+	assert.Equal(t, 1, got.A)
+	require.NoError(t, json.Unmarshal(b, &got))
+	assert.Equal(t, 2, got.B)
+	for got = range xs {
+	}
+	assert.Equal(t, 3, got.C)
+	for _, x := range xs {
+		_ = x
+	}
+	_ = -got.A
+	assert.Equal(t, 4, got.D)
+}
+`)
+}

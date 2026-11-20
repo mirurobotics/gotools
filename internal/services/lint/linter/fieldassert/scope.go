@@ -2,6 +2,7 @@ package fieldassert
 
 import (
 	"go/ast"
+	"go/token"
 	"maps"
 )
 
@@ -30,6 +31,15 @@ func assignedKeys(s ast.Stmt) []any {
 			}
 		case *ast.IncDecStmt:
 			keys = appendKey(keys, rootIdent(n.X))
+		case *ast.UnaryExpr:
+			if n.Op == token.AND {
+				keys = appendKey(keys, rootIdent(n.X))
+			}
+		case *ast.RangeStmt:
+			if n.Tok == token.ASSIGN {
+				keys = appendKey(keys, rootIdent(n.Key))
+				keys = appendKey(keys, rootIdent(n.Value))
+			}
 		}
 		return true
 	})
@@ -77,28 +87,25 @@ func (c *checker) isNewValue(id *ast.Ident, lhs, rhs []ast.Expr) bool {
 
 func (c *checker) isAssertionsType(e ast.Expr) bool {
 	star, ok := e.(*ast.StarExpr)
-	if !ok {
-		return false
-	}
-	sel, ok := star.X.(*ast.SelectorExpr)
-	if !ok || sel.Sel.Name != "Assertions" {
-		return false
-	}
-	pkg, ok := sel.X.(*ast.Ident)
-	return ok && c.testify[pkg.Name]
+	return ok && c.isTestifySel(star.X, "Assertions")
 }
 
 func (c *checker) isNewCall(e ast.Expr) bool {
 	call, ok := e.(*ast.CallExpr)
-	if !ok {
-		return false
-	}
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || sel.Sel.Name != "New" {
+	return ok && c.isTestifySel(call.Fun, "New")
+}
+
+func (c *checker) isTestifySel(e ast.Expr, name string) bool {
+	sel, ok := e.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != name {
 		return false
 	}
 	pkg, ok := sel.X.(*ast.Ident)
-	return ok && c.testify[pkg.Name]
+	return ok && c.isTestifyPkg(pkg)
+}
+
+func (c *checker) isTestifyPkg(id *ast.Ident) bool {
+	return id.Obj == nil && c.testify[id.Name]
 }
 
 func (c *checker) isParam(id *ast.Ident) bool {

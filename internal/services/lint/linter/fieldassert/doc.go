@@ -7,11 +7,11 @@
 //	assert.Equal(t, "x", got.B)
 //	assert.Equal(t, true, got.C)
 //
-// is reported once it covers MinFieldAsserts (3) distinct fields. Assigning to
-// or incrementing the value or one of its fields starts a new group. Two field
-// checks are often targeted (an ID and a status); from three on the test
-// rebuilds the struct by hand and silently stops covering it when a field is
-// added. Compare the whole value instead.
+// is reported once it covers MinFieldAsserts (3) distinct fields. Assigning to,
+// incrementing, ranging into or taking the address of the value or one of its
+// fields starts a new group. Two field checks are often targeted (an ID and a
+// status); from three on the test rebuilds the struct by hand and silently
+// stops covering it when a field is added. Compare the whole value instead.
 //
 // The actual argument decides the group, so table tests comparing tc.wantA to
 // got.A are grouped by got; the expected one counts only when the actual is a
