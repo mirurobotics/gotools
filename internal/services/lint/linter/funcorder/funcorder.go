@@ -30,7 +30,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	uses := m.firstUses(m.units(m.heads), func(i int) int { return i })
 	for _, t := range slices.Sorted(maps.Keys(uses)) {
 		if !m.typePlaced(t, uses) {
-			add(f.Decls[t], m.typeMessage(t, uses[t]))
+			add(m.decls[t], m.typeMessage(t, uses[t]))
 		}
 	}
 	return diags
@@ -167,7 +167,7 @@ func (m *model) units(heads map[string][]int) [][]int {
 	}
 	for i, x := range m.fns {
 		switch {
-		case glued[i] || m.plain[i] != nil:
+		case glued[i] || m.inPlain(i):
 		case x == nil || x.recv == "":
 			units = append(units, []int{i})
 		case group[x.recv] > 0:

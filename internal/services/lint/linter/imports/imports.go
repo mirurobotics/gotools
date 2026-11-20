@@ -7,17 +7,6 @@ import (
 	"strings"
 )
 
-// ImportGroup represents the category of an import path.
-type ImportGroup int
-
-const (
-	GroupStd      ImportGroup = 0
-	GroupInternal ImportGroup = 1
-	GroupExternal ImportGroup = 2
-)
-
-const internalPrefix = "github.com/mirurobotics/"
-
 // ImportBlock represents one import declaration (single or grouped).
 type ImportBlock struct {
 	Imports   []Import
@@ -80,6 +69,17 @@ func newImport(is *ast.ImportSpec) Import {
 	}
 	return imp
 }
+
+// ImportGroup represents the category of an import path.
+type ImportGroup int
+
+const (
+	GroupStd      ImportGroup = 0
+	GroupInternal ImportGroup = 1
+	GroupExternal ImportGroup = 2
+)
+
+const internalPrefix = "github.com/mirurobotics/"
 
 func classify(path string) ImportGroup {
 	first := path

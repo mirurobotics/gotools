@@ -27,6 +27,7 @@ func build(f *ast.File) *model {
 		heads:    nil,
 		initVars: nil,
 		plain:    nil,
+		plainOf:  nil,
 		decls:    f.Decls,
 	}
 	byName := map[string]int{}
@@ -42,9 +43,15 @@ func build(f *ast.File) *model {
 	for _, x := range m.funcs() {
 		m.linkCallees(x)
 	}
-	m.heads = m.typeHeads(f.Decls)
-	m.initVars = initVarDecls(f.Decls)
-	m.plain = m.plainTypes(f.Decls)
+	m.heads = m.typeHeads()
+	m.initVars = m.initVarDecls()
+	m.plain = m.plainTypes()
+	m.plainOf = map[int]int{}
+	for t, p := range m.plain {
+		for _, i := range p.head {
+			m.plainOf[i] = t
+		}
+	}
 	return m
 }
 
@@ -53,7 +60,8 @@ type model struct {
 	typeDecl map[string]int
 	heads    map[string][]int
 	initVars map[int]bool
-	plain    map[int][]int
+	plain    map[int]plainType
+	plainOf  map[int]int
 	decls    []ast.Decl
 }
 
@@ -98,13 +106,13 @@ func (m *model) reaches(from, to int) bool {
 	return false
 }
 
-func (m *model) typeHeads(decls []ast.Decl) map[string][]int {
+func (m *model) typeHeads() map[string][]int {
 	isType := map[int]bool{}
 	for _, i := range m.typeDecl {
 		isType[i] = true
 	}
 	soloType := map[string]int{}
-	for i, d := range decls {
+	for i, d := range m.decls {
 		if ts := soloTypeSpec(d); ts != nil {
 			soloType[ts.Name.Name] = i
 		}
@@ -137,9 +145,9 @@ func (m *model) typeHead(t int, isType map[int]bool) []int {
 	return head
 }
 
-func initVarDecls(decls []ast.Decl) map[int]bool {
+func (m *model) initVarDecls() map[int]bool {
 	initVars := map[int]bool{}
-	for i, d := range decls {
+	for i, d := range m.decls {
 		if gd, ok := d.(*ast.GenDecl); ok && hasInitializer(gd) {
 			initVars[i] = true
 		}

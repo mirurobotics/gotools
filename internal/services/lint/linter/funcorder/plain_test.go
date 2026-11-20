@@ -16,7 +16,7 @@ type checker struct{}
 
 func (c checker) run() { _ = group{} }
 `,
-		`type "group" should be directly above its first user "checker.run"`,
+		`type "group" should be directly above "checker", which holds its first user "checker.run"`,
 	)
 	assertMessages(t, `package p
 
@@ -68,6 +68,16 @@ func TestFix_PlainTypeMovesToFirstUser(t *testing.T) {
 		"func Run() { _ = Name(\"\") }\n", "type Name string\n",
 	}
 	want := []string{src[1], src[0], src[2], src[3], src[5], src[4]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_PlainTypeCarriesItsConsts(t *testing.T) {
+	src := []string{
+		"func Run() Kind { return A }\n", "type Kind int\n",
+		"const (\n\tA Kind = iota\n\tB\n)\n", "var x = 1\n",
+	}
+	want := []string{src[1], src[2], src[0], src[3]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }

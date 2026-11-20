@@ -10,44 +10,60 @@ import (
 
 type use struct{ user, at int }
 
-func (m *model) plainTypes(decls []ast.Decl) map[int][]int {
-	plain := map[int][]int{}
-	for t, d := range decls {
+type plainType struct{ head, users []int }
+
+func (m *model) plainTypes() map[int]plainType {
+	heads := map[int][]int{}
+	inHead := map[int]bool{}
+	for t, d := range m.decls {
 		ts := soloTypeSpec(d)
-		if ts == nil || m.hasMethods(ts.Name.Name) {
+		if _, ok := m.heads[typeName(ts)]; ts == nil || ok {
 			continue
 		}
-		if users := usersOf(ts, decls); len(users) > 0 {
-			plain[t] = users
+		heads[t] = constHead(m.decls, t)
+		for _, i := range heads[t] {
+			inHead[i] = true
+		}
+	}
+	plain := map[int]plainType{}
+	for t, head := range heads {
+		users := usersOf(soloTypeSpec(m.decls[t]), m.decls, inHead)
+		if len(users) > 0 {
+			plain[t] = plainType{head: head, users: users}
 		}
 	}
 	return plain
 }
 
-func (m *model) hasMethods(name string) bool {
-	return slices.ContainsFunc(m.funcs(), func(x *fn) bool { return x.recv == name })
-}
-
 func (m *model) typePlaced(t int, uses map[int]use) bool {
-	at := uses[t].at
+	at, head := uses[t].at, m.plain[t].head
 	if t > at {
 		return false
 	}
-	for i := t + 1; i < at; i++ {
-		if _, ok := uses[i]; !ok || uses[i].at != at {
+	for i := head[len(head)-1] + 1; i < at; i++ {
+		if !m.inPlain(i) || uses[m.plainOf[i]].at != at {
 			return false
 		}
 	}
 	return true
 }
 
+func (m *model) inPlain(i int) bool {
+	_, ok := m.plainOf[i]
+	return ok
+}
+
 func (m *model) typeMessage(t int, u use) string {
-	name := soloTypeSpec(m.decls[t]).Name.Name
-	user := declName(m.decls[u.user])
-	if x := m.fns[u.user]; x != nil {
-		user = x.name
+	name := typeName(soloTypeSpec(m.decls[t]))
+	user := m.declName(u.user)
+	if u.at == u.user {
+		const msg = "type %q should be directly above its first user %q"
+		return fmt.Sprintf(msg, name, user)
 	}
-	return fmt.Sprintf("type %q should be directly above its first user %q", name, user)
+	return fmt.Sprintf(
+		"type %q should be directly above %q, which holds its first user %q",
+		name, m.declName(u.at), user,
+	)
 }
 
 func (m *model) placeTypes(units [][]int, out []int) []int {
@@ -58,7 +74,7 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 	uses := m.firstUses(units, func(i int) int { return pos[i] })
 	above := map[int][]int{}
 	for _, t := range slices.Sorted(maps.Keys(uses)) {
-		above[uses[t].at] = append(above[uses[t].at], t)
+		above[uses[t].at] = append(above[uses[t].at], m.plain[t].head...)
 	}
 	var placed []int
 	for p, i := range out {
@@ -76,17 +92,47 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 		}
 	}
 	uses := map[int]use{}
-	for t, users := range m.plain {
-		u := slices.MinFunc(users, func(a, b int) int { return start[a] - start[b] })
+	for t, p := range m.plain {
+		u := slices.MinFunc(p.users, func(a, b int) int { return start[a] - start[b] })
 		uses[t] = use{user: u, at: start[u]}
 	}
 	return uses
 }
 
-func usersOf(ts *ast.TypeSpec, decls []ast.Decl) []int {
+func (m *model) declName(i int) string {
+	if x := m.fns[i]; x != nil {
+		return x.name
+	}
+	var name string
+	ast.Inspect(m.decls[i], func(n ast.Node) bool {
+		switch s := n.(type) {
+		case *ast.TypeSpec:
+			name = s.Name.Name
+		case *ast.ValueSpec:
+			name = s.Names[0].Name
+		}
+		return name == ""
+	})
+	return name
+}
+
+func constHead(decls []ast.Decl, t int) []int {
+	head := []int{t}
+	for i := t + 1; i < len(decls); i++ {
+		gd, ok := decls[i].(*ast.GenDecl)
+		if !ok || gd.Tok != token.CONST {
+			break
+		}
+		head = append(head, i)
+	}
+	return head
+}
+
+func usersOf(ts *ast.TypeSpec, decls []ast.Decl, inHead map[int]bool) []int {
 	var users []int
 	for i, d := range decls {
-		if gd, ok := d.(*ast.GenDecl); ok && gd.Tok == token.TYPE {
+		gd, ok := d.(*ast.GenDecl)
+		if inHead[i] || ok && gd.Tok == token.TYPE {
 			continue
 		}
 		if refersTo(d, ts) {
@@ -121,11 +167,9 @@ func soloTypeSpec(d ast.Decl) *ast.TypeSpec {
 	return ts
 }
 
-func declName(d ast.Decl) string {
-	if gd, ok := d.(*ast.GenDecl); ok {
-		if vs, ok := gd.Specs[0].(*ast.ValueSpec); ok {
-			return vs.Names[0].Name
-		}
+func typeName(ts *ast.TypeSpec) string {
+	if ts == nil {
+		return ""
 	}
-	return ""
+	return ts.Name.Name
 }
