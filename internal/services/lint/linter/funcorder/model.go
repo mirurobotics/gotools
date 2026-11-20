@@ -155,8 +155,8 @@ func (m *model) markCycleWaits() {
 
 func (m *model) opensCycle(x *fn) bool {
 	for _, y := range m.funcs() {
-		inCycle := m.reaches(x.idx, y.idx) && m.reaches(y.idx, x.idx)
-		inCycle = inCycle && y != x && !y.exempt
+		inCycle := y != x && !y.exempt && m.reaches(x.idx, y.idx)
+		inCycle = inCycle && m.reaches(y.idx, x.idx)
 		if inCycle && (y.idx < x.idx || len(y.callers) > 0) {
 			return false
 		}
