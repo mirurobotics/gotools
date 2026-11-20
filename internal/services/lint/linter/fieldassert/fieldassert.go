@@ -140,45 +140,45 @@ func (c *checker) fieldArg(s ast.Stmt, sc scope) (*ast.CallExpr, *ast.SelectorEx
 	if !ok {
 		return nil, nil
 	}
-	vals := c.comparedValues(call, sc)
-	if vals == nil {
+	expected, actual, ok := c.comparedValues(call, sc)
+	if !ok {
 		return nil, nil
 	}
-	if sel := c.asField(vals[1]); sel != nil {
+	if sel := c.asField(actual); sel != nil {
 		return call, sel
 	}
-	if !isLiteral(vals[1]) {
+	if !c.isConstant(actual) {
 		return nil, nil
 	}
-	if sel := c.asField(vals[0]); sel != nil {
+	if sel := c.asField(expected); sel != nil {
 		return call, sel
 	}
 	return nil, nil
 }
 
-func (c *checker) comparedValues(call *ast.CallExpr, sc scope) []ast.Expr {
+func (c *checker) comparedValues(
+	call *ast.CallExpr, sc scope,
+) (expected, actual ast.Expr, ok bool) {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok || !isEqualityFunc(sel.Sel.Name) {
-		return nil
+		return nil, nil, false
 	}
 	recv, ok := sel.X.(*ast.Ident)
 	if !ok {
-		return nil
+		return nil, nil, false
 	}
-	args := call.Args
+	first := 0
 	switch {
 	case sc.objects[recv.Name]:
-		if len(args) < 2 {
-			return nil
-		}
-		return args[0:2]
 	case c.testify[recv.Name]:
-		if len(args) < 3 {
-			return nil
-		}
-		return args[1:3]
+		first = 1
+	default:
+		return nil, nil, false
 	}
-	return nil
+	if len(call.Args) < first+2 {
+		return nil, nil, false
+	}
+	return call.Args[first], call.Args[first+1], true
 }
 
 func (c *checker) asField(e ast.Expr) *ast.SelectorExpr {
@@ -224,14 +224,17 @@ func (c *checker) isNewCall(e ast.Expr) bool {
 	return ok && c.testify[pkg.Name]
 }
 
-func isLiteral(e ast.Expr) bool {
+func (c *checker) isConstant(e ast.Expr) bool {
 	switch x := ast.Unparen(e).(type) {
-	case *ast.BasicLit:
+	case *ast.BasicLit, *ast.CompositeLit:
 		return true
 	case *ast.UnaryExpr:
-		return isLiteral(x.X)
+		return c.isConstant(x.X)
 	case *ast.Ident:
 		return x.Name == "true" || x.Name == "false" || x.Name == "nil"
+	case *ast.SelectorExpr:
+		id, ok := x.X.(*ast.Ident)
+		return ok && c.imports[id.Name]
 	}
 	return false
 }

@@ -14,7 +14,7 @@
 //
 // The actual argument decides the group, so table tests comparing tc.wantA to
 // got.A are grouped by got; the expected one counts only when the actual is a
-// literal (swapped arguments). Asserts inside a function or
+// literal or package constant (swapped arguments). Asserts inside a function or
 // closure that takes the checked value as a parameter are allowed: that is a
 // dedicated check helper. A method's receiver and the parameters of enclosing
 // functions count too, so t.Run closures inside a helper are allowed.

@@ -112,15 +112,16 @@ func TestCheck_ExpectedFieldsGroupByActual(t *testing.T) {
 }
 
 func TestCheck_SwappedArgsCounted(t *testing.T) {
-	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
-	got := build()
-	assert.Equal(t, got.A, 1)
-	assert.Exactlyf(t, got.B, 2, "msg")
-	assert.EqualValues(t, got.C, -3)
-	assert.Equal(t, got.D, true)
-	assert.Equal(t, got.E, (nil))
-}
-`, 13)
+	bodies := []string{
+		"got.A, 1)\n\tassert.Exactlyf(t, got.B, 2, \"msg\")\n\tassert.EqualValues(t, got.C, 3)",
+		"got.A, -1)\n\tassert.Equal(t, got.B, -2)\n\tassert.Equal(t, got.C, -3)",
+		"got.A, true)\n\tassert.Equal(t, got.B, false)\n\tassert.Equal(t, got.C, (nil))",
+		"got.A, T{})\n\tassert.Equal(t, got.B, []int{1})\n\tassert.Equal(t, got.C, http.MethodGet)",
+	}
+	for _, b := range bodies {
+		assertLines(t, "foo_test.go", "func TestX(t *testing.T) {\n\tgot := build()\n"+
+			"\tassert.Equal(t, "+b+"\n}\n", 13)
+	}
 }
 
 func TestCheck_ExpectedFieldsWithoutStructAllowed(t *testing.T) {
