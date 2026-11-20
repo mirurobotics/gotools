@@ -46,7 +46,7 @@ func TestCheck_ReassignedValueAllowed(t *testing.T) {
 	got.n++
 	assert.Equal(t, 3, got.C)
 	assert.Equal(t, 3, got.G)
-	var got, other = build(), 1
+	got.n += 1
 	assert.Equal(t, 4, got.D)
 	assert.Equal(t, 5, got.E)
 	got.n, x = 1, 2
@@ -224,4 +224,50 @@ func helper(a *assert.Assertions) {
 	a.Equal(3, got.C)
 }
 `, 15)
+}
+
+func TestCheck_ClosureLocalDoesNotCloseOuterGroup(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	got := build()
+	assert.Equal(t, 1, got.A)
+	t.Run("x", func(t *testing.T) {
+		got := other()
+		_ = got
+	})
+	assert.Equal(t, 2, got.B)
+	assert.Equal(t, 3, got.C)
+}
+`, 13)
+}
+
+func TestCheck_LocalNamedLikeTestifyIsNotPackage(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	assert := makeChecker()
+	got := build()
+	assert.Equal(t, 1, got.A)
+	assert.Equal(t, 2, got.B)
+	assert.Equal(t, 3, got.C)
+}
+`)
+}
+
+func TestCheck_AliasedImportBaseIsNotPackage(t *testing.T) {
+	src := `package foo
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	cfgpkg "example.com/app/config"
+)
+
+func TestX(t *testing.T) {
+	_ = cfgpkg.X
+	assert.Equal(t, 1, config.A)
+	assert.Equal(t, 2, config.B)
+	assert.Equal(t, 3, config.C)
+}
+`
+	fset, f := linttest.Parse(t, "foo_test.go", src)
+	linttest.AssertLines(t, Check(fset, "foo_test.go", f), []int{12}, "")
 }

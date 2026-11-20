@@ -27,7 +27,7 @@ type checker struct {
 type fieldGroup struct {
 	base   string
 	root   *ast.Ident
-	deps   map[string]bool
+	deps   map[any]bool
 	calls  []*ast.CallExpr
 	fields map[string]bool
 }
@@ -226,7 +226,9 @@ func importNames(f *ast.File) map[string]bool {
 	names := make(map[string]bool)
 	for _, imp := range f.Imports {
 		names[analysis.ImportName(imp)] = true
-		names[path.Base(analysis.ImportPath(imp))] = true
+		if imp.Name == nil {
+			names[path.Base(analysis.ImportPath(imp))] = true
+		}
 	}
 	return names
 }

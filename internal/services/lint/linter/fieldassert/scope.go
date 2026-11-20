@@ -6,37 +6,39 @@ import (
 )
 
 func closeAssigned(open map[string]*fieldGroup, s ast.Stmt) {
-	for _, name := range assignedNames(s) {
-		maps.DeleteFunc(open, func(_ string, g *fieldGroup) bool {
-			return g.deps[name]
-		})
+	for _, key := range assignedKeys(s) {
+		maps.DeleteFunc(open, func(_ string, g *fieldGroup) bool { return g.deps[key] })
 	}
 }
 
-func assignedNames(s ast.Stmt) []string {
-	var names []string
+func assignedKeys(s ast.Stmt) []any {
+	var keys []any
 	ast.Inspect(s, func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.AssignStmt:
 			for _, lhs := range n.Lhs {
-				names = append(names, rootName(lhs))
+				keys = appendKey(keys, rootIdent(lhs))
 			}
 		case *ast.IncDecStmt:
-			names = append(names, rootName(n.X))
-		case *ast.ValueSpec:
-			names = append(names, identNames(n.Names)...)
+			keys = appendKey(keys, rootIdent(n.X))
 		}
 		return true
 	})
-	return names
+	return keys
 }
 
-func identNames(ids []*ast.Ident) []string {
-	names := make([]string, 0, len(ids))
-	for _, id := range ids {
-		names = append(names, id.Name)
+func appendKey(keys []any, id *ast.Ident) []any {
+	if id == nil {
+		return keys
 	}
-	return names
+	return append(keys, identKey(id))
+}
+
+func identKey(id *ast.Ident) any {
+	if id.Obj != nil {
+		return id.Obj
+	}
+	return id.Name
 }
 
 func (c *checker) isAssertObject(id *ast.Ident) bool {
@@ -75,13 +77,6 @@ func (c *checker) isParam(id *ast.Ident) bool {
 
 func (c *checker) isPkg(id *ast.Ident) bool {
 	return id.Obj == nil && c.imports[id.Name]
-}
-
-func rootName(e ast.Expr) string {
-	if id := rootIdent(e); id != nil {
-		return id.Name
-	}
-	return ""
 }
 
 func rootIdent(e ast.Expr) *ast.Ident {
@@ -137,13 +132,13 @@ func resultFields(f *ast.File) map[*ast.Field]bool {
 	return fields
 }
 
-func identSet(e ast.Expr) map[string]bool {
-	names := make(map[string]bool)
+func identSet(e ast.Expr) map[any]bool {
+	keys := make(map[any]bool)
 	ast.Inspect(e, func(n ast.Node) bool {
 		if id, ok := n.(*ast.Ident); ok {
-			names[id.Name] = true
+			keys[identKey(id)] = true
 		}
 		return true
 	})
-	return names
+	return keys
 }
