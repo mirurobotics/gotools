@@ -52,6 +52,21 @@ func setMode(m mode) {}
 	)
 }
 
+func TestCheck_PlainTypeAboveBlockOverFirstUser(t *testing.T) {
+	assertMessages(t, `package p
+
+type K int
+
+func Run() { f() }
+
+const c = 1
+
+func f(K) {}
+`,
+		`type "K" should be directly above "c", which sits over its first user "f"`,
+	)
+}
+
 func TestCheck_PlainTypeAboveForeignMethods(t *testing.T) {
 	assertMessages(t, `package p
 

@@ -91,6 +91,11 @@ func (m *model) typeMessage(t int, u use) string {
 			"which hold its first user %q"
 		return fmt.Sprintf(msg, name, x.recv, user)
 	}
+	if soloTypeSpec(m.decls[u.at]) == nil {
+		const msg = "type %q should be directly above %q, " +
+			"which sits over its first user %q"
+		return fmt.Sprintf(msg, name, m.declName(u.at), user)
+	}
 	return fmt.Sprintf(
 		"type %q should be directly above %q, which holds its first user %q",
 		name, m.declName(u.at), user,

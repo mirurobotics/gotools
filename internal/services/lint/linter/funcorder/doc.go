@@ -4,8 +4,8 @@
 //   - a function sits directly below its last caller, exported or not, after
 //     the functions that caller calls first and their helpers, so a file reads
 //     depth-first in call order and has one order. A type's methods count as
-//     one caller, and a const or var block between functions moves with the
-//     function below it;
+//     one caller, and a const or var block between free functions moves with
+//     the one below it;
 //   - an exported entry point (a function nothing in the file calls), main or
 //     init sits above unexported functions that nothing in the file calls;
 //   - a type's methods sit together below the type. A type declared on its own

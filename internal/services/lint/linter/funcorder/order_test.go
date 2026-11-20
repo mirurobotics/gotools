@@ -38,6 +38,15 @@ func TestFix_HelpersFollowCallOrder(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
+func TestCheck_BlockMovesWithFunctionBelowIt(t *testing.T) {
+	assertMessages(t, "package p\n\nfunc Run() { f() }\n\nfunc g() {}\n\n"+
+		"const c = 1\n\nfunc f() {}\n",
+		`"f" should be directly below "Run"`)
+	assertMessages(t, "package p\n\nfunc Run() { f() }\n\nfunc g() {}\n\n"+
+		"type K int\n\nfunc f(K) {}\n",
+		`"f" should be directly below "Run"`)
+}
+
 func TestFix_BlockMovesWithFunctionBelowIt(t *testing.T) {
 	src := []string{
 		"func a() {}\n", "const c = 1\n", "func b() {}\n", "func Run() { b(); a() }\n",
