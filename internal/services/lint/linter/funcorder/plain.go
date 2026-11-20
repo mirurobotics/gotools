@@ -20,7 +20,7 @@ func (m *model) plainTypes() map[int]plainType {
 			continue
 		}
 		if users := usersOf(ts, m.decls); len(users) > 0 {
-			plain[t] = plainType{head: constHead(m.decls, t), users: users}
+			plain[t] = plainType{head: constHead(m.decls, t, ts), users: users}
 		}
 	}
 	return plain
@@ -50,6 +50,11 @@ func (m *model) typeMessage(t int, u use) string {
 	if u.at == u.user {
 		const msg = "type %q should be directly above its first user %q"
 		return fmt.Sprintf(msg, name, user)
+	}
+	if x := m.fns[u.at]; x != nil {
+		const msg = "type %q should be directly above the methods of %q, " +
+			"which hold its first user %q"
+		return fmt.Sprintf(msg, name, x.recv, user)
 	}
 	return fmt.Sprintf(
 		"type %q should be directly above %q, which holds its first user %q",
@@ -107,11 +112,11 @@ func (m *model) declName(i int) string {
 	return name
 }
 
-func constHead(decls []ast.Decl, t int) []int {
+func constHead(decls []ast.Decl, t int, ts *ast.TypeSpec) []int {
 	head := []int{t}
 	for i := t + 1; i < len(decls); i++ {
 		gd, ok := decls[i].(*ast.GenDecl)
-		if !ok || gd.Tok != token.CONST {
+		if !ok || gd.Tok != token.CONST || !refersTo(gd, ts) {
 			break
 		}
 		head = append(head, i)

@@ -52,7 +52,32 @@ func setMode(m mode) {}
 	)
 }
 
+func TestCheck_PlainTypeAboveForeignMethods(t *testing.T) {
+	assertMessages(t, `package p
+
+func (c *checker) a() { c.b() }
+
+type group struct{}
+
+func (c *checker) b() { _ = group{} }
+`,
+		`method "checker.b" should be grouped with the other methods of "checker"`,
+		`type "group" should be directly above the methods of "checker", `+
+			`which hold its first user "checker.b"`,
+	)
+}
+
 func TestCheck_PlainTypesPlaced(t *testing.T) {
+	assertMessages(t, `package p
+
+type a int
+
+type b int
+
+const B b = 1
+
+func use(a, b) {}
+`)
 	assertMessages(t, `package p
 
 type Unused struct{}
@@ -98,6 +123,23 @@ func TestFix_PlainTypeIgnoresConstUsers(t *testing.T) {
 		"func g() {}\n", "func f(k Kind) {}\n",
 	}
 	want := []string{src[1], src[2], src[3], src[0], src[4]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_PlainTypeLeavesUnrelatedConsts(t *testing.T) {
+	src := []string{
+		"type Kind int\n", "const A Kind = 0\n", "const prefix = \"p\"\n",
+		"func Run() { _ = prefix }\n", "func f(Kind) {}\n",
+	}
+	want := []string{src[2], src[3], src[0], src[1], src[4]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_PlainTypeAboveConstUser(t *testing.T) {
+	src := []string{"const C P = 0\n", "var a = 1\n", "func f(P) {}\n", "type P int\n"}
+	want := []string{src[0], src[1], src[3], src[2]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }

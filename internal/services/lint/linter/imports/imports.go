@@ -70,6 +70,8 @@ func newImport(is *ast.ImportSpec) Import {
 	return imp
 }
 
+const internalPrefix = "github.com/mirurobotics/"
+
 // ImportGroup represents the category of an import path.
 type ImportGroup int
 
@@ -78,8 +80,6 @@ const (
 	GroupInternal ImportGroup = 1
 	GroupExternal ImportGroup = 2
 )
-
-const internalPrefix = "github.com/mirurobotics/"
 
 func classify(path string) ImportGroup {
 	first := path
