@@ -23,7 +23,42 @@ func (m *model) plainTypes() map[int]plainType {
 			plain[t] = plainType{head: constHead(m.decls, t, ts), users: users}
 		}
 	}
+	taken := m.headMembers(plain)
+	for t, p := range plain {
+		p.head = append(m.constLead(t, taken), p.head...)
+		plain[t] = p
+	}
 	return plain
+}
+
+func (m *model) headMembers(plain map[int]plainType) map[int]bool {
+	taken := map[int]bool{}
+	for _, head := range m.heads {
+		for _, i := range head {
+			taken[i] = true
+		}
+	}
+	for _, p := range plain {
+		for _, i := range p.head {
+			taken[i] = true
+		}
+	}
+	return taken
+}
+
+func (m *model) constLead(t int, taken map[int]bool) []int {
+	ts := soloTypeSpec(m.decls[t])
+	first := slices.IndexFunc(m.fns, func(x *fn) bool { return x != nil })
+	var lead []int
+	for i := t - 1; i > first && m.leadsType(i, ts, taken); i-- {
+		lead = append([]int{i}, lead...)
+	}
+	return lead
+}
+
+func (m *model) leadsType(i int, ts *ast.TypeSpec, taken map[int]bool) bool {
+	gd, ok := m.decls[i].(*ast.GenDecl)
+	return ok && gd.Tok == token.CONST && !taken[i] && !refersTo(gd, ts)
 }
 
 func (m *model) typePlaced(t int, uses map[int]use) bool {

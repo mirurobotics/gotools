@@ -143,3 +143,13 @@ func TestFix_PlainTypeSkipsConstUser(t *testing.T) {
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
+
+func TestFix_PlainTypeCarriesLeadingConst(t *testing.T) {
+	src := []string{
+		"func Run() { g(); f() }\n", "const c = 1\n", "type K int\n",
+		"func f(K) {}\n", "func g() {}\n",
+	}
+	want := []string{src[0], src[4], src[1], src[2], src[3]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}

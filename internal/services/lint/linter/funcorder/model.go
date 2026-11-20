@@ -205,6 +205,20 @@ func (m *model) initVarDecls() map[int]bool {
 	return initVars
 }
 
+func (m *model) next(i int) []int {
+	x := m.fns[i]
+	if x == nil {
+		return nil
+	}
+	var next []int
+	for _, j := range x.callees {
+		if enforced(x, m.fns[j]) {
+			next = append(next, j)
+		}
+	}
+	return next
+}
+
 func typeNames(gd *ast.GenDecl) []string {
 	var names []string
 	for _, s := range gd.Specs {

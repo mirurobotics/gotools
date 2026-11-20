@@ -38,11 +38,23 @@ func TestFix_HelpersFollowCallOrder(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
-func TestFix_VarMovesBelowTheCallsItSplits(t *testing.T) {
-	run := "func Run() { a() }\n"
-	v := "var x = 1\n"
-	a := "func a() {}\n"
-	assertFix(t, "package p\n\n"+run+"\n"+v+"\n"+a, "package p\n\n"+run+"\n"+a+"\n"+v)
+func TestFix_BlockMovesWithFunctionBelowIt(t *testing.T) {
+	src := []string{
+		"func a() {}\n", "const c = 1\n", "func b() {}\n", "func Run() { b(); a() }\n",
+	}
+	want := []string{src[3], src[1], src[2], src[0]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_BlockStaysToKeepVarInitOrder(t *testing.T) {
+	src := []string{
+		"func f() {}\n", "var a = record(\"a\")\n", "func g() {}\n",
+		"var b = record(\"b\")\n", "func h() {}\n", "func Run() { h(); g() }\n",
+	}
+	want := []string{src[1], src[3], src[5], src[4], src[2], src[0]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
 }
 
 func TestWalk_NothingReady(t *testing.T) {

@@ -141,6 +141,8 @@ func matchesAny(w string, nameWords []string) bool {
 	return false
 }
 
+const minStemLen = 4
+
 func inflects(w, base string) bool {
 	suffix, ok := strings.CutPrefix(w, base)
 	if ok && takesShortSuffix(base, suffix) {
@@ -175,5 +177,3 @@ func takesShortSuffix(base, suffix string) bool {
 	}
 	return false
 }
-
-const minStemLen = 4

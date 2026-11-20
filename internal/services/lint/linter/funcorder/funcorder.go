@@ -28,7 +28,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			add(x.decl, msg)
 		}
 	}
-	uses := m.firstUses(m.units(m.heads), func(i int) int { return i })
+	uses := m.firstUses(m.units(false), func(i int) int { return i })
 	for _, t := range slices.Sorted(maps.Keys(uses)) {
 		if !m.typePlaced(t, uses) {
 			add(m.decls[t], m.typeMessage(t, uses[t]))
@@ -164,108 +164,3 @@ func (m *model) directlyBelow(x *fn, order []int) []string {
 	return []string{msg}
 }
 
-func (m *model) order() ([]int, map[int]bool) {
-	out, below := m.arrange(m.heads)
-	if m.keepsInitOrder(out) {
-		return out, below
-	}
-	return m.arrange(m.settledHeads())
-}
-
-func (m *model) keepsInitOrder(order []int) bool {
-	var vars []int
-	for _, i := range order {
-		if m.initVars[i] {
-			vars = append(vars, i)
-		}
-	}
-	return slices.IsSorted(vars)
-}
-
-func (m *model) settledHeads() map[string][]int {
-	isInit := func(i int) bool { return m.initVars[i] }
-	heads := map[string][]int{}
-	for recv, head := range m.heads {
-		heads[recv] = head
-		if k := slices.IndexFunc(head, isInit); k > 0 && !m.placed(recv) {
-			heads[recv] = head[:k]
-		}
-	}
-	return heads
-}
-
-func (m *model) placed(recv string) bool {
-	isMethod := func(x *fn) bool { return x != nil && x.recv == recv }
-	head := m.heads[recv]
-	return head[len(head)-1] == slices.IndexFunc(m.fns, isMethod)-1
-}
-
-func (m *model) units(heads map[string][]int) [][]int {
-	var units [][]int
-	group := map[string]int{}
-	glued := map[int]bool{}
-	for _, head := range heads {
-		for _, i := range head {
-			glued[i] = true
-		}
-	}
-	for i, x := range m.fns {
-		switch {
-		case glued[i] || m.inPlain(i):
-		case x == nil || x.recv == "":
-			units = append(units, []int{i})
-		case group[x.recv] > 0:
-			u := group[x.recv] - 1
-			units[u] = append(units[u], i)
-		default:
-			group[x.recv] = len(units) + 1
-			units = append(units, unitHead(heads, x.recv, i))
-		}
-	}
-	return units
-}
-
-func (m *model) unitReady(u []int, done map[int]bool) bool {
-	x := m.fns[u[0]]
-	if x == nil || x.recv == "" {
-		return m.ready(x, done)
-	}
-	t, ok := m.typeDecl[x.recv]
-	return !ok || done[t]
-}
-
-func (m *model) ready(x *fn, done map[int]bool) bool {
-	if x == nil || x.exempt {
-		return true
-	}
-	isDone := func(i int) bool { return done[i] }
-	for _, c := range x.callers {
-		if !done[c] {
-			return false
-		}
-	}
-	return m.ranked(x, isDone)
-}
-
-func (m *model) ranked(y *fn, isDone func(int) bool) bool {
-	for _, x := range m.funcs() {
-		if mustPrecede(x, y) && !isDone(x.idx) {
-			return false
-		}
-	}
-	return true
-}
-
-func mustPrecede(x, y *fn) bool {
-	if x.rank != 0 || y.rank != 1 || x.exempt || y.exempt {
-		return false
-	}
-	return x.recv == y.recv && !x.hasInFileCaller && !y.hasInFileCaller
-}
-
-func unitHead(heads map[string][]int, recv string, i int) []int {
-	if head, ok := heads[recv]; ok {
-		return append(slices.Clip(head), i)
-	}
-	return []int{i}
-}

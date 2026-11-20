@@ -178,14 +178,6 @@ func TestFix_NoTrailingNewline(t *testing.T) {
 		"package p\n\nfunc B() { a() }\n\nfunc a() {}\n")
 }
 
-func TestFix_AlreadyOrdered(t *testing.T) {
-	src := "package p\n\nfunc A() { b() }\n\nfunc b() {}\n"
-	fset, f := linttest.Parse(t, "a.go", src)
-	if got := Fix(fset, f, nil); got != nil {
-		t.Errorf("Fix = %q, want nil", got)
-	}
-}
-
 func assertFix(t *testing.T, src, want string) {
 	t.Helper()
 	fset, f := linttest.Parse(t, "a.go", src)
@@ -194,4 +186,12 @@ func assertFix(t *testing.T, src, want string) {
 		t.Fatalf("Fix:\n%s\nwant:\n%s", got, want)
 	}
 	assertStable(t, got)
+}
+
+func TestFix_AlreadyOrdered(t *testing.T) {
+	src := "package p\n\nfunc A() { b() }\n\nfunc b() {}\n"
+	fset, f := linttest.Parse(t, "a.go", src)
+	if got := Fix(fset, f, nil); got != nil {
+		t.Errorf("Fix = %q, want nil", got)
+	}
 }
