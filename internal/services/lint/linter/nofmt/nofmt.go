@@ -44,24 +44,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-func banned() map[string]bool {
-	return map[string]bool{
-		"fmt.Print":   true,
-		"fmt.Println": true,
-		"fmt.Printf":  true,
-		"log.Print":   true,
-		"log.Println": true,
-		"log.Printf":  true,
-		"log.Fatal":   true,
-		"log.Fatalf":  true,
-		"log.Fatalln": true,
-	}
-}
-
-func builtinBanned() map[string]bool {
-	return map[string]bool{"print": true, "println": true}
-}
-
 func isExempt(filename string, f *ast.File) bool {
 	if f.Name.Name == "main" {
 		return true
@@ -81,4 +63,22 @@ func callName(call *ast.CallExpr) string {
 		return fn.Name
 	}
 	return ""
+}
+
+func banned() map[string]bool {
+	return map[string]bool{
+		"fmt.Print":   true,
+		"fmt.Println": true,
+		"fmt.Printf":  true,
+		"log.Print":   true,
+		"log.Println": true,
+		"log.Printf":  true,
+		"log.Fatal":   true,
+		"log.Fatalf":  true,
+		"log.Fatalln": true,
+	}
+}
+
+func builtinBanned() map[string]bool {
+	return map[string]bool{"print": true, "println": true}
 }

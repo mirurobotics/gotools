@@ -77,11 +77,6 @@ func countLines(fset *token.FileSet, body *ast.BlockStmt, allLines [][]byte) int
 	return count
 }
 
-func isCodeLine(line []byte) bool {
-	trimmed := strings.TrimSpace(string(line))
-	return trimmed != "" && !strings.HasPrefix(trimmed, "//")
-}
-
 func literalTailLines(fset *token.FileSet, body *ast.BlockStmt) map[int]bool {
 	skip := make(map[int]bool)
 	codeStarts := make(map[int]bool)
@@ -110,4 +105,9 @@ func literalTailLines(fset *token.FileSet, body *ast.BlockStmt) map[int]bool {
 		}
 	}
 	return skip
+}
+
+func isCodeLine(line []byte) bool {
+	trimmed := strings.TrimSpace(string(line))
+	return trimmed != "" && !strings.HasPrefix(trimmed, "//")
 }

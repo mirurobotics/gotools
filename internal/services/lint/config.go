@@ -86,6 +86,18 @@ func BuildLinterConfig(flags LinterFlags) (linter.Config, error) {
 	}, nil
 }
 
+// ParseExclusions parses a comma-separated list of rule names into a map.
+func ParseExclusions(csv string) map[linter.Rule]bool {
+	excl := make(map[linter.Rule]bool)
+	if csv == "" {
+		return excl
+	}
+	for _, r := range strings.Split(csv, ",") {
+		excl[linter.Rule(strings.TrimSpace(r))] = true
+	}
+	return excl
+}
+
 // BuildSingleRuleExclusions returns exclusions for every rule except the given one.
 func BuildSingleRuleExclusions(name string) map[linter.Rule]bool {
 	r := linter.Rule(name)
@@ -98,18 +110,6 @@ func BuildSingleRuleExclusions(name string) map[linter.Rule]bool {
 		if ar != r {
 			excl[ar] = true
 		}
-	}
-	return excl
-}
-
-// ParseExclusions parses a comma-separated list of rule names into a map.
-func ParseExclusions(csv string) map[linter.Rule]bool {
-	excl := make(map[linter.Rule]bool)
-	if csv == "" {
-		return excl
-	}
-	for _, r := range strings.Split(csv, ",") {
-		excl[linter.Rule(strings.TrimSpace(r))] = true
 	}
 	return excl
 }

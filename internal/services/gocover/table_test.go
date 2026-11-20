@@ -66,6 +66,14 @@ func TestProgress_RestAndIndent(t *testing.T) {
 	}
 }
 
+func testTable() Table {
+	return Table{
+		Format: "%-6s  %s\n",
+		Names:  []string{"STATUS", "PACKAGE"},
+		Dashes: []string{"------", "-------"},
+	}
+}
+
 func TestRunEach_Disabled(t *testing.T) {
 	if out := runEach12(t, false); out != "" {
 		t.Errorf("disabled run printed %q", out)
@@ -82,14 +90,6 @@ func TestRunEach_Enabled(t *testing.T) {
 	sort.Strings(want)
 	if strings.Join(lines, "|") != strings.Join(want, "|") {
 		t.Errorf("progress lines = %q, want %q", lines, want)
-	}
-}
-
-func testTable() Table {
-	return Table{
-		Format: "%-6s  %s\n",
-		Names:  []string{"STATUS", "PACKAGE"},
-		Dashes: []string{"------", "-------"},
 	}
 }
 

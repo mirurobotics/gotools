@@ -38,16 +38,6 @@ func LineStartOffset(src []byte, off int) int {
 	return 0
 }
 
-// LineEndOffset returns the offset of the newline or EOF ending off's line.
-func LineEndOffset(src []byte, off int) int {
-	for i := off; i < len(src); i++ {
-		if src[i] == '\n' {
-			return i
-		}
-	}
-	return len(src)
-}
-
 // VisualWidth returns the visual width of a string, expanding tabs.
 func VisualWidth(s string, tabWidth int) int {
 	w := 0
@@ -59,6 +49,16 @@ func VisualWidth(s string, tabWidth int) int {
 		}
 	}
 	return w
+}
+
+// LineEndOffset returns the offset of the newline or EOF ending off's line.
+func LineEndOffset(src []byte, off int) int {
+	for i := off; i < len(src); i++ {
+		if src[i] == '\n' {
+			return i
+		}
+	}
+	return len(src)
 }
 
 // HasCommentsBetween reports whether any comment lies between open and closePos.

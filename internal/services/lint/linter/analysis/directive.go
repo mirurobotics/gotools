@@ -14,15 +14,6 @@ func IsDirective(text string) bool {
 	return hasAnyPrefix(body, "nolint", "#nosec", "+build")
 }
 
-func hasAnyPrefix(s string, prefixes ...string) bool {
-	for _, p := range prefixes {
-		if strings.HasPrefix(s, p) {
-			return true
-		}
-	}
-	return false
-}
-
 func isGoStyleDirective(s string) bool {
 	name, rest, ok := strings.Cut(s, ":")
 	if !ok || name == "" || rest == "" {
@@ -35,4 +26,13 @@ func isGoStyleDirective(s string) bool {
 	}
 	r := rest[0]
 	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9'
+}
+
+func hasAnyPrefix(s string, prefixes ...string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+	return false
 }

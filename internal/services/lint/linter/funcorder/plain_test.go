@@ -18,6 +18,9 @@ func (c checker) run() { _ = group{} }
 `,
 		`type "group" should be directly above "checker", which holds its first user "checker.run"`,
 	)
+}
+
+func TestCheck_PlainTypeAboveVarUser(t *testing.T) {
 	assertMessages(t, `package p
 
 func Run() { show(names) }
@@ -28,6 +31,7 @@ type Name string
 
 func show([]Name) {}
 `,
+		`"show" should be directly below "Run"`,
 		`type "Name" should be directly above its first user "names"`,
 	)
 	assertMessages(t, `package p
@@ -49,6 +53,21 @@ type mode int
 func setMode(m mode) {}
 `,
 		`type "mode" should be directly above its first user "defaults"`,
+	)
+}
+
+func TestCheck_PlainTypeAboveBlockOverFirstUser(t *testing.T) {
+	assertMessages(t, `package p
+
+type K int
+
+func Run() { f() }
+
+const c = 1
+
+func f(K) {}
+`,
+		`type "K" should be directly above "c", which sits over its first user "f"`,
 	)
 }
 
@@ -140,6 +159,16 @@ func TestFix_PlainTypeLeavesUnrelatedConsts(t *testing.T) {
 func TestFix_PlainTypeSkipsConstUser(t *testing.T) {
 	src := []string{"const C P = 0\n", "var a = 1\n", "func f(P) {}\n", "type P int\n"}
 	want := []string{src[0], src[1], src[3], src[2]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_PlainTypeCarriesLeadingConst(t *testing.T) {
+	src := []string{
+		"func Run() { g(); f() }\n", "const c = 1\n", "type K int\n",
+		"func f(K) {}\n", "func g() {}\n",
+	}
+	want := []string{src[0], src[4], src[1], src[2], src[3]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }

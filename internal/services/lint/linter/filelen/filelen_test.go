@@ -231,8 +231,6 @@ func TestCheck_NolintOtherRuleDoesNotExempt(t *testing.T) {
 	})
 }
 
-func body(n int) string { return strings.Repeat("var _ = 1\n", n) }
-
 func runCheckCase(t *testing.T, tt checkCase) {
 	t.Helper()
 	filename := tt.filename
@@ -246,3 +244,5 @@ func runCheckCase(t *testing.T, tt checkCase) {
 		t.Errorf("line = %d, want %d", diags[0].Line, tt.wantLine)
 	}
 }
+
+func body(n int) string { return strings.Repeat("var _ = 1\n", n) }

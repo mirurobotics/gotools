@@ -51,6 +51,19 @@ func errorStringArg(n ast.Node) (*ast.BasicLit, string, bool) {
 	return lit, val, true
 }
 
+func isErrorCall(call *ast.CallExpr) bool {
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	ident, ok := sel.X.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	name := ident.Name + "." + sel.Sel.Name
+	return name == "errors.New" || name == "fmt.Errorf"
+}
+
 func checkErrorString(val string) []string {
 	var msgs []string
 	firstRune, _ := utf8.DecodeRuneInString(val)
@@ -67,19 +80,6 @@ func checkErrorString(val string) []string {
 		}
 	}
 	return msgs
-}
-
-func isErrorCall(call *ast.CallExpr) bool {
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	ident, ok := sel.X.(*ast.Ident)
-	if !ok {
-		return false
-	}
-	name := ident.Name + "." + sel.Sel.Name
-	return name == "errors.New" || name == "fmt.Errorf"
 }
 
 func isAcronymStart(s string) bool {

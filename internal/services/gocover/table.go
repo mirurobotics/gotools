@@ -56,6 +56,14 @@ func (p Progress) Indent(total int) string {
 	return strings.Repeat(" ", progressColWidth(total)) + "  "
 }
 
+func strArgs(ss []string) []any {
+	args := make([]any, len(ss))
+	for i, s := range ss {
+		args[i] = s
+	}
+	return args
+}
+
 // RunEach runs run(0..n-1), parallelism at a time, streaming row(result) if p.Enabled.
 func RunEach[T any](
 	p Progress,
@@ -94,11 +102,3 @@ func RunEach[T any](
 func progressColWidth(total int) int { return 3 + 2*len(strconv.Itoa(total)) }
 
 func firstLine(s string) string { return s[:strings.IndexByte(s, '\n')+1] }
-
-func strArgs(ss []string) []any {
-	args := make([]any, len(ss))
-	for i, s := range ss {
-		args[i] = s
-	}
-	return args
-}

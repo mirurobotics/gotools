@@ -148,6 +148,24 @@ func TestRun_OrphanTests_ExcludeApplies(t *testing.T) {
 	}
 }
 
+func orphanRunner(runTests func([]string) ([]byte, error)) (*runner, *[]string) {
+	var listedPatterns []string
+	//nolint:exhaustruct // test uses partial initialization
+	r := &runner{
+		goModule: func() (string, error) { return modName, nil },
+		goListPackages: func(string) ([]string, error) {
+			return []string{modName + "/internal/foo", modName + "/cmd/tool"}, nil
+		},
+		goListTestPackages: func(pattern string) ([]string, error) {
+			listedPatterns = append(listedPatterns, pattern)
+			return []string{modName + "/tests/foo", modName + "/tests/bar"}, nil
+		},
+		measure:  fakeMeasure(90.0),
+		runTests: runTests,
+	}
+	return r, &listedPatterns
+}
+
 func TestFindOrphanTests_EmptySrcPrefixOrphansEverything(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	r := &runner{
@@ -195,22 +213,4 @@ func TestRun_OrphanTests_ListError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when the test-dir listing fails")
 	}
-}
-
-func orphanRunner(runTests func([]string) ([]byte, error)) (*runner, *[]string) {
-	var listedPatterns []string
-	//nolint:exhaustruct // test uses partial initialization
-	r := &runner{
-		goModule: func() (string, error) { return modName, nil },
-		goListPackages: func(string) ([]string, error) {
-			return []string{modName + "/internal/foo", modName + "/cmd/tool"}, nil
-		},
-		goListTestPackages: func(pattern string) ([]string, error) {
-			listedPatterns = append(listedPatterns, pattern)
-			return []string{modName + "/tests/foo", modName + "/tests/bar"}, nil
-		},
-		measure:  fakeMeasure(90.0),
-		runTests: runTests,
-	}
-	return r, &listedPatterns
 }

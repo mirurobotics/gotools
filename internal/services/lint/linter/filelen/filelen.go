@@ -38,6 +38,36 @@ func Check(
 	}}
 }
 
+func countLines(fset *token.FileSet, f *ast.File, src []byte) int {
+	code := bytes.Clone(src)
+	for _, c := range analysis.Comments(f) {
+		start := fset.Position(c.Pos()).Offset
+		blankRange(code, start, commentEnd(src, start, c))
+	}
+	count := 0
+	for _, line := range bytes.Split(code, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) > 0 {
+			count++
+		}
+	}
+	return count
+}
+
+func blankRange(code []byte, start, end int) {
+	for i := start; i < end && i < len(code); i++ {
+		if code[i] != '\n' {
+			code[i] = ' '
+		}
+	}
+}
+
+func commentEnd(src []byte, start int, c *ast.Comment) int {
+	if !strings.HasPrefix(c.Text, "/*") {
+		return start + len(c.Text)
+	}
+	return start + 2 + bytes.Index(src[start+2:], []byte("*/")) + 2
+}
+
 func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
 	var comments []*ast.Comment
 	if f.Doc != nil {
@@ -54,34 +84,4 @@ func hasNolint(fset *token.FileSet, f *ast.File, line int) bool {
 		}
 	}
 	return false
-}
-
-func countLines(fset *token.FileSet, f *ast.File, src []byte) int {
-	code := bytes.Clone(src)
-	for _, c := range analysis.Comments(f) {
-		start := fset.Position(c.Pos()).Offset
-		blankRange(code, start, commentEnd(src, start, c))
-	}
-	count := 0
-	for _, line := range bytes.Split(code, []byte("\n")) {
-		if len(bytes.TrimSpace(line)) > 0 {
-			count++
-		}
-	}
-	return count
-}
-
-func commentEnd(src []byte, start int, c *ast.Comment) int {
-	if !strings.HasPrefix(c.Text, "/*") {
-		return start + len(c.Text)
-	}
-	return start + 2 + bytes.Index(src[start+2:], []byte("*/")) + 2
-}
-
-func blankRange(code []byte, start, end int) {
-	for i := start; i < end && i < len(code); i++ {
-		if code[i] != '\n' {
-			code[i] = ' '
-		}
-	}
 }

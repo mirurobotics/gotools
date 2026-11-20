@@ -87,14 +87,14 @@ func (c *checker) isNewValue(id *ast.Ident, lhs, rhs []ast.Expr) bool {
 	return len(lhs) == len(rhs) && i < len(rhs) && c.isNewCall(rhs[i])
 }
 
-func (c *checker) isAssertionsType(e ast.Expr) bool {
-	star, ok := e.(*ast.StarExpr)
-	return ok && c.isTestifySel(star.X, "Assertions")
-}
-
 func (c *checker) isNewCall(e ast.Expr) bool {
 	call, ok := e.(*ast.CallExpr)
 	return ok && c.isTestifySel(call.Fun, "New")
+}
+
+func (c *checker) isAssertionsType(e ast.Expr) bool {
+	star, ok := e.(*ast.StarExpr)
+	return ok && c.isTestifySel(star.X, "Assertions")
 }
 
 func (c *checker) isTestifySel(e ast.Expr, name string) bool {
@@ -120,6 +120,57 @@ func (c *checker) isParam(id *ast.Ident) bool {
 
 func (c *checker) isPkg(id *ast.Ident) bool {
 	return id.Obj == nil && c.imports[id.Name]
+}
+
+func identSet(e ast.Node) map[any]bool {
+	keys := make(map[any]bool)
+	ast.Inspect(e, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.SelectorExpr:
+			maps.Copy(keys, identSet(x.X))
+			return false
+		case *ast.Ident:
+			keys[identKey(x)] = true
+		}
+		return true
+	})
+	return keys
+}
+
+func identKey(id *ast.Ident) any {
+	if id.Obj != nil {
+		return id.Obj
+	}
+	return id.Name
+}
+
+func mayChange(n ast.Node) bool {
+	switch n := n.(type) {
+	case *ast.CallExpr:
+		return !isPureUniverseCall(n.Fun)
+	case *ast.FuncLit:
+		return true
+	case *ast.UnaryExpr:
+		return n.Op == token.AND
+	}
+	return false
+}
+
+func isPureUniverseCall(fun ast.Expr) bool {
+	id, ok := fun.(*ast.Ident)
+	if !ok || id.Obj != nil {
+		return false
+	}
+	switch obj := types.Universe.Lookup(id.Name).(type) {
+	case *types.TypeName:
+		return true
+	case *types.Builtin:
+		switch obj.Name() {
+		case "len", "cap", "min", "max", "real", "imag", "complex":
+			return true
+		}
+	}
+	return false
 }
 
 func identExprs(ids []*ast.Ident) []ast.Expr {
@@ -181,55 +232,4 @@ func resultFields(f *ast.File) map[*ast.Field]bool {
 		return true
 	})
 	return fields
-}
-
-func identSet(e ast.Node) map[any]bool {
-	keys := make(map[any]bool)
-	ast.Inspect(e, func(n ast.Node) bool {
-		switch x := n.(type) {
-		case *ast.SelectorExpr:
-			maps.Copy(keys, identSet(x.X))
-			return false
-		case *ast.Ident:
-			keys[identKey(x)] = true
-		}
-		return true
-	})
-	return keys
-}
-
-func identKey(id *ast.Ident) any {
-	if id.Obj != nil {
-		return id.Obj
-	}
-	return id.Name
-}
-
-func mayChange(n ast.Node) bool {
-	switch n := n.(type) {
-	case *ast.CallExpr:
-		return !isPureUniverseCall(n.Fun)
-	case *ast.FuncLit:
-		return true
-	case *ast.UnaryExpr:
-		return n.Op == token.AND
-	}
-	return false
-}
-
-func isPureUniverseCall(fun ast.Expr) bool {
-	id, ok := fun.(*ast.Ident)
-	if !ok || id.Obj != nil {
-		return false
-	}
-	switch obj := types.Universe.Lookup(id.Name).(type) {
-	case *types.TypeName:
-		return true
-	case *types.Builtin:
-		switch obj.Name() {
-		case "len", "cap", "min", "max", "real", "imag", "complex":
-			return true
-		}
-	}
-	return false
 }

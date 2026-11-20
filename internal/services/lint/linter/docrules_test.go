@@ -37,6 +37,20 @@ package foo
 	}
 }
 
+func runDocCheck(t *testing.T, dir string, docLines, docFileLines int) (int, string) {
+	t.Helper()
+	var out strings.Builder
+	cfg := defaultCfg()
+	cfg.MaxDocLines = docLines
+	cfg.MaxDocFileLines = docFileLines
+	cfg.Out = &out
+	diags, _, err := Run(dir, false, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return diags, out.String()
+}
+
 func TestRun_Check_FuncCommentRule(t *testing.T) {
 	src := "package foo\n\nfunc F() {\n\t// note\n}\n"
 	assertCommentRule(t, RuleFuncComment, src, "foo.go:4: comments")
@@ -60,20 +74,6 @@ func TestRun_Check_DocRestateRule(t *testing.T) {
 func TestRun_Check_CommentedCodeRule(t *testing.T) {
 	src := "package foo\n\n// x := 1\nconst X = 1\n"
 	assertCommentRule(t, RuleCommentedCode, src, "foo.go:3: commented-out code")
-}
-
-func runDocCheck(t *testing.T, dir string, docLines, docFileLines int) (int, string) {
-	t.Helper()
-	var out strings.Builder
-	cfg := defaultCfg()
-	cfg.MaxDocLines = docLines
-	cfg.MaxDocFileLines = docFileLines
-	cfg.Out = &out
-	diags, _, err := Run(dir, false, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return diags, out.String()
 }
 
 func assertCommentRule(t *testing.T, rule Rule, src, want string) {

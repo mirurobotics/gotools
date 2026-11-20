@@ -101,41 +101,6 @@ func collapseInputFromLit(lit *ast.CompositeLit) collapseInput {
 	}
 }
 
-func tryCollapse(
-	fset *token.FileSet,
-	input collapseInput,
-	src []byte,
-	maxLineWidth, tabWidth int,
-	f *ast.File,
-	alignDelta int,
-) (analysis.Candidate, bool) {
-	if shouldExclude(fset, f, input) {
-		return analysis.Candidate{}, false //nolint:exhaustruct
-	}
-	return buildCollapsed(fset, input, src, maxLineWidth, tabWidth, alignDelta)
-}
-
-func shouldExclude(fset *token.FileSet, f *ast.File, input collapseInput) bool {
-	if fset.Position(input.openPos).Line == fset.Position(input.closePos).Line {
-		return true
-	}
-	if len(input.items) == 0 {
-		return true
-	}
-	for _, item := range input.items {
-		if analysis.ContainsFuncLit(item) {
-			return true
-		}
-		if fset.Position(item.Pos()).Line != fset.Position(item.End()).Line {
-			return true
-		}
-	}
-	if analysis.HasCommentsBetween(fset, f, input.openPos, input.closePos) {
-		return true
-	}
-	return hasRawStringWithNewlines(input.items)
-}
-
 func kvAlignDelta(
 	fset *token.FileSet,
 	stack []ast.Node,
@@ -191,6 +156,69 @@ func nodeWidth(fset *token.FileSet, n ast.Node, src []byte, tabWidth int) int {
 	return analysis.VisualWidth(string(src[start:end]), tabWidth)
 }
 
+func tryCollapse(
+	fset *token.FileSet,
+	input collapseInput,
+	src []byte,
+	maxLineWidth, tabWidth int,
+	f *ast.File,
+	alignDelta int,
+) (analysis.Candidate, bool) {
+	if shouldExclude(fset, f, input) {
+		return analysis.Candidate{}, false //nolint:exhaustruct
+	}
+	return buildCollapsed(fset, input, src, maxLineWidth, tabWidth, alignDelta)
+}
+
+func shouldExclude(fset *token.FileSet, f *ast.File, input collapseInput) bool {
+	if fset.Position(input.openPos).Line == fset.Position(input.closePos).Line {
+		return true
+	}
+	if len(input.items) == 0 {
+		return true
+	}
+	for _, item := range input.items {
+		if analysis.ContainsFuncLit(item) {
+			return true
+		}
+		if fset.Position(item.Pos()).Line != fset.Position(item.End()).Line {
+			return true
+		}
+	}
+	if analysis.HasCommentsBetween(fset, f, input.openPos, input.closePos) {
+		return true
+	}
+	return hasRawStringWithNewlines(input.items)
+}
+
+func hasRawStringWithNewlines(exprs []ast.Expr) bool {
+	for _, expr := range exprs {
+		found := false
+		ast.Inspect(expr, func(n ast.Node) bool {
+			if found {
+				return false
+			}
+			lit, ok := n.(*ast.BasicLit)
+			if ok && isMultiLineRawString(lit) {
+				found = true
+				return false
+			}
+			return true
+		})
+		if found {
+			return true
+		}
+	}
+	return false
+}
+
+func isMultiLineRawString(lit *ast.BasicLit) bool {
+	if lit.Kind != token.STRING || !strings.HasPrefix(lit.Value, "`") {
+		return false
+	}
+	return strings.Contains(lit.Value, "\n")
+}
+
 func buildCollapsed(
 	fset *token.FileSet,
 	input collapseInput,
@@ -226,32 +254,4 @@ func buildCollapsed(
 		End:       input.closePos + 1,
 		Collapsed: collapsed,
 	}, true
-}
-
-func hasRawStringWithNewlines(exprs []ast.Expr) bool {
-	for _, expr := range exprs {
-		found := false
-		ast.Inspect(expr, func(n ast.Node) bool {
-			if found {
-				return false
-			}
-			lit, ok := n.(*ast.BasicLit)
-			if ok && isMultiLineRawString(lit) {
-				found = true
-				return false
-			}
-			return true
-		})
-		if found {
-			return true
-		}
-	}
-	return false
-}
-
-func isMultiLineRawString(lit *ast.BasicLit) bool {
-	if lit.Kind != token.STRING || !strings.HasPrefix(lit.Value, "`") {
-		return false
-	}
-	return strings.Contains(lit.Value, "\n")
 }

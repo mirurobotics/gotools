@@ -47,6 +47,26 @@ func NamedDocs(f *ast.File) []NamedDoc {
 	return docs
 }
 
+func genDeclName(d *ast.GenDecl) *ast.Ident {
+	if d.Lparen != token.NoPos || len(d.Specs) != 1 {
+		return nil
+	}
+	switch s := d.Specs[0].(type) {
+	case *ast.TypeSpec:
+		return s.Name
+	case *ast.ValueSpec:
+		return soleName(s.Names)
+	}
+	return nil
+}
+
+func soleName(names []*ast.Ident) *ast.Ident {
+	if len(names) != 1 {
+		return nil
+	}
+	return names[0]
+}
+
 // LineComments returns trailing comments of specs and fields outside function bodies.
 func LineComments(f *ast.File) []*ast.CommentGroup {
 	var groups []*ast.CommentGroup
@@ -123,35 +143,6 @@ func ProseLines(cg *ast.CommentGroup) []string {
 	return lines
 }
 
-// Comments returns every comment in f, flattened across groups, in source order.
-func Comments(f *ast.File) []*ast.Comment {
-	var out []*ast.Comment
-	for _, cg := range f.Comments {
-		out = append(out, cg.List...)
-	}
-	return out
-}
-
-func genDeclName(d *ast.GenDecl) *ast.Ident {
-	if d.Lparen != token.NoPos || len(d.Specs) != 1 {
-		return nil
-	}
-	switch s := d.Specs[0].(type) {
-	case *ast.TypeSpec:
-		return s.Name
-	case *ast.ValueSpec:
-		return soleName(s.Names)
-	}
-	return nil
-}
-
-func soleName(names []*ast.Ident) *ast.Ident {
-	if len(names) != 1 {
-		return nil
-	}
-	return names[0]
-}
-
 func blockLines(text string) []string {
 	text = strings.TrimSuffix(strings.TrimPrefix(text, "/*"), "*/")
 	lines := strings.Split(text, "\n")
@@ -164,3 +155,12 @@ func blockLines(text string) []string {
 }
 
 func isBlank(line string) bool { return strings.TrimSpace(line) == "" }
+
+// Comments returns every comment in f, flattened across groups, in source order.
+func Comments(f *ast.File) []*ast.Comment {
+	var out []*ast.Comment
+	for _, cg := range f.Comments {
+		out = append(out, cg.List...)
+	}
+	return out
+}

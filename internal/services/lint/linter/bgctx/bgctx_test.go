@@ -159,6 +159,12 @@ func f() context.Context {
 	})
 }
 
+func runCheckCase(t *testing.T, tt checkCase) {
+	t.Helper()
+	fset, f := linttest.Parse(t, tt.filename, tt.src)
+	linttest.AssertCount(t, Check(fset, tt.filename, f), tt.wantN, tt.wantMsg)
+}
+
 func TestIsBackgroundCall(t *testing.T) {
 	tests := []struct {
 		expr string
@@ -184,10 +190,4 @@ func TestIsBackgroundCall(t *testing.T) {
 			}
 		})
 	}
-}
-
-func runCheckCase(t *testing.T, tt checkCase) {
-	t.Helper()
-	fset, f := linttest.Parse(t, tt.filename, tt.src)
-	linttest.AssertCount(t, Check(fset, tt.filename, f), tt.wantN, tt.wantMsg)
 }

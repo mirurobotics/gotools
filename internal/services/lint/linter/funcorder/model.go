@@ -18,17 +18,20 @@ type fn struct {
 	hasInFileCaller bool
 	callees         []int
 	callers         []int
+	cycleCallers    []int
+	comp            int
 }
 
 func build(f *ast.File) *model {
 	m := &model{
-		fns:      make([]*fn, len(f.Decls)),
-		typeDecl: map[string]int{},
-		heads:    nil,
-		initVars: nil,
-		plain:    nil,
-		plainOf:  nil,
-		decls:    f.Decls,
+		fns:        make([]*fn, len(f.Decls)),
+		typeDecl:   map[string]int{},
+		initVars:   nil,
+		plain:      nil,
+		typeOwner:  nil,
+		typeBlocks: nil,
+		opener:     nil,
+		decls:      f.Decls,
 	}
 	byName := map[string]int{}
 	for i, d := range f.Decls {
@@ -40,29 +43,77 @@ func build(f *ast.File) *model {
 			m.fns[j].hasInFileCaller = true
 		}
 	}
+	m.markComponents()
 	for _, x := range m.funcs() {
 		m.linkCallees(x)
 	}
-	m.heads = m.typeHeads()
+	m.opener = m.cycleOpeners()
 	m.initVars = m.initVarDecls()
 	m.plain = m.plainTypes()
-	m.plainOf = map[int]int{}
-	for t, p := range m.plain {
-		for _, i := range p.head {
-			m.plainOf[i] = t
-		}
-	}
+	m.typeOwner = m.attachToTypes()
+	m.typeBlocks = attached(m.typeOwner)
 	return m
 }
 
+func callees(x *fn, byName map[string]int) []int {
+	if x.decl.Body == nil {
+		return nil
+	}
+	recv := recvName(x.decl)
+	var out []int
+	add := func(key string) {
+		if j, ok := byName[key]; ok && j != x.idx && !slices.Contains(out, j) {
+			out = append(out, j)
+		}
+	}
+	onSel := func(n *ast.SelectorExpr) {
+		if id, ok := n.X.(*ast.Ident); ok && recv != nil && id.Obj == recv.Obj {
+			add(x.recv + "." + n.Sel.Name)
+		}
+	}
+	refIdents(x.decl.Body, onSel, func(id *ast.Ident) bool {
+		if id.Obj == nil || id.Obj.Kind == ast.Fun {
+			add(id.Name)
+		}
+		return true
+	})
+	return out
+}
+
+func recvName(d *ast.FuncDecl) *ast.Ident {
+	if d.Recv == nil || len(d.Recv.List) == 0 || len(d.Recv.List[0].Names) == 0 {
+		return nil
+	}
+	return d.Recv.List[0].Names[0]
+}
+
+func refIdents(n ast.Node, onSel func(*ast.SelectorExpr), ref func(*ast.Ident) bool) {
+	skip := map[*ast.Ident]bool{}
+	more := true
+	ast.Inspect(n, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.SelectorExpr:
+			skip[n.Sel] = true
+			onSel(n)
+		case *ast.KeyValueExpr:
+			k, _ := n.Key.(*ast.Ident)
+			skip[k] = true
+		case *ast.Ident:
+			more = more && (skip[n] || ref(n))
+		}
+		return more
+	})
+}
+
 type model struct {
-	fns      []*fn
-	typeDecl map[string]int
-	heads    map[string][]int
-	initVars map[int]bool
-	plain    map[int]plainType
-	plainOf  map[int]int
-	decls    []ast.Decl
+	fns        []*fn
+	typeDecl   map[string]int
+	initVars   map[int]bool
+	plain      map[int][]int
+	typeOwner  map[int]int
+	typeBlocks map[int][]int
+	opener     map[int]int
+	decls      []ast.Decl
 }
 
 func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
@@ -80,51 +131,47 @@ func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
 	}
 }
 
+func (m *model) markComponents() {
+	t := &tarjan{
+		fns:     m.fns,
+		index:   map[int]int{},
+		low:     map[int]int{},
+		stack:   nil,
+		onStack: map[int]bool{},
+	}
+	for _, x := range m.funcs() {
+		if _, seen := t.index[x.idx]; !seen {
+			t.visit(x.idx)
+		}
+	}
+}
+
 func (m *model) linkCallees(x *fn) {
 	for _, j := range x.callees {
 		to := m.fns[j]
-		if enforced(x, to) && !m.reaches(j, x.idx) {
+		switch {
+		case !enforced(x, to):
+		case to.comp == x.comp:
+			to.cycleCallers = append(to.cycleCallers, x.idx)
+		default:
 			to.callers = append(to.callers, x.idx)
 		}
 	}
 }
 
-func (m *model) reaches(from, to int) bool {
-	seen := map[int]bool{}
-	stack := []int{from}
-	for len(stack) > 0 {
-		n := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		if n == to {
-			return true
-		}
-		if !seen[n] {
-			seen[n] = true
-			stack = append(stack, m.fns[n].callees...)
-		}
-	}
-	return false
-}
-
-func (m *model) typeHeads() map[string][]int {
-	isType := map[int]bool{}
-	for _, i := range m.typeDecl {
-		isType[i] = true
-	}
-	soloType := map[string]int{}
-	for i, d := range m.decls {
-		if ts := soloTypeSpec(d); ts != nil {
-			soloType[ts.Name.Name] = i
-		}
-	}
-	heads := map[string][]int{}
+func (m *model) cycleOpeners() map[int]int {
+	opener := map[int]int{}
 	for _, x := range m.funcs() {
-		t, ok := soloType[x.recv]
-		if _, seen := heads[x.recv]; ok && !seen {
-			heads[x.recv] = m.typeHead(t, isType)
+		_, seen := opener[x.comp]
+		switch {
+		case x.exempt:
+		case len(x.callers) > 0:
+			opener[x.comp] = -1
+		case !seen:
+			opener[x.comp] = x.idx
 		}
 	}
-	return heads
+	return opener
 }
 
 func (m *model) funcs() []*fn {
@@ -137,14 +184,6 @@ func (m *model) funcs() []*fn {
 	return out
 }
 
-func (m *model) typeHead(t int, isType map[int]bool) []int {
-	head := []int{t}
-	for i := t + 1; i < len(m.fns) && m.fns[i] == nil && !isType[i]; i++ {
-		head = append(head, i)
-	}
-	return head
-}
-
 func (m *model) initVarDecls() map[int]bool {
 	initVars := map[int]bool{}
 	for i, d := range m.decls {
@@ -155,14 +194,23 @@ func (m *model) initVarDecls() map[int]bool {
 	return initVars
 }
 
-func hasInitializer(d *ast.GenDecl) bool {
-	if d.Tok != token.VAR {
-		return false
+func (m *model) waitsInCycle(x *fn) bool {
+	inCycleOnly := len(x.callers) == 0 && len(x.cycleCallers) > 0
+	return inCycleOnly && m.opener[x.comp] != x.idx
+}
+
+func (m *model) next(i int) []int {
+	x := m.fns[i]
+	if x == nil {
+		return nil
 	}
-	return slices.ContainsFunc(d.Specs, func(s ast.Spec) bool {
-		vs, ok := s.(*ast.ValueSpec)
-		return ok && len(vs.Values) > 0
-	})
+	var next []int
+	for _, j := range x.callees {
+		if enforced(x, m.fns[j]) {
+			next = append(next, j)
+		}
+	}
+	return next
 }
 
 func typeNames(gd *ast.GenDecl) []string {
@@ -186,6 +234,8 @@ func newFn(i int, d *ast.FuncDecl) *fn {
 		hasInFileCaller: false,
 		callees:         nil,
 		callers:         nil,
+		cycleCallers:    nil,
+		comp:            0,
 	}
 	if x.recv != "" {
 		x.name = x.recv + "." + x.name
@@ -215,54 +265,46 @@ func callable(d *ast.FuncDecl) bool {
 	return d.Name.Name != "_" && (d.Recv != nil || d.Name.Name != "init")
 }
 
-func callees(x *fn, byName map[string]int) []int {
-	if x.decl.Body == nil {
-		return nil
-	}
-	recv := recvName(x.decl)
-	var out []int
-	add := func(key string) {
-		if j, ok := byName[key]; ok && j != x.idx && !slices.Contains(out, j) {
-			out = append(out, j)
-		}
-	}
-	onSel := func(n *ast.SelectorExpr) {
-		if id, ok := n.X.(*ast.Ident); ok && recv != nil && id.Obj == recv.Obj {
-			add(x.recv + "." + n.Sel.Name)
-		}
-	}
-	refIdents(x.decl.Body, onSel, func(id *ast.Ident) bool {
-		if id.Obj == nil || id.Obj.Kind == ast.Fun {
-			add(id.Name)
-		}
-		return true
-	})
-	return out
-}
-
-func refIdents(n ast.Node, onSel func(*ast.SelectorExpr), ref func(*ast.Ident) bool) {
-	skip := map[*ast.Ident]bool{}
-	more := true
-	ast.Inspect(n, func(n ast.Node) bool {
-		switch n := n.(type) {
-		case *ast.SelectorExpr:
-			skip[n.Sel] = true
-			onSel(n)
-		case *ast.KeyValueExpr:
-			k, _ := n.Key.(*ast.Ident)
-			skip[k] = true
-		case *ast.Ident:
-			more = more && (skip[n] || ref(n))
-		}
-		return more
-	})
-}
-
-func recvName(d *ast.FuncDecl) *ast.Ident {
-	if d.Recv == nil || len(d.Recv.List) == 0 || len(d.Recv.List[0].Names) == 0 {
-		return nil
-	}
-	return d.Recv.List[0].Names[0]
-}
-
 func enforced(from, to *fn) bool { return !from.exempt && !to.exempt }
+
+func hasInitializer(d *ast.GenDecl) bool {
+	if d.Tok != token.VAR {
+		return false
+	}
+	return slices.ContainsFunc(d.Specs, func(s ast.Spec) bool {
+		vs, ok := s.(*ast.ValueSpec)
+		return ok && len(vs.Values) > 0
+	})
+}
+
+type tarjan struct {
+	fns     []*fn
+	index   map[int]int
+	low     map[int]int
+	stack   []int
+	onStack map[int]bool
+}
+
+func (t *tarjan) visit(i int) {
+	n := len(t.index)
+	t.index[i], t.low[i] = n, n
+	t.stack = append(t.stack, i)
+	t.onStack[i] = true
+	for _, j := range t.fns[i].callees {
+		if _, seen := t.index[j]; !seen {
+			t.visit(j)
+		}
+		if t.onStack[j] {
+			t.low[i] = min(t.low[i], t.low[j])
+		}
+	}
+	if t.low[i] != t.index[i] {
+		return
+	}
+	k := slices.Index(t.stack, i)
+	for _, j := range t.stack[k:] {
+		t.onStack[j] = false
+		t.fns[j].comp = i
+	}
+	t.stack = t.stack[:k]
+}

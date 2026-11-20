@@ -27,13 +27,6 @@ func Latest(prefix string, errW io.Writer) (string, error) {
 	return r.latest(prefix, errW)
 }
 
-// Current returns the exact tag on HEAD.
-func Current(errW io.Writer) (string, error) {
-	//nolint:exhaustruct // only currentTag needed
-	r := runner{currentTag: defaultCurrentTag}
-	return r.current(errW)
-}
-
 // GitTags returns all git tags.
 func GitTags(errW io.Writer) ([]string, error) {
 	if errW == nil {
@@ -55,6 +48,27 @@ func GitTags(errW io.Writer) ([]string, error) {
 		}
 	}
 	return tags, nil
+}
+
+// Current returns the exact tag on HEAD.
+func Current(errW io.Writer) (string, error) {
+	//nolint:exhaustruct // only currentTag needed
+	r := runner{currentTag: defaultCurrentTag}
+	return r.current(errW)
+}
+
+func defaultCurrentTag(errW io.Writer) (string, error) {
+	if errW == nil {
+		errW = os.Stderr
+	}
+	//nolint:noctx // CLI tool, no context needed
+	cmd := exec.Command("git", "describe", "--exact-match", "--tags", "HEAD")
+	cmd.Stderr = errW
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("no tag on HEAD: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 type runner struct {
@@ -148,20 +162,6 @@ func SplitVersionParts(s string) []string {
 		parts = append(parts, cur)
 	}
 	return parts
-}
-
-func defaultCurrentTag(errW io.Writer) (string, error) {
-	if errW == nil {
-		errW = os.Stderr
-	}
-	//nolint:noctx // CLI tool, no context needed
-	cmd := exec.Command("git", "describe", "--exact-match", "--tags", "HEAD")
-	cmd.Stderr = errW
-	out, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("no tag on HEAD: %w", err)
-	}
-	return strings.TrimSpace(string(out)), nil
 }
 
 func comparePart(a, b string) int {

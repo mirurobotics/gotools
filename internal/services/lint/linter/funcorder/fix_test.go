@@ -20,7 +20,7 @@ func TestFix_SharedHelperGroupsUnderLastCaller(t *testing.T) {
 	b := "func B() { b1(); h() }\n"
 	b1 := "func b1() {}\n"
 	src := "package p\n\n" + a + "\n" + h + "\n" + a1 + "\n" + b + "\n" + b1
-	want := "package p\n\n" + a + "\n" + a1 + "\n" + b + "\n" + h + "\n" + b1
+	want := "package p\n\n" + a + "\n" + a1 + "\n" + b + "\n" + b1 + "\n" + h
 	assertFix(t, src, want)
 }
 
@@ -178,24 +178,6 @@ func TestFix_NoTrailingNewline(t *testing.T) {
 		"package p\n\nfunc B() { a() }\n\nfunc a() {}\n")
 }
 
-func TestFix_AlreadyOrdered(t *testing.T) {
-	src := "package p\n\nfunc A() { b() }\n\nfunc b() {}\n"
-	fset, f := linttest.Parse(t, "a.go", src)
-	if got := Fix(fset, f, nil); got != nil {
-		t.Errorf("Fix = %q, want nil", got)
-	}
-}
-
-func TestKahn_NothingReady(t *testing.T) {
-	var got []int
-	kahn([]int{1, 2}, func(int) bool { return false }, func(i int) {
-		got = append(got, i)
-	})
-	if len(got) != 2 || got[0] != 1 || got[1] != 2 {
-		t.Errorf("got %v, want [1 2]", got)
-	}
-}
-
 func assertFix(t *testing.T, src, want string) {
 	t.Helper()
 	fset, f := linttest.Parse(t, "a.go", src)
@@ -204,4 +186,12 @@ func assertFix(t *testing.T, src, want string) {
 		t.Fatalf("Fix:\n%s\nwant:\n%s", got, want)
 	}
 	assertStable(t, got)
+}
+
+func TestFix_AlreadyOrdered(t *testing.T) {
+	src := "package p\n\nfunc A() { b() }\n\nfunc b() {}\n"
+	fset, f := linttest.Parse(t, "a.go", src)
+	if got := Fix(fset, f, nil); got != nil {
+		t.Errorf("Fix = %q, want nil", got)
+	}
 }

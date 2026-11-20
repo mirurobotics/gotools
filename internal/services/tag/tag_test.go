@@ -186,6 +186,10 @@ func TestLatest_GitError(t *testing.T) {
 	}
 }
 
+func fakeGitTags(tags []string, err error) func(io.Writer) ([]string, error) {
+	return func(io.Writer) ([]string, error) { return tags, err }
+}
+
 func TestCurrent_Success(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	r := runner{
@@ -213,8 +217,4 @@ func TestCurrent_Error(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-}
-
-func fakeGitTags(tags []string, err error) func(io.Writer) ([]string, error) {
-	return func(io.Writer) ([]string, error) { return tags, err }
 }
