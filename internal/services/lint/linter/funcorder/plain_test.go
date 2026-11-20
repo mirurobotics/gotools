@@ -18,6 +18,9 @@ func (c checker) run() { _ = group{} }
 `,
 		`type "group" should be directly above "checker", which holds its first user "checker.run"`,
 	)
+}
+
+func TestCheck_PlainTypeAboveVarUser(t *testing.T) {
 	assertMessages(t, `package p
 
 func Run() { show(names) }
