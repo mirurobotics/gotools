@@ -7,15 +7,15 @@
 //   - an exported entry point (a function nothing in the file calls), main or
 //     init sits above unexported functions that nothing in the file calls;
 //   - a type's methods sit together below the type, ordered by the same rules;
-//     a type declared on its own sits directly above its methods, and Fix
-//     moves the type, with any declarations right after it, to its first
-//     method.
+//     a type declared on its own sits directly above its methods, after any
+//     const and var blocks that follow it up to the next type, and Fix moves
+//     them together, leaving an initialized var in place if it would pass
+//     another, so package initialization order is kept.
 //
 // Calls are matched by name, and methods only through their receiver, so
 // calls across files or through other values are not constrained. Recursion
 // and call cycles are skipped. //nolint:funcorder on a function's doc lifts
 // the caller and entry point rules; an exempt method still stays with its
-// type. Fix reorders a file so that every rule holds, moving each declaration
-// with the comments above it and placing each moved helper right after its
-// last caller.
+// type. Fix moves each declaration with its comments and places a moved
+// helper right after its last caller.
 package funcorder

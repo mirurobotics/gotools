@@ -24,8 +24,6 @@ func build(f *ast.File) *model {
 	m := &model{
 		fns:      make([]*fn, len(f.Decls)),
 		typeDecl: map[string]int{},
-		soloType: map[string]int{},
-		inits:    map[int]bool{},
 		heads:    nil,
 	}
 	byName := map[string]int{}
@@ -41,29 +39,22 @@ func build(f *ast.File) *model {
 	for _, x := range m.funcs() {
 		m.linkCallees(x)
 	}
-	m.heads = m.typeHeads()
+	m.heads = m.typeHeads(f.Decls)
 	return m
 }
 
 type model struct {
 	fns      []*fn
 	typeDecl map[string]int
-	soloType map[string]int
-	inits    map[int]bool
 	heads    map[string][]int
 }
 
 func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
 	switch d := d.(type) {
 	case *ast.GenDecl:
-		names := typeNames(d)
-		for _, name := range names {
+		for _, name := range typeNames(d) {
 			m.typeDecl[name] = i
 		}
-		if len(d.Specs) == 1 && len(names) == 1 {
-			m.soloType[names[0]] = i
-		}
-		m.inits[i] = initializes(d)
 	case *ast.FuncDecl:
 		x := newFn(i, d)
 		m.fns[i] = x
@@ -99,16 +90,28 @@ func (m *model) reaches(from, to int) bool {
 	return false
 }
 
-func (m *model) typeHeads() map[string][]int {
+func (m *model) typeHeads(decls []ast.Decl) map[string][]int {
 	isType := map[int]bool{}
 	for _, i := range m.typeDecl {
 		isType[i] = true
 	}
+	soloType := map[string]int{}
+	initVars := map[int]bool{}
+	for i, d := range decls {
+		gd, ok := d.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		if names := typeNames(gd); len(gd.Specs) == 1 && len(names) == 1 {
+			soloType[names[0]] = i
+		}
+		initVars[i] = hasInitializer(gd)
+	}
 	heads := map[string][]int{}
 	for _, x := range m.funcs() {
-		t, ok := m.soloType[x.recv]
+		t, ok := soloType[x.recv]
 		if _, seen := heads[x.recv]; ok && !seen {
-			heads[x.recv] = m.typeHead(t, x.idx, isType)
+			heads[x.recv] = m.typeHead(t, x.idx, isType, initVars)
 		}
 	}
 	return heads
@@ -124,12 +127,12 @@ func (m *model) funcs() []*fn {
 	return out
 }
 
-func (m *model) typeHead(t, dest int, isType map[int]bool) []int {
+func (m *model) typeHead(t, dest int, isType, initVars map[int]bool) []int {
 	head := []int{t}
 	for i := t + 1; i < len(m.fns) && m.fns[i] == nil && !isType[i]; i++ {
 		head = append(head, i)
 	}
-	isInit := func(i int) bool { return m.inits[i] }
+	isInit := func(i int) bool { return initVars[i] }
 	cut := slices.IndexFunc(head, isInit)
 	lo, hi := head[len(head)-1]+1, dest
 	if dest < t {
@@ -145,7 +148,7 @@ func (m *model) typeHead(t, dest int, isType map[int]bool) []int {
 	return head[:cut]
 }
 
-func initializes(d *ast.GenDecl) bool {
+func hasInitializer(d *ast.GenDecl) bool {
 	if d.Tok != token.VAR {
 		return false
 	}
