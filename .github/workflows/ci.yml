@@ -24,6 +24,7 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: ./go/go.mod
+          cache-dependency-path: go/go.sum
 
       - name: Run Linters
         run: LINT_FIX=0 ./scripts/go/lint.sh
@@ -40,6 +41,7 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: ./go/go.mod
+          cache-dependency-path: go/go.sum
 
       - name: Run Tests
         run: ./scripts/go/covgate.sh
