@@ -7,18 +7,24 @@ import (
 
 func (l *layout) tuckTypes() {
 	isFunc := func(i int) bool { return l.m.fns[i] != nil }
-	isInitVar := func(i int) bool { return l.m.initVars[i] }
 	for _, typeIdx := range slices.Sorted(maps.Keys(l.m.tucked)) {
 		from := treeOf(l.trees, typeIdx)
 		last, tree := l.m.lastUserTree(l.trees, typeIdx, from), l.trees[from]
-		if last < 0 || slices.ContainsFunc(tree, isInitVar) ||
-			l.hasCallerBetween(tree, last, from) {
+		if !l.isTuckable(tree, last, from) {
 			continue
 		}
 		l.below[tree[slices.IndexFunc(tree, isFunc)]] = true
 		l.trees = slices.Delete(l.trees, from, from+1)
 		l.trees[last] = slices.Concat(l.trees[last], tree)
 	}
+}
+
+func (l *layout) isTuckable(tree []int, last, from int) bool {
+	isInitVar := func(i int) bool { return l.m.initVars[i] }
+	if last < 0 || slices.ContainsFunc(tree, isInitVar) {
+		return false
+	}
+	return !l.hasCallerBetween(tree, last, from)
 }
 
 func (l *layout) hasCallerBetween(tree []int, last, from int) bool {
