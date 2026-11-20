@@ -93,8 +93,6 @@ func testTable() Table {
 	}
 }
 
-func emptyTable() Table { return Table{Format: "", Names: nil, Dashes: nil} }
-
 func runEach12(t *testing.T, enabled bool) string {
 	t.Helper()
 	var buf bytes.Buffer
@@ -115,6 +113,8 @@ func runEach12(t *testing.T, enabled bool) string {
 	}
 	return buf.String()
 }
+
+func emptyTable() Table { return Table{Format: "", Names: nil, Dashes: nil} }
 
 func trackedRun(peak *atomic.Int32) func(int) int {
 	var inFlight atomic.Int32

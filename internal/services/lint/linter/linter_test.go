@@ -236,6 +236,15 @@ func TestFindGoFiles(t *testing.T) {
 	}
 }
 
+func cfgExcluding(rules ...Rule) Config {
+	cfg := defaultCfg()
+	cfg.Exclude = make(map[Rule]bool, len(rules))
+	for _, r := range rules {
+		cfg.Exclude[r] = true
+	}
+	return cfg
+}
+
 func defaultCfg() Config {
 	return Config{
 		MaxLineWidth:    88,
@@ -249,25 +258,6 @@ func defaultCfg() Config {
 		Exclude:         nil,
 		Out:             io.Discard,
 		Err:             io.Discard,
-	}
-}
-
-func cfgExcluding(rules ...Rule) Config {
-	cfg := defaultCfg()
-	cfg.Exclude = make(map[Rule]bool, len(rules))
-	for _, r := range rules {
-		cfg.Exclude[r] = true
-	}
-	return cfg
-}
-
-func writeFile(t *testing.T, path, content string) {
-	dir := path[:len(path)-len(path[strings.LastIndex(path, "/")+1:])]
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -286,6 +276,16 @@ func runFix(t *testing.T, cfg Config, src string) (diags, fixed int, got string)
 		t.Fatal(err)
 	}
 	return diags, fixed, string(content)
+}
+
+func writeFile(t *testing.T, path, content string) {
+	dir := path[:len(path)-len(path[strings.LastIndex(path, "/")+1:])]
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func assertFixed(t *testing.T, diags, fixed int, got string, want fixResult) {

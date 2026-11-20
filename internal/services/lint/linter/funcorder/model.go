@@ -178,9 +178,4 @@ func recvName(d *ast.FuncDecl) *ast.Ident {
 	return d.Recv.List[0].Names[0]
 }
 
-func enforced(from, to *fn) bool {
-	if from.exempt || to.exempt || from.recv != "" && to.recv == "" && to.rank == 0 {
-		return false
-	}
-	return to.rank >= from.rank
-}
+func enforced(from, to *fn) bool { return !from.exempt && !to.exempt }

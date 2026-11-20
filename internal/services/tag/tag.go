@@ -13,69 +13,6 @@ import (
 	"strings"
 )
 
-// FilterTags returns tags matching the given pattern.
-func FilterTags(tags []string, pattern *regexp.Regexp) []string {
-	var matched []string
-	for _, t := range tags {
-		if pattern.MatchString(t) {
-			matched = append(matched, t)
-		}
-	}
-	return matched
-}
-
-// SortVersionTags sorts tags using the same logic as sort -V.
-func SortVersionTags(tags []string) {
-	sort.SliceStable(tags, func(i, j int) bool { return VersionLess(tags[i], tags[j]) })
-}
-
-// VersionLess compares two version strings like sort -V.
-func VersionLess(a, b string) bool {
-	pa, pb := SplitVersionParts(a), SplitVersionParts(b)
-	return slices.CompareFunc(pa, pb, comparePart) < 0
-}
-
-// SplitVersionParts splits a version into numeric and non-numeric segments.
-func SplitVersionParts(s string) []string {
-	var parts []string
-	cur := ""
-	inDigit := false
-
-	for _, c := range s {
-		isDigit := c >= '0' && c <= '9'
-		switch {
-		case cur == "":
-			cur = string(c)
-			inDigit = isDigit
-		case isDigit == inDigit:
-			cur += string(c)
-		default:
-			parts = append(parts, cur)
-			cur = string(c)
-			inDigit = isDigit
-		}
-	}
-	if cur != "" {
-		parts = append(parts, cur)
-	}
-	return parts
-}
-
-// ParseNum returns the integer value of s if it is all digits.
-func ParseNum(s string) (int, bool) {
-	n := 0
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return 0, false
-		}
-		n = n*10 + int(c-'0')
-	}
-	if len(s) == 0 {
-		return 0, false
-	}
-	return n, true
-}
-
 type runner struct {
 	gitTags    func(errW io.Writer) ([]string, error)
 	currentTag func(errW io.Writer) (string, error)
@@ -165,6 +102,54 @@ func (r *runner) latest(prefix string, errW io.Writer) (string, error) {
 
 func (r *runner) current(errW io.Writer) (string, error) { return r.currentTag(errW) }
 
+// FilterTags returns tags matching the given pattern.
+func FilterTags(tags []string, pattern *regexp.Regexp) []string {
+	var matched []string
+	for _, t := range tags {
+		if pattern.MatchString(t) {
+			matched = append(matched, t)
+		}
+	}
+	return matched
+}
+
+// SortVersionTags sorts tags using the same logic as sort -V.
+func SortVersionTags(tags []string) {
+	sort.SliceStable(tags, func(i, j int) bool { return VersionLess(tags[i], tags[j]) })
+}
+
+// VersionLess compares two version strings like sort -V.
+func VersionLess(a, b string) bool {
+	pa, pb := SplitVersionParts(a), SplitVersionParts(b)
+	return slices.CompareFunc(pa, pb, comparePart) < 0
+}
+
+// SplitVersionParts splits a version into numeric and non-numeric segments.
+func SplitVersionParts(s string) []string {
+	var parts []string
+	cur := ""
+	inDigit := false
+
+	for _, c := range s {
+		isDigit := c >= '0' && c <= '9'
+		switch {
+		case cur == "":
+			cur = string(c)
+			inDigit = isDigit
+		case isDigit == inDigit:
+			cur += string(c)
+		default:
+			parts = append(parts, cur)
+			cur = string(c)
+			inDigit = isDigit
+		}
+	}
+	if cur != "" {
+		parts = append(parts, cur)
+	}
+	return parts
+}
+
 func defaultCurrentTag(errW io.Writer) (string, error) {
 	if errW == nil {
 		errW = os.Stderr
@@ -186,4 +171,19 @@ func comparePart(a, b string) int {
 		return cmp.Compare(aNum, bNum)
 	}
 	return strings.Compare(a, b)
+}
+
+// ParseNum returns the integer value of s if it is all digits.
+func ParseNum(s string) (int, bool) {
+	n := 0
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0, false
+		}
+		n = n*10 + int(c-'0')
+	}
+	if len(s) == 0 {
+		return 0, false
+	}
+	return n, true
 }

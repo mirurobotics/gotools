@@ -146,12 +146,6 @@ type stepResult struct {
 	failed bool
 }
 
-func timedRun(name string, fn func() error) stepResult {
-	start := time.Now()
-	err := fn()
-	return stepResult{timing: stepTiming{name, time.Since(start)}, failed: err != nil}
-}
-
 func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTiming) {
 	var (
 		wg    sync.WaitGroup
@@ -179,6 +173,12 @@ func runAnalyzersParallel(opts LintOpts) (failures []string, timings []stepTimin
 		_, _ = fmt.Fprint(opts.Out, dcBuf.String())
 	}
 	return collectResults([]stepResult{gcR, dcR})
+}
+
+func timedRun(name string, fn func() error) stepResult {
+	start := time.Now()
+	err := fn()
+	return stepResult{timing: stepTiming{name, time.Since(start)}, failed: err != nil}
 }
 
 func collectResults(results []stepResult) (failures []string, timings []stepTiming) {

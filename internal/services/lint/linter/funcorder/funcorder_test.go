@@ -30,11 +30,31 @@ func a() { a(); b() }
 
 func z() {}
 `,
-		"exported callee of unexported caller": `package p
-
-func Get() int { return 1 }
+		"exported callee below unexported caller": `package p
 
 func get() int { return Get() }
+
+func Get() int { return 1 }
+`,
+		"shared helper below last caller": `package p
+
+func A() { a1(); h() }
+
+func a1() {}
+
+func B() { b1(); h() }
+
+func b1() {}
+
+func h() {}
+`,
+		"exported entry above unexported entry": `package p
+
+func Run() { helper() }
+
+func helper() {}
+
+func unused() {}
 `,
 		"entry points and blank functions": `package main
 
@@ -133,9 +153,36 @@ func other() { helper() }
 
 func Run() { other(); _ = helper }
 `,
-		`"helper" should be below its first caller "other"`,
-		`"other" should be below its first caller "Run"`,
-		`"Run" should be above unexported "helper"`,
+		`"helper" should be below its last caller "Run"`,
+		`"other" should be below its last caller "Run"`,
+	)
+}
+
+func TestCheck_ExportedCalledInFile(t *testing.T) {
+	assertMessages(t, `package p
+
+func Load(path string) int { return loadFile(path) }
+
+func Parse(b []byte) int { return validate(b) }
+
+func loadFile(path string) int { return Parse(read(path)) }
+
+func read(path string) []byte { return nil }
+
+func validate(b []byte) int { return len(b) }
+`,
+		`"Parse" should be below its last caller "loadFile"`,
+	)
+}
+
+func TestCheck_ExportedEntryFirst(t *testing.T) {
+	assertMessages(t, `package p
+
+func unused() {}
+
+func Run() {}
+`,
+		`"Run" should be above unexported "unused"`,
 	)
 }
 
@@ -152,7 +199,8 @@ func (t T) Value() int { return Run() + help() }
 
 func help() int { return 1 }
 `,
-		`"Get" should be below its first caller "Run"`,
+		`"Get" should be below its last caller "Run"`,
+		`"Run" should be below its last caller "T.Value"`,
 	)
 }
 
@@ -169,16 +217,14 @@ func free() {}
 
 func (t T) Other() {}
 `,
-		`"T.helper" should be below its first caller "T.Run"`,
+		`"T.helper" should be below its last caller "T.Run"`,
 		`method "T.helper" should be below type "T"`,
-		`"T.Run" should be above unexported "T.helper"`,
 		`method "T.Run" should be grouped with the other methods of "T"`,
-		`"T.Other" should be above unexported "T.helper"`,
 		`method "T.Other" should be grouped with the other methods of "T"`,
 	)
 }
 
-func TestCheck_UnexportedTypeMethods(t *testing.T) {
+func TestCheck_UnexportedTypeMethodsStayWithType(t *testing.T) {
 	assertMessages(t, `package p
 
 type runner struct{}
@@ -192,9 +238,7 @@ func (runner) Wait() {}
 func (r (runner)) wrapped() {}
 
 func New() runner { return runner{} }
-`,
-		`"New" should be above unexported "runner.Run"`,
-	)
+`)
 }
 
 func TestCheck_ParenReceiver(t *testing.T) {
@@ -208,11 +252,23 @@ func TestFix_MultiLineTrailingComment(t *testing.T) {
 	assertFix(t, "package p\n\n"+helper+"\n"+run, "package p\n\n"+run+"\n"+helper)
 }
 
-func TestFix_UnexportedTypeBelowExported(t *testing.T) {
-	typ := "package p\n\ntype runner struct{}\n"
-	run := "func (r runner) run() {}\n"
-	newFn := "func New() runner { return runner{} }\n"
-	assertFix(t, typ+"\n"+run+"\n"+newFn, typ+"\n"+newFn+"\n"+run)
+func TestFix_SharedHelperGroupsUnderLastCaller(t *testing.T) {
+	h := "func h() {}\n"
+	a := "func A() { a1(); h() }\n"
+	a1 := "func a1() {}\n"
+	b := "func B() { b1(); h() }\n"
+	b1 := "func b1() {}\n"
+	src := "package p\n\n" + a + "\n" + h + "\n" + a1 + "\n" + b + "\n" + b1
+	want := "package p\n\n" + a + "\n" + a1 + "\n" + b + "\n" + h + "\n" + b1
+	assertFix(t, src, want)
+}
+
+func TestFix_ExportedCalledInFileMovesDown(t *testing.T) {
+	load := "func Load() int { return loadFile() }\n"
+	parse := "func Parse() int { return 1 }\n"
+	loadFile := "func loadFile() int { return Parse() }\n"
+	src := "package p\n\n" + load + "\n" + parse + "\n" + loadFile
+	assertFix(t, src, "package p\n\n"+load+"\n"+loadFile+"\n"+parse)
 }
 
 func TestFix_PackageLineComment(t *testing.T) {

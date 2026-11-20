@@ -61,8 +61,8 @@ func TestRun_Check_FuncOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `foo.go:3: "helper" should be below its first caller "Run"`
-	if diags != 2 || !strings.Contains(out.String(), want) {
-		t.Errorf("got %d diagnostics, want 2 with %q:\n%s", diags, want, out.String())
+	want := `foo.go:3: "helper" should be below its last caller "Run"`
+	if diags != 1 || !strings.Contains(out.String(), want) {
+		t.Errorf("got %d diagnostics, want 1 with %q:\n%s", diags, want, out.String())
 	}
 }

@@ -24,20 +24,6 @@ func WriteCovgateFile(t *testing.T, dir, val string) {
 	}
 }
 
-// MakePkgDirs chdirs into a temp dir, creates each rel in it, and returns the dir.
-func MakePkgDirs(t *testing.T, rels ...string) string {
-	t.Helper()
-	tmp := t.TempDir()
-	t.Chdir(tmp)
-	for _, rel := range rels {
-		//nolint:gosec // G301: test directory
-		if err := os.MkdirAll(filepath.Join(tmp, rel), 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return tmp
-}
-
 // AssertInOrder checks that each string appears in out, in the given order.
 func AssertInOrder(t *testing.T, out string, ordered ...string) {
 	t.Helper()
@@ -81,6 +67,20 @@ func WriteTestModule(t *testing.T, lib, test string) {
 			t.Fatal(err)
 		}
 	}
+}
+
+// MakePkgDirs chdirs into a temp dir, creates each rel in it, and returns the dir.
+func MakePkgDirs(t *testing.T, rels ...string) string {
+	t.Helper()
+	tmp := t.TempDir()
+	t.Chdir(tmp)
+	for _, rel := range rels {
+		//nolint:gosec // G301: test directory
+		if err := os.MkdirAll(filepath.Join(tmp, rel), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return tmp
 }
 
 // HasLineWith reports whether one line of out contains both marker and contains.

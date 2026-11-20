@@ -51,11 +51,11 @@ func (m *model) violations(x *fn) []string {
 }
 
 func (m *model) stepdown(x *fn) string {
-	if len(x.callers) == 0 || slices.Min(x.callers) < x.idx {
+	if len(x.callers) == 0 || slices.Max(x.callers) < x.idx {
 		return ""
 	}
-	first := m.fns[slices.Min(x.callers)].name
-	return fmt.Sprintf("%q should be below its first caller %q", x.name, first)
+	last := m.fns[slices.Max(x.callers)].name
+	return fmt.Sprintf("%q should be below its last caller %q", x.name, last)
 }
 
 func (m *model) rankOrder(x *fn) string {
@@ -129,16 +129,8 @@ func (m *model) unitReady(u []int, done map[int]bool) bool {
 	if x == nil || x.recv == "" {
 		return m.ready(x, done)
 	}
-	if t, ok := m.typeDecl[x.recv]; ok && !done[t] {
-		return false
-	}
-	inGroup := func(i int) bool { return done[i] || slices.Contains(u, i) }
-	for _, i := range u {
-		if !m.ranked(m.fns[i], inGroup) {
-			return false
-		}
-	}
-	return true
+	t, ok := m.typeDecl[x.recv]
+	return !ok || done[t]
 }
 
 func (m *model) ready(x *fn, done map[int]bool) bool {
@@ -146,8 +138,10 @@ func (m *model) ready(x *fn, done map[int]bool) bool {
 		return true
 	}
 	isDone := func(i int) bool { return done[i] }
-	if len(x.callers) > 0 && !slices.ContainsFunc(x.callers, isDone) {
-		return false
+	for _, c := range x.callers {
+		if !done[c] {
+			return false
+		}
 	}
 	return m.ranked(x, isDone)
 }
@@ -162,13 +156,10 @@ func (m *model) ranked(y *fn, isDone func(int) bool) bool {
 }
 
 func mustPrecede(x, y *fn) bool {
-	if x.rank != 0 || x.exempt || y.exempt {
+	if x.rank != 0 || y.rank != 1 || x.exempt || y.exempt {
 		return false
 	}
-	if x.recv == "" && y.recv != "" {
-		return !ast.IsExported(y.recv)
-	}
-	return y.recv == x.recv && y.rank == 1
+	return x.recv == y.recv && len(x.callers) == 0 && len(y.callers) == 0
 }
 
 func kahn[T any](items []T, ready func(T) bool, emit func(T)) {
