@@ -19,12 +19,12 @@ func (c *checker) closeUsed(open map[string]*fieldGroup, s ast.Stmt) {
 }
 
 func (c *checker) usedKeys(s ast.Stmt) map[any]bool {
-	call := c.testifyCall(s)
+	call, _, args := c.testifyCall(s)
 	if call == nil {
 		return identSet(s)
 	}
 	used := make(map[any]bool)
-	for _, arg := range call.Args {
+	for _, arg := range args {
 		ast.Inspect(arg, func(n ast.Node) bool {
 			if !mayChange(n) {
 				return true
@@ -36,24 +36,29 @@ func (c *checker) usedKeys(s ast.Stmt) map[any]bool {
 	return used
 }
 
-func (c *checker) testifyCall(s ast.Stmt) *ast.CallExpr {
+func (c *checker) testifyCall(s ast.Stmt) (*ast.CallExpr, string, []ast.Expr) {
 	es, ok := s.(*ast.ExprStmt)
 	if !ok {
-		return nil
+		return nil, "", nil
 	}
 	call, ok := es.X.(*ast.CallExpr)
 	if !ok {
-		return nil
+		return nil, "", nil
 	}
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
-		return nil
+		return nil, "", nil
 	}
 	recv, ok := sel.X.(*ast.Ident)
-	if !ok || !c.isTestifyPkg(recv) && !c.isAssertObject(recv) {
-		return nil
+	switch {
+	case !ok:
+		return nil, "", nil
+	case c.isAssertObject(recv):
+		return call, sel.Sel.Name, call.Args
+	case c.isTestifyPkg(recv) && len(call.Args) > 0:
+		return call, sel.Sel.Name, call.Args[1:]
 	}
-	return call
+	return nil, "", nil
 }
 
 func (c *checker) isAssertObject(id *ast.Ident) bool {

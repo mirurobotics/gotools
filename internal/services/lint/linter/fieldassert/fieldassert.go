@@ -113,18 +113,11 @@ func (c *checker) report(g *fieldGroup) {
 }
 
 func (c *checker) fieldArg(s ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
-	es, ok := s.(*ast.ExprStmt)
-	if !ok {
+	call, name, args := c.testifyCall(s)
+	if call == nil || !isEqualityFunc(name) || len(args) < 2 {
 		return nil, nil
 	}
-	call, ok := es.X.(*ast.CallExpr)
-	if !ok {
-		return nil, nil
-	}
-	expected, actual, ok := c.comparedValues(call)
-	if !ok {
-		return nil, nil
-	}
+	expected, actual := args[0], args[1]
 	if sel := c.asField(actual); sel != nil {
 		return call, sel
 	}
@@ -135,31 +128,6 @@ func (c *checker) fieldArg(s ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
 		return call, sel
 	}
 	return nil, nil
-}
-
-func (c *checker) comparedValues(
-	call *ast.CallExpr,
-) (expected, actual ast.Expr, ok bool) {
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || !isEqualityFunc(sel.Sel.Name) {
-		return nil, nil, false
-	}
-	recv, ok := sel.X.(*ast.Ident)
-	if !ok {
-		return nil, nil, false
-	}
-	first := 0
-	switch {
-	case c.isAssertObject(recv):
-	case c.isTestifyPkg(recv):
-		first = 1
-	default:
-		return nil, nil, false
-	}
-	if len(call.Args) < first+2 {
-		return nil, nil, false
-	}
-	return call.Args[first], call.Args[first+1], true
 }
 
 func (c *checker) asField(e ast.Expr) *ast.SelectorExpr {
