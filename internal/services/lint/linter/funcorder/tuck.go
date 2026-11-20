@@ -26,6 +26,23 @@ func (l *layout) tuckOnce() bool {
 	return false
 }
 
+func (l *layout) lastUserTree(typeIdx, from int) int {
+	last := -1
+	for _, user := range l.m.tucked[typeIdx] {
+		userTree := treeOf(l.trees, user)
+		if userTree >= 0 && userTree < from && l.isFreeUser(user) {
+			last = max(last, userTree)
+		}
+	}
+	return last
+}
+
+func (l *layout) isFreeUser(user int) bool {
+	unit := l.unit[l.unitOf[user]]
+	owner := l.m.fns[unit[len(unit)-1]]
+	return owner != nil && owner.recv == ""
+}
+
 func (l *layout) isTuckable(tree []int, typeIdx, last, from int) bool {
 	isInitVar := func(i int) bool { return l.m.initVars[i] }
 	if last < 0 || tree[0] != typeIdx || slices.ContainsFunc(tree, isInitVar) {
@@ -42,23 +59,6 @@ func (l *layout) hasCallerBetween(tree []int, last, from int) bool {
 	return slices.ContainsFunc(tree, func(i int) bool {
 		return l.m.fns[i] != nil && slices.ContainsFunc(l.m.fns[i].callers, isBetween)
 	})
-}
-
-func (l *layout) lastUserTree(typeIdx, from int) int {
-	last := -1
-	for _, user := range l.m.tucked[typeIdx] {
-		userTree := treeOf(l.trees, user)
-		if userTree >= 0 && userTree < from && l.isFreeUser(user) {
-			last = max(last, userTree)
-		}
-	}
-	return last
-}
-
-func (l *layout) isFreeUser(user int) bool {
-	unit := l.unit[l.unitOf[user]]
-	owner := l.m.fns[unit[len(unit)-1]]
-	return owner != nil && owner.recv == ""
 }
 
 func treeOf(trees [][]int, i int) int {
