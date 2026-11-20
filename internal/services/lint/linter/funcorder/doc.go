@@ -13,7 +13,7 @@
 //     user, a function or var block, with the const blocks right above it and
 //     those below it that use it;
 //   - a type with methods that a free function above it, or a var block moving
-//     with one, uses sits directly below the last such user and its helpers.
+//     with one, uses sits directly below the call tree of the last such user.
 //
 // Calls are matched by name, methods only through their receiver. A call within
 // a cycle needn't sit above its callee, but the walk follows it. A function's

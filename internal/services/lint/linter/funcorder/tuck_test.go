@@ -54,6 +54,25 @@ func (o obj) ID() string { return "" }
 	)
 }
 
+func TestCheck_TuckedTypeBelowVarBlockUser(t *testing.T) {
+	assertMessages(t, `package p
+
+func Other() {}
+
+var cache map[string]obj
+
+func Run() { _ = cache }
+
+func Last() {}
+
+type obj struct{}
+
+func (o obj) ID() string { return "" }
+`,
+		`"obj.ID" should be directly below "Run"`,
+	)
+}
+
 func TestCheck_TuckedTypesPlaced(t *testing.T) {
 	cases := map[string]string{
 		"above its user": `package p
@@ -122,6 +141,20 @@ func (o obj) ID() { g() }
 
 func g() {}
 `,
+		"used only by a var block in another type's head": `package p
+
+type other struct{}
+
+var x obj
+
+func (o other) M() {}
+
+func Run() {}
+
+type obj struct{}
+
+func (o obj) ID() string { return "" }
+`,
 		"used only by another type's methods": `package p
 
 type other struct{}
@@ -178,6 +211,17 @@ func TestFix_TuckedTypePastDeclarations(t *testing.T) {
 		"type obj struct{}\n", "func (o obj) ID() string { return \"\" }\n",
 	}
 	want := []string{src[0], src[3], src[4], src[1], src[2]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_TuckedTypeUnblocksAnother(t *testing.T) {
+	src := []string{
+		"func Run() { _ = a{} }\n", "func Other() {}\n",
+		"type b struct{}\n", "func (x b) B() {}\n",
+		"type a struct{}\n", "func (x a) A() { h() }\n", "func h() { _ = b{} }\n",
+	}
+	want := []string{src[0], src[4], src[5], src[6], src[2], src[3], src[1]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
