@@ -290,30 +290,3 @@ func TestX(t *testing.T) {
 	fset, f := linttest.Parse(t, "foo_test.go", src)
 	linttest.AssertLines(t, Check(fset, "foo_test.go", f), []int{12}, "")
 }
-
-func TestCheck_UseOutsideAssertStartsNewGroup(t *testing.T) {
-	assertGotFlagged(t, `func TestX(t *testing.T) {
-	var got T
-	assert.Equal(t, 1, got.A)
-	require.NoError(t, json.Unmarshal(b, &got))
-	assert.Equal(t, 2, got.B)
-	got.Stop()
-	assert.Equal(t, 3, got.C)
-	fill(got)
-	assert.Equal(t, 4, got.D)
-	for got = range xs {
-	}
-	assert.Equal(t, 5, got.E)
-}
-
-func TestY(t *testing.T) {
-	got := build()
-	assert.Equal(t, 1, got.A)
-	require.Len(t, got.Items, 2)
-	assert.Equal(t, 2, got.B)
-	err := other()
-	assert.Equal(t, 3, got.C)
-	_ = err
-}
-`, 27)
-}

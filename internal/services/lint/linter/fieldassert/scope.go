@@ -2,14 +2,12 @@ package fieldassert
 
 import (
 	"go/ast"
+	"go/token"
 	"maps"
 )
 
 func (c *checker) closeUsed(open map[string]*fieldGroup, s ast.Stmt) {
-	if c.isTestifyStmt(s) {
-		return
-	}
-	used := identSet(s)
+	used := c.usedKeys(s)
 	maps.DeleteFunc(open, func(_ string, g *fieldGroup) bool {
 		for key := range g.deps {
 			if used[key] {
@@ -20,21 +18,42 @@ func (c *checker) closeUsed(open map[string]*fieldGroup, s ast.Stmt) {
 	})
 }
 
-func (c *checker) isTestifyStmt(s ast.Stmt) bool {
+func (c *checker) usedKeys(s ast.Stmt) map[any]bool {
+	call := c.testifyCall(s)
+	if call == nil {
+		return identSet(s)
+	}
+	used := make(map[any]bool)
+	for _, arg := range call.Args {
+		ast.Inspect(arg, func(n ast.Node) bool {
+			if !mayChange(n) {
+				return true
+			}
+			maps.Copy(used, identSet(n))
+			return false
+		})
+	}
+	return used
+}
+
+func (c *checker) testifyCall(s ast.Stmt) *ast.CallExpr {
 	es, ok := s.(*ast.ExprStmt)
 	if !ok {
-		return false
+		return nil
 	}
 	call, ok := es.X.(*ast.CallExpr)
 	if !ok {
-		return false
+		return nil
 	}
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
-		return false
+		return nil
 	}
 	recv, ok := sel.X.(*ast.Ident)
-	return ok && (c.isTestifyPkg(recv) || c.isAssertObject(recv))
+	if !ok || !c.isTestifyPkg(recv) && !c.isAssertObject(recv) {
+		return nil
+	}
+	return call
 }
 
 func (c *checker) isAssertObject(id *ast.Ident) bool {
@@ -174,4 +193,14 @@ func identKey(id *ast.Ident) any {
 		return id.Obj
 	}
 	return id.Name
+}
+
+func mayChange(n ast.Node) bool {
+	switch n := n.(type) {
+	case *ast.CallExpr, *ast.FuncLit:
+		return true
+	case *ast.UnaryExpr:
+		return n.Op == token.AND
+	}
+	return false
 }
