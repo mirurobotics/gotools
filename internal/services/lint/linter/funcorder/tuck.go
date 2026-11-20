@@ -13,15 +13,10 @@ func (l *layout) tuckTypes() {
 		if last < 0 {
 			continue
 		}
-		end := last + 1
-		for end < from && !slices.ContainsFunc(l.trees[end], isFunc) {
-			end++
-		}
 		tree := l.trees[from]
 		l.below[tree[slices.IndexFunc(tree, isFunc)]] = true
-		merged := slices.Concat(slices.Concat(l.trees[last:end]...), tree)
 		l.trees = slices.Delete(l.trees, from, from+1)
-		l.trees = slices.Replace(l.trees, last, end, merged)
+		l.trees[last] = slices.Concat(l.trees[last], tree)
 	}
 }
 
