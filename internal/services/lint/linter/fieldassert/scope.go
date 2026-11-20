@@ -27,10 +27,8 @@ func assignedKeys(s ast.Stmt) []any {
 				keys = appendKey(keys, rootIdent(n.X))
 			}
 		case *ast.RangeStmt:
-			if n.Tok == token.ASSIGN {
-				keys = appendKey(keys, rootIdent(n.Key))
-				keys = appendKey(keys, rootIdent(n.Value))
-			}
+			keys = appendKey(keys, rootIdent(n.Key))
+			keys = appendKey(keys, rootIdent(n.Value))
 		}
 		return true
 	})

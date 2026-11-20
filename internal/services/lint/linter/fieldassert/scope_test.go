@@ -297,14 +297,24 @@ func TestCheck_AddressTakenOrRangeAssignStartsNewGroup(t *testing.T) {
 	assert.Equal(t, 1, got.A)
 	require.NoError(t, json.Unmarshal(b, &got))
 	assert.Equal(t, 2, got.B)
+	assert.Equal(t, 3, got.C)
+}
+
+func TestY(t *testing.T) {
+	var got T
+	assert.Equal(t, 1, got.A)
 	for got = range xs {
 	}
+	assert.Equal(t, 2, got.B)
 	assert.Equal(t, 3, got.C)
-	for _, x := range xs {
-		_ = x
-	}
-	_ = -got.A
-	assert.Equal(t, 4, got.D)
 }
-`)
+
+func TestZ(t *testing.T) {
+	var got T
+	assert.Equal(t, 1, got.A)
+	_ = -got.A
+	assert.Equal(t, 2, got.B)
+	assert.Equal(t, 3, got.C)
+}
+`, 30)
 }
