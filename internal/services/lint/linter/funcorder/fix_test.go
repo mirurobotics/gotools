@@ -67,6 +67,15 @@ func TestFix_KeepsVarInitOrder(t *testing.T) {
 		"package p\n\n"+a+"\n"+f+"\n"+b+"\n"+typ+"\n"+m)
 }
 
+func TestFix_KeepsVarInitOrderMovingUp(t *testing.T) {
+	m := "func (T) M() {}\n"
+	b := "var b = record(\"b\")\n"
+	typ := "type T struct{}\n"
+	a := "var a = record(\"a\")\n"
+	assertFix(t, "package p\n\n"+m+"\n"+b+"\n"+typ+"\n"+a,
+		"package p\n\n"+typ+"\n"+m+"\n"+b+"\n"+a)
+}
+
 func TestFix_PackageLineComment(t *testing.T) {
 	head := "package p /* a\nb */\n\n"
 	assertFix(t, head+"func helper() {}\n\nfunc Run() { helper() }\n",

@@ -131,8 +131,12 @@ func (m *model) typeHead(t, dest int, isType map[int]bool) []int {
 	}
 	isInit := func(i int) bool { return m.inits[i] }
 	cut := slices.IndexFunc(head, isInit)
+	lo, hi := head[len(head)-1]+1, dest
+	if dest < t {
+		lo, hi = dest, t
+	}
 	var between []int
-	for i := head[len(head)-1] + 1; i < dest; i++ {
+	for i := lo; i < hi; i++ {
 		between = append(between, i)
 	}
 	if cut < 0 || !slices.ContainsFunc(between, isInit) {
