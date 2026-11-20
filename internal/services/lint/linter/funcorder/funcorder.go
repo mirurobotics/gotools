@@ -90,13 +90,10 @@ func (m *model) grouped(x *fn) string {
 		)
 	}
 	head, ok := m.heads[x.recv]
-	if prev >= 0 || !ok || head[0] > x.idx {
+	if prev >= 0 || !ok || head[0] > x.idx || m.placed(x.recv) {
 		return ""
 	}
-	if head[len(head)-1] != x.idx-1 {
-		return fmt.Sprintf("type %q should be directly above its methods", x.recv)
-	}
-	return ""
+	return fmt.Sprintf("type %q should be directly above its methods", x.recv)
 }
 
 func (m *model) order() []int {
@@ -136,17 +133,17 @@ func (m *model) settledHeads() map[string][]int {
 	heads := map[string][]int{}
 	for recv, head := range m.heads {
 		heads[recv] = head
-		if k := slices.IndexFunc(head, isInit); k > 0 && m.moves(recv, head) {
+		if k := slices.IndexFunc(head, isInit); k > 0 && !m.placed(recv) {
 			heads[recv] = head[:k]
 		}
 	}
 	return heads
 }
 
-func (m *model) moves(recv string, head []int) bool {
+func (m *model) placed(recv string) bool {
 	isMethod := func(x *fn) bool { return x != nil && x.recv == recv }
-	first := slices.IndexFunc(m.fns, isMethod)
-	return head[len(head)-1] != first-1
+	head := m.heads[recv]
+	return head[len(head)-1] == slices.IndexFunc(m.fns, isMethod)-1
 }
 
 func (m *model) units(heads map[string][]int) [][]int {

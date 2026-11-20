@@ -88,6 +88,20 @@ func TestFix_KeepsVarInitOrderAcrossTypes(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
+func TestFix_PlacedTypeKeepsItsVars(t *testing.T) {
+	src := []string{
+		"type Kind int\n", "var kindNames = record(\"k\")\n",
+		"func (Kind) String() string { return \"\" }\n", "type Config struct{}\n",
+		"var defaultConfig = record(\"c\")\n", "func Load() {}\n",
+		"var ErrBad = record(\"e\")\n", "func (Config) Validate() {}\n",
+	}
+	want := []string{
+		src[0], src[1], src[2], src[4], src[5], src[6], src[3], src[7],
+	}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
 func TestFix_TypeMovesUpWithItsConsts(t *testing.T) {
 	m := "func (k Kind) String() string { return \"\" }\n"
 	run := "func Run() {}\n"
