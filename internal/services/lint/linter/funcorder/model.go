@@ -40,6 +40,9 @@ func build(f *ast.File) *model {
 		m.linkCallees(x)
 	}
 	m.heads = m.typeHeads(f.Decls)
+	if initVars := initVarDecls(f.Decls); !m.keepsInitOrder(initVars) {
+		m.dropInitVars(initVars)
+	}
 	return m
 }
 
@@ -96,7 +99,6 @@ func (m *model) typeHeads(decls []ast.Decl) map[string][]int {
 		isType[i] = true
 	}
 	soloType := map[string]int{}
-	initVars := map[int]bool{}
 	for i, d := range decls {
 		gd, ok := d.(*ast.GenDecl)
 		if !ok {
@@ -105,13 +107,12 @@ func (m *model) typeHeads(decls []ast.Decl) map[string][]int {
 		if names := typeNames(gd); len(gd.Specs) == 1 && len(names) == 1 {
 			soloType[names[0]] = i
 		}
-		initVars[i] = hasInitializer(gd)
 	}
 	heads := map[string][]int{}
 	for _, x := range m.funcs() {
 		t, ok := soloType[x.recv]
 		if _, seen := heads[x.recv]; ok && !seen {
-			heads[x.recv] = m.typeHead(t, x.idx, isType, initVars)
+			heads[x.recv] = m.typeHead(t, isType)
 		}
 	}
 	return heads
@@ -127,25 +128,41 @@ func (m *model) funcs() []*fn {
 	return out
 }
 
-func (m *model) typeHead(t, dest int, isType, initVars map[int]bool) []int {
+func (m *model) typeHead(t int, isType map[int]bool) []int {
 	head := []int{t}
 	for i := t + 1; i < len(m.fns) && m.fns[i] == nil && !isType[i]; i++ {
 		head = append(head, i)
 	}
+	return head
+}
+
+func (m *model) keepsInitOrder(initVars map[int]bool) bool {
+	var vars []int
+	for _, i := range m.order() {
+		if initVars[i] {
+			vars = append(vars, i)
+		}
+	}
+	return slices.IsSorted(vars)
+}
+
+func (m *model) dropInitVars(initVars map[int]bool) {
 	isInit := func(i int) bool { return initVars[i] }
-	cut := slices.IndexFunc(head, isInit)
-	lo, hi := head[len(head)-1]+1, dest
-	if dest < t {
-		lo, hi = dest, t
+	for recv, head := range m.heads {
+		if k := slices.IndexFunc(head, isInit); k > 0 {
+			m.heads[recv] = head[:k]
+		}
 	}
-	var between []int
-	for i := lo; i < hi; i++ {
-		between = append(between, i)
+}
+
+func initVarDecls(decls []ast.Decl) map[int]bool {
+	initVars := map[int]bool{}
+	for i, d := range decls {
+		if gd, ok := d.(*ast.GenDecl); ok && hasInitializer(gd) {
+			initVars[i] = true
+		}
 	}
-	if cut < 0 || !slices.ContainsFunc(between, isInit) {
-		return head
-	}
-	return head[:cut]
+	return initVars
 }
 
 func hasInitializer(d *ast.GenDecl) bool {

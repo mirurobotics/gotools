@@ -1,6 +1,7 @@
 package funcorder
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
@@ -74,6 +75,17 @@ func TestFix_KeepsVarInitOrderMovingUp(t *testing.T) {
 	a := "var a = record(\"a\")\n"
 	assertFix(t, "package p\n\n"+m+"\n"+b+"\n"+typ+"\n"+a,
 		"package p\n\n"+typ+"\n"+m+"\n"+b+"\n"+a)
+}
+
+func TestFix_KeepsVarInitOrderAcrossTypes(t *testing.T) {
+	src := []string{
+		"type T struct{}\n", "var a = record(\"a\")\n", "func f() {}\n",
+		"func (U) M() {}\n", "func (T) N() {}\n", "type U struct{}\n",
+		"var u = record(\"u\")\n",
+	}
+	want := []string{src[1], src[2], src[5], src[3], src[0], src[4], src[6]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
 }
 
 func TestFix_PackageLineComment(t *testing.T) {
