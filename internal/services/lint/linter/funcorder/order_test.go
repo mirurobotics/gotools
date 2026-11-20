@@ -96,3 +96,19 @@ func a() { b() }
 func Run() {}
 `)
 }
+
+func TestCheck_ExemptMemberLeavesCycleOpen(t *testing.T) {
+	assertMessages(t, `package p
+
+//nolint:funcorder // kept first
+func e() { a() }
+
+func Run() {}
+
+func a() { b() }
+
+func b() { a(); e() }
+
+func c() {}
+`)
+}
