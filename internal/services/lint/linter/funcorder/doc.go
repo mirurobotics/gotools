@@ -4,6 +4,11 @@
 //   - a function sits below every function in the file that calls or
 //     references it, exported or not, so a file reads top to bottom from its
 //     entry points down through their helpers;
+//   - helpers follow depth-first in call order, so each file has one order: a
+//     function sits directly below its last caller, after the functions that
+//     caller calls first and their helpers. A type's methods count as one
+//     caller, and a const or var block between functions moves below the
+//     calls it splits;
 //   - an exported entry point (a function nothing in the file calls), main or
 //     init sits above unexported functions that nothing in the file calls;
 //   - a type's methods sit together below the type. A type declared on its own
@@ -15,7 +20,9 @@
 //     first user, a function or var block; a type with methods and its blocks
 //     count as one.
 //
-// Calls are matched by name and methods only through their receiver. Call
-// cycles are skipped. //nolint:funcorder on a function's doc lifts the caller
-// and entry point rules. Fix moves each declaration with its comments.
+// Calls are matched by name and methods only through their receiver. Calls
+// within a cycle don't order its members, though the depth-first walk still
+// follows them. //nolint:funcorder on a function's doc lifts the caller,
+// call order and entry point rules. Fix moves each declaration with its
+// comments.
 package funcorder

@@ -62,6 +62,23 @@ func (m *model) typeMessage(t int, u use) string {
 	)
 }
 
+func (m *model) declName(i int) string {
+	if x := m.fns[i]; x != nil {
+		return x.name
+	}
+	var name string
+	ast.Inspect(m.decls[i], func(n ast.Node) bool {
+		switch s := n.(type) {
+		case *ast.TypeSpec:
+			name = s.Name.Name
+		case *ast.ValueSpec:
+			name = s.Names[0].Name
+		}
+		return name == ""
+	})
+	return name
+}
+
 func (m *model) placeTypes(units [][]int, out []int) []int {
 	pos := make(map[int]int, len(out))
 	for p, i := range out {
@@ -95,33 +112,20 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 	return uses
 }
 
-func (m *model) declName(i int) string {
-	if x := m.fns[i]; x != nil {
-		return x.name
+func soloTypeSpec(d ast.Decl) *ast.TypeSpec {
+	gd, ok := d.(*ast.GenDecl)
+	if !ok || gd.Tok != token.TYPE || len(gd.Specs) != 1 {
+		return nil
 	}
-	var name string
-	ast.Inspect(m.decls[i], func(n ast.Node) bool {
-		switch s := n.(type) {
-		case *ast.TypeSpec:
-			name = s.Name.Name
-		case *ast.ValueSpec:
-			name = s.Names[0].Name
-		}
-		return name == ""
-	})
-	return name
+	ts, _ := gd.Specs[0].(*ast.TypeSpec)
+	return ts
 }
 
-func constHead(decls []ast.Decl, t int, ts *ast.TypeSpec) []int {
-	head := []int{t}
-	for i := t + 1; i < len(decls); i++ {
-		gd, ok := decls[i].(*ast.GenDecl)
-		if !ok || gd.Tok != token.CONST || !refersTo(gd, ts) {
-			break
-		}
-		head = append(head, i)
+func typeName(ts *ast.TypeSpec) string {
+	if ts == nil {
+		return ""
 	}
-	return head
+	return ts.Name.Name
 }
 
 func usersOf(ts *ast.TypeSpec, decls []ast.Decl) []int {
@@ -137,6 +141,18 @@ func usersOf(ts *ast.TypeSpec, decls []ast.Decl) []int {
 	return users
 }
 
+func constHead(decls []ast.Decl, t int, ts *ast.TypeSpec) []int {
+	head := []int{t}
+	for i := t + 1; i < len(decls); i++ {
+		gd, ok := decls[i].(*ast.GenDecl)
+		if !ok || gd.Tok != token.CONST || !refersTo(gd, ts) {
+			break
+		}
+		head = append(head, i)
+	}
+	return head
+}
+
 func refersTo(n ast.Node, ts *ast.TypeSpec) bool {
 	found := false
 	refIdents(n, func(*ast.SelectorExpr) {}, func(id *ast.Ident) bool {
@@ -144,20 +160,4 @@ func refersTo(n ast.Node, ts *ast.TypeSpec) bool {
 		return !found
 	})
 	return found
-}
-
-func soloTypeSpec(d ast.Decl) *ast.TypeSpec {
-	gd, ok := d.(*ast.GenDecl)
-	if !ok || gd.Tok != token.TYPE || len(gd.Specs) != 1 {
-		return nil
-	}
-	ts, _ := gd.Specs[0].(*ast.TypeSpec)
-	return ts
-}
-
-func typeName(ts *ast.TypeSpec) string {
-	if ts == nil {
-		return ""
-	}
-	return ts.Name.Name
 }

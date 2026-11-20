@@ -14,6 +14,7 @@ import (
 // Check reports functions that are out of control-flow order.
 func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
 	m := build(f)
+	order, below := m.order()
 	var diags []analysis.Diagnostic
 	add := func(d ast.Decl, msg string) {
 		diags = append(diags, analysis.Diagnostic{
@@ -23,7 +24,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		})
 	}
 	for _, x := range m.funcs() {
-		for _, msg := range m.violations(x) {
+		for _, msg := range m.violations(x, order, below) {
 			add(x.decl, msg)
 		}
 	}
@@ -38,14 +39,60 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 
 // Fix returns src with its declarations reordered, or nil when already ordered.
 func Fix(fset *token.FileSet, f *ast.File, src []byte) []byte {
-	order := build(f).order()
+	order, _ := build(f).order()
 	if slices.IsSorted(order) {
 		return nil
 	}
 	return render(fset, f, src, order)
 }
 
-func (m *model) violations(x *fn) []string {
+func render(fset *token.FileSet, f *ast.File, src []byte, order []int) []byte {
+	tf := fset.File(f.Pos())
+	start := boundary(tf, f, src, f.Name.End(), 0)
+	out := slices.Clone(src[:start])
+	chunks := make([][]byte, len(f.Decls))
+	for i, d := range f.Decls {
+		end := boundary(tf, f, src, d.End(), i+1)
+		chunks[i] = trimChunk(src[start:end])
+		start = end
+	}
+	for _, i := range order {
+		out = append(out, '\n')
+		out = append(out, chunks[i]...)
+	}
+	return append(out, src[start:]...)
+}
+
+func boundary(tf *token.File, f *ast.File, src []byte, end token.Pos, next int) int {
+	end = extendEnd(tf, f, end)
+	if next < len(f.Decls) && tf.Line(f.Decls[next].Pos()) == tf.Line(end) {
+		return tf.Offset(end)
+	}
+	return lineAfter(src, tf.Offset(end))
+}
+
+func extendEnd(tf *token.File, f *ast.File, end token.Pos) token.Pos {
+	for _, cg := range f.Comments {
+		if cg.Pos() >= end && tf.Line(cg.Pos()) == tf.Line(end) {
+			end = cg.End()
+		}
+	}
+	return end
+}
+
+func lineAfter(src []byte, off int) int {
+	return min(analysis.LineEndOffset(src, off)+1, len(src))
+}
+
+func trimChunk(chunk []byte) []byte {
+	chunk = bytes.TrimLeft(chunk, " \t\r\n;")
+	if len(chunk) == 0 || chunk[len(chunk)-1] != '\n' {
+		chunk = append(slices.Clip(chunk), '\n')
+	}
+	return chunk
+}
+
+func (m *model) violations(x *fn, order []int, below map[int]bool) []string {
 	checks := []func(*fn) string{m.stepdown, m.rankOrder, m.belowType, m.grouped}
 	if x.exempt {
 		checks = checks[2:]
@@ -56,7 +103,10 @@ func (m *model) violations(x *fn) []string {
 			msgs = append(msgs, msg)
 		}
 	}
-	return msgs
+	if len(msgs) > 0 || !below[x.idx] {
+		return msgs
+	}
+	return m.directlyBelow(x, order)
 }
 
 func (m *model) stepdown(x *fn) string {
@@ -105,27 +155,21 @@ func (m *model) grouped(x *fn) string {
 	return fmt.Sprintf("type %q should be directly above its methods", x.recv)
 }
 
-func (m *model) order() []int {
-	out := m.arrange(m.heads)
-	if m.keepsInitOrder(out) {
-		return out
+func (m *model) directlyBelow(x *fn, order []int) []string {
+	above := order[slices.Index(order, x.idx)-1]
+	if above == x.idx-1 {
+		return nil
 	}
-	return m.arrange(m.settledHeads())
+	msg := fmt.Sprintf("%q should be directly below %q", x.name, m.declName(above))
+	return []string{msg}
 }
 
-func (m *model) arrange(heads map[string][]int) []int {
-	done := map[int]bool{}
-	var out []int
-	mark := func(i int) {
-		done[i] = true
-		out = append(out, i)
+func (m *model) order() ([]int, map[int]bool) {
+	out, below := m.arrange(m.heads)
+	if m.keepsInitOrder(out) {
+		return out, below
 	}
-	unitReady := func(u []int) bool { return m.unitReady(u, done) }
-	fnReady := func(i int) bool { return m.ready(m.fns[i], done) }
-	emitUnit := func(u []int) { kahn(u, fnReady, mark) }
-	units := m.units(heads)
-	kahn(units, unitReady, emitUnit)
-	return m.placeTypes(units, out)
+	return m.arrange(m.settledHeads())
 }
 
 func (m *model) keepsInitOrder(order []int) bool {
@@ -212,13 +256,6 @@ func (m *model) ranked(y *fn, isDone func(int) bool) bool {
 	return true
 }
 
-func unitHead(heads map[string][]int, recv string, i int) []int {
-	if head, ok := heads[recv]; ok {
-		return append(slices.Clip(head), i)
-	}
-	return []int{i}
-}
-
 func mustPrecede(x, y *fn) bool {
 	if x.rank != 0 || y.rank != 1 || x.exempt || y.exempt {
 		return false
@@ -226,57 +263,9 @@ func mustPrecede(x, y *fn) bool {
 	return x.recv == y.recv && !x.hasInFileCaller && !y.hasInFileCaller
 }
 
-func kahn[T any](items []T, ready func(T) bool, emit func(T)) {
-	left := slices.Clone(items)
-	for len(left) > 0 {
-		k := max(slices.IndexFunc(left, ready), 0)
-		emit(left[k])
-		left = slices.Delete(left, k, k+1)
+func unitHead(heads map[string][]int, recv string, i int) []int {
+	if head, ok := heads[recv]; ok {
+		return append(slices.Clip(head), i)
 	}
-}
-
-func render(fset *token.FileSet, f *ast.File, src []byte, order []int) []byte {
-	tf := fset.File(f.Pos())
-	start := boundary(tf, f, src, f.Name.End(), 0)
-	out := slices.Clone(src[:start])
-	chunks := make([][]byte, len(f.Decls))
-	for i, d := range f.Decls {
-		end := boundary(tf, f, src, d.End(), i+1)
-		chunks[i] = trimChunk(src[start:end])
-		start = end
-	}
-	for _, i := range order {
-		out = append(out, '\n')
-		out = append(out, chunks[i]...)
-	}
-	return append(out, src[start:]...)
-}
-
-func boundary(tf *token.File, f *ast.File, src []byte, end token.Pos, next int) int {
-	end = extendEnd(tf, f, end)
-	if next < len(f.Decls) && tf.Line(f.Decls[next].Pos()) == tf.Line(end) {
-		return tf.Offset(end)
-	}
-	return lineAfter(src, tf.Offset(end))
-}
-
-func extendEnd(tf *token.File, f *ast.File, end token.Pos) token.Pos {
-	for _, cg := range f.Comments {
-		if cg.Pos() >= end && tf.Line(cg.Pos()) == tf.Line(end) {
-			end = cg.End()
-		}
-	}
-	return end
-}
-
-func lineAfter(src []byte, off int) int {
-	return min(analysis.LineEndOffset(src, off)+1, len(src))
-}
-
-func trimChunk(chunk []byte) []byte {
-	chunk = bytes.TrimLeft(chunk, " \t\r\n;")
-	if len(chunk) == 0 || chunk[len(chunk)-1] != '\n' {
-		chunk = append(slices.Clip(chunk), '\n')
-	}
-	return chunk
+	return []int{i}
 }

@@ -24,9 +24,9 @@ func c() {}
 
 func Run() { a() }
 
-func b() { a(); z() }
-
 func a() { a(); b() }
+
+func b() { a(); z() }
 
 func z() {}
 `,
@@ -102,15 +102,15 @@ func unused() {}
 
 func init() { setup() }
 
+func setup() {}
+
 func init() {}
 
 func main() { run() }
 
-func _() {}
-
-func setup() {}
-
 func run() {}
+
+func _() {}
 `,
 		"exempt function": `package p
 
@@ -214,6 +214,7 @@ func B() { b1(); h() }
 func b1() {}
 `,
 		`"h" should be below its last caller "B"`,
+		`"a1" should be directly below "A"`,
 	)
 }
 
@@ -307,6 +308,9 @@ func read(path string) []byte { return nil }
 func validate(b []byte) int { return len(b) }
 `,
 		`"Parse" should be below its last caller "loadFile"`,
+		`"loadFile" should be directly below "Load"`,
+		`"read" should be directly below "validate"`,
+		`"validate" should be directly below "Parse"`,
 	)
 }
 
@@ -336,6 +340,7 @@ func help() int { return 1 }
 `,
 		`"Get" should be below its last caller "Run"`,
 		`"Run" should be below its last caller "T.Value"`,
+		`"help" should be directly below "Get"`,
 	)
 }
 
@@ -379,6 +384,26 @@ func New() runner { return runner{} }
 func TestCheck_ParenReceiver(t *testing.T) {
 	assertMessages(t, "package p\n\nfunc (t (T)) m() {}\n\ntype T struct{}\n",
 		`method "T.m" should be below type "T"`)
+}
+
+func TestCheck_HelpersFollowCallOrder(t *testing.T) {
+	assertMessages(t, `package p
+
+func Generate() { validateArgs(); _ = checksum() }
+
+func Verify() bool { return checksum() == 0 }
+
+func validateArgs() { validatePrefix(); validateSize() }
+
+func validatePrefix() {}
+
+func validateSize() {}
+
+func checksum() int { return 0 }
+`,
+		`"validateArgs" should be directly below "Generate"`,
+		`"checksum" should be directly below "Verify"`,
+	)
 }
 
 func assertMessages(t *testing.T, src string, want ...string) {

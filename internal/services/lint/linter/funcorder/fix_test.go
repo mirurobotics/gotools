@@ -20,7 +20,7 @@ func TestFix_SharedHelperGroupsUnderLastCaller(t *testing.T) {
 	b := "func B() { b1(); h() }\n"
 	b1 := "func b1() {}\n"
 	src := "package p\n\n" + a + "\n" + h + "\n" + a1 + "\n" + b + "\n" + b1
-	want := "package p\n\n" + a + "\n" + a1 + "\n" + b + "\n" + h + "\n" + b1
+	want := "package p\n\n" + a + "\n" + a1 + "\n" + b + "\n" + b1 + "\n" + h
 	assertFix(t, src, want)
 }
 
@@ -186,14 +186,34 @@ func TestFix_AlreadyOrdered(t *testing.T) {
 	}
 }
 
-func TestKahn_NothingReady(t *testing.T) {
+func TestWalk_NothingReady(t *testing.T) {
 	var got []int
-	kahn([]int{1, 2}, func(int) bool { return false }, func(i int) {
-		got = append(got, i)
-	})
+	never := func(int) bool { return false }
+	none := func(int) []int { return nil }
+	walk([]int{1, 2}, never, none, func(i int, _ bool) { got = append(got, i) })
 	if len(got) != 2 || got[0] != 1 || got[1] != 2 {
 		t.Errorf("got %v, want [1 2]", got)
 	}
+}
+
+func TestFix_HelpersFollowCallOrder(t *testing.T) {
+	src := []string{
+		"func Generate() { validateArgs(); _ = checksum() }\n",
+		"func Verify() bool { return checksum() == 0 }\n",
+		"func validateArgs() { validatePrefix(); validateSize() }\n",
+		"func validatePrefix() {}\n", "func validateSize() {}\n",
+		"func checksum() int { return 0 }\n",
+	}
+	want := []string{src[0], src[2], src[3], src[4], src[1], src[5]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_VarMovesBelowTheCallsItSplits(t *testing.T) {
+	run := "func Run() { a() }\n"
+	v := "var x = 1\n"
+	a := "func a() {}\n"
+	assertFix(t, "package p\n\n"+run+"\n"+v+"\n"+a, "package p\n\n"+run+"\n"+a+"\n"+v)
 }
 
 func assertFix(t *testing.T, src, want string) {

@@ -55,6 +55,56 @@ func build(f *ast.File) *model {
 	return m
 }
 
+func callees(x *fn, byName map[string]int) []int {
+	if x.decl.Body == nil {
+		return nil
+	}
+	recv := recvName(x.decl)
+	var out []int
+	add := func(key string) {
+		if j, ok := byName[key]; ok && j != x.idx && !slices.Contains(out, j) {
+			out = append(out, j)
+		}
+	}
+	onSel := func(n *ast.SelectorExpr) {
+		if id, ok := n.X.(*ast.Ident); ok && recv != nil && id.Obj == recv.Obj {
+			add(x.recv + "." + n.Sel.Name)
+		}
+	}
+	refIdents(x.decl.Body, onSel, func(id *ast.Ident) bool {
+		if id.Obj == nil || id.Obj.Kind == ast.Fun {
+			add(id.Name)
+		}
+		return true
+	})
+	return out
+}
+
+func recvName(d *ast.FuncDecl) *ast.Ident {
+	if d.Recv == nil || len(d.Recv.List) == 0 || len(d.Recv.List[0].Names) == 0 {
+		return nil
+	}
+	return d.Recv.List[0].Names[0]
+}
+
+func refIdents(n ast.Node, onSel func(*ast.SelectorExpr), ref func(*ast.Ident) bool) {
+	skip := map[*ast.Ident]bool{}
+	more := true
+	ast.Inspect(n, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.SelectorExpr:
+			skip[n.Sel] = true
+			onSel(n)
+		case *ast.KeyValueExpr:
+			k, _ := n.Key.(*ast.Ident)
+			skip[k] = true
+		case *ast.Ident:
+			more = more && (skip[n] || ref(n))
+		}
+		return more
+	})
+}
+
 type model struct {
 	fns      []*fn
 	typeDecl map[string]int
@@ -155,16 +205,6 @@ func (m *model) initVarDecls() map[int]bool {
 	return initVars
 }
 
-func hasInitializer(d *ast.GenDecl) bool {
-	if d.Tok != token.VAR {
-		return false
-	}
-	return slices.ContainsFunc(d.Specs, func(s ast.Spec) bool {
-		vs, ok := s.(*ast.ValueSpec)
-		return ok && len(vs.Values) > 0
-	})
-}
-
 func typeNames(gd *ast.GenDecl) []string {
 	var names []string
 	for _, s := range gd.Specs {
@@ -215,54 +255,14 @@ func callable(d *ast.FuncDecl) bool {
 	return d.Name.Name != "_" && (d.Recv != nil || d.Name.Name != "init")
 }
 
-func callees(x *fn, byName map[string]int) []int {
-	if x.decl.Body == nil {
-		return nil
-	}
-	recv := recvName(x.decl)
-	var out []int
-	add := func(key string) {
-		if j, ok := byName[key]; ok && j != x.idx && !slices.Contains(out, j) {
-			out = append(out, j)
-		}
-	}
-	onSel := func(n *ast.SelectorExpr) {
-		if id, ok := n.X.(*ast.Ident); ok && recv != nil && id.Obj == recv.Obj {
-			add(x.recv + "." + n.Sel.Name)
-		}
-	}
-	refIdents(x.decl.Body, onSel, func(id *ast.Ident) bool {
-		if id.Obj == nil || id.Obj.Kind == ast.Fun {
-			add(id.Name)
-		}
-		return true
-	})
-	return out
-}
-
-func refIdents(n ast.Node, onSel func(*ast.SelectorExpr), ref func(*ast.Ident) bool) {
-	skip := map[*ast.Ident]bool{}
-	more := true
-	ast.Inspect(n, func(n ast.Node) bool {
-		switch n := n.(type) {
-		case *ast.SelectorExpr:
-			skip[n.Sel] = true
-			onSel(n)
-		case *ast.KeyValueExpr:
-			k, _ := n.Key.(*ast.Ident)
-			skip[k] = true
-		case *ast.Ident:
-			more = more && (skip[n] || ref(n))
-		}
-		return more
-	})
-}
-
-func recvName(d *ast.FuncDecl) *ast.Ident {
-	if d.Recv == nil || len(d.Recv.List) == 0 || len(d.Recv.List[0].Names) == 0 {
-		return nil
-	}
-	return d.Recv.List[0].Names[0]
-}
-
 func enforced(from, to *fn) bool { return !from.exempt && !to.exempt }
+
+func hasInitializer(d *ast.GenDecl) bool {
+	if d.Tok != token.VAR {
+		return false
+	}
+	return slices.ContainsFunc(d.Specs, func(s ast.Spec) bool {
+		vs, ok := s.(*ast.ValueSpec)
+		return ok && len(vs.Values) > 0
+	})
+}
