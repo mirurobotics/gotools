@@ -10,21 +10,21 @@ import (
 
 type use struct{ user, at int }
 
-func (m *model) plainTypes() map[int][]int {
-	plain := map[int][]int{}
+func (m *model) typeUsers(withMethods bool) map[int][]int {
+	byType := map[int][]int{}
 	for typeIdx, decl := range m.decls {
 		spec := soloTypeSpec(decl)
 		isMethod := func(fnc *fn) bool {
 			return fnc != nil && fnc.recv == spec.Name.Name
 		}
-		if spec == nil || slices.ContainsFunc(m.fns, isMethod) {
+		if spec == nil || slices.ContainsFunc(m.fns, isMethod) != withMethods {
 			continue
 		}
 		if users := usersOf(spec, m.decls); len(users) > 0 {
-			plain[typeIdx] = users
+			byType[typeIdx] = users
 		}
 	}
-	return plain
+	return byType
 }
 
 func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {

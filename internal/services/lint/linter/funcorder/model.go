@@ -50,8 +50,8 @@ func build(file *ast.File) *model {
 	}
 	graph.opener = graph.cycleOpeners()
 	graph.initVars = graph.initVarDecls()
-	graph.plain = graph.plainTypes()
-	graph.held = graph.heldTypes()
+	graph.plain = graph.typeUsers(false)
+	graph.held = graph.typeUsers(true)
 	graph.typeOwner = graph.attachToTypes()
 	graph.typeBlocks = attached(graph.typeOwner)
 	return graph

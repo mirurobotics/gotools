@@ -1,6 +1,4 @@
-// Package funcorder orders a file's functions by control flow, callers first.
-//
-// Within a file:
+// Package funcorder orders a file's functions by control flow, callers first:
 //   - a function sits directly below its last caller, exported or not, after
 //     the functions that caller calls first and their helpers, so a file reads
 //     depth-first in call order and has one order. A type's methods count as

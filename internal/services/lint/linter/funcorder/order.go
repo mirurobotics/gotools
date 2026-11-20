@@ -2,15 +2,15 @@ package funcorder
 
 import "slices"
 
-func (m *model) order() ([]int, map[int]bool) {
-	out, below := m.arrange(false)
+func (m *model) order() ([]int, map[int]bool, map[int]int) {
+	out, below, tucked := m.arrange(false)
 	if m.keepsInitOrder(out) {
-		return out, below
+		return out, below, tucked
 	}
 	return m.arrange(true)
 }
 
-func (m *model) arrange(settled bool) ([]int, map[int]bool) {
+func (m *model) arrange(settled bool) ([]int, map[int]bool, map[int]int) {
 	units := m.units(settled)
 	lay := &layout{
 		m:      m,
@@ -30,7 +30,8 @@ func (m *model) arrange(settled bool) ([]int, map[int]bool) {
 		}
 	}
 	walk(keys, lay.unitReady, lay.unitNext, lay.emitUnit)
-	return m.placeTypes(units, m.tuckTypes(lay.out, lay.roots)), lay.below
+	out, tucked := m.tuckTypes(lay.out, lay.roots)
+	return m.placeTypes(units, out), lay.below, tucked
 }
 
 func (m *model) units(settled bool) [][]int {
