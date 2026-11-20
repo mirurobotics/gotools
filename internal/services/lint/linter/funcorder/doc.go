@@ -13,7 +13,9 @@
 //     methods; Fix leaves behind blocks that would reorder initialized vars;
 //   - a type declared on its own without methods sits directly above its first
 //     user, a function or var block, with the const blocks right above it and
-//     those below it that use it.
+//     those below it that use it;
+//   - a type with methods declared below its first user, a free function or var
+//     block, sits directly below that user and the functions placed under it.
 //
 // Calls are matched by name, methods only through their receiver. A call within
 // a cycle needn't sit above its callee, but the walk follows it. A function's

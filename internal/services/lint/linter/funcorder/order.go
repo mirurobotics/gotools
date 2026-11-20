@@ -19,6 +19,7 @@ func (m *model) arrange(settled bool) ([]int, map[int]bool) {
 		done:   map[int]bool{},
 		below:  map[int]bool{},
 		out:    nil,
+		roots:  nil,
 	}
 	keys := make([]int, len(units))
 	for unitIdx, unit := range units {
@@ -29,7 +30,7 @@ func (m *model) arrange(settled bool) ([]int, map[int]bool) {
 		}
 	}
 	walk(keys, lay.unitReady, lay.unitNext, lay.emitUnit)
-	return m.placeTypes(units, lay.out), lay.below
+	return m.placeTypes(units, m.tuckTypes(lay.out, lay.roots)), lay.below
 }
 
 func (m *model) units(settled bool) [][]int {
@@ -113,6 +114,7 @@ type layout struct {
 	done   map[int]bool
 	below  map[int]bool
 	out    []int
+	roots  []int
 }
 
 func (l *layout) unitReady(unitIdx int) bool {
@@ -133,6 +135,9 @@ func (l *layout) unitNext(unitIdx int) []int {
 }
 
 func (l *layout) emitUnit(unitIdx int, below bool) {
+	if !below {
+		l.roots = append(l.roots, len(l.out))
+	}
 	walk(l.unit[unitIdx], l.fnReady, l.m.next, func(i int, inner bool) {
 		l.done[i] = true
 		l.below[i] = below || inner

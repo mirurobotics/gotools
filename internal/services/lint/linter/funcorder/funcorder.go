@@ -34,6 +34,11 @@ func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diag
 			add(graph.decls[typeIdx], graph.typeMessage(typeIdx, uses[typeIdx]))
 		}
 	}
+	for _, typeIdx := range slices.Sorted(maps.Keys(graph.held)) {
+		if msg := graph.heldMessage(typeIdx, order); msg != "" {
+			add(graph.decls[typeIdx], msg)
+		}
+	}
 	return diags
 }
 
