@@ -48,6 +48,16 @@ func b1() {}
 
 func h() {}
 `,
+		"cycle member is not an entry point": `package p
+
+func Run() { a() }
+
+func a() { b() }
+
+func b() { a() }
+
+func Other() {}
+`,
 		"exported entry above unexported entry": `package p
 
 func Run() { helper() }

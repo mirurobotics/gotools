@@ -159,7 +159,7 @@ func mustPrecede(x, y *fn) bool {
 	if x.rank != 0 || y.rank != 1 || x.exempt || y.exempt {
 		return false
 	}
-	return x.recv == y.recv && len(x.callers) == 0 && len(y.callers) == 0
+	return x.recv == y.recv && !x.called && !y.called
 }
 
 func kahn[T any](items []T, ready func(T) bool, emit func(T)) {

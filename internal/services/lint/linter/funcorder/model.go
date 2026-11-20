@@ -14,6 +14,7 @@ type fn struct {
 	recv    string
 	rank    int
 	exempt  bool
+	called  bool
 	callees []int
 	callers []int
 }
@@ -31,6 +32,9 @@ func build(f *ast.File) *model {
 	}
 	for _, x := range m.funcs() {
 		x.callees = callees(x, byName)
+		for _, j := range x.callees {
+			m.fns[j].called = true
+		}
 	}
 	for _, x := range m.funcs() {
 		m.linkCallees(x)
@@ -107,6 +111,7 @@ func newFn(i int, d *ast.FuncDecl) *fn {
 		recv:    recvType(d),
 		rank:    rank(d),
 		exempt:  d.Doc != nil && analysis.HasNolint(d.Doc, "funcorder"),
+		called:  false,
 		callees: nil,
 		callers: nil,
 	}
