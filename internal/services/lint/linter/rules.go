@@ -270,24 +270,21 @@ func applyOrderFixer(
 	fset *token.FileSet,
 	f *ast.File,
 	cfg Config,
-) ([]byte, *token.FileSet, *ast.File) {
+) ([]byte, *token.FileSet, *ast.File, error) {
 	if !cfg.runRule(RuleFuncOrder) {
-		return src, fset, f
+		return src, fset, f, nil
 	}
 	in := checkInput{fset, path, f, src}
-	return adoptFix(in, funcorder.Fix(fset, f, src), cfg.Err)
+	return adoptFix(in, funcorder.Fix(fset, f, src))
 }
 
-func adoptFix(
-	in checkInput, fixed []byte, errW io.Writer,
-) ([]byte, *token.FileSet, *ast.File) {
+func adoptFix(in checkInput, fixed []byte) ([]byte, *token.FileSet, *ast.File, error) {
 	if fixed == nil {
-		return in.src, in.fset, in.f
+		return in.src, in.fset, in.f, nil
 	}
 	fset, f, err := reparse(in.path, fixed)
 	if err != nil {
-		_, _ = fmt.Fprintf(errW, "warning: %s: fix skipped: %v\n", in.path, err)
-		return in.src, in.fset, in.f
+		return in.src, in.fset, in.f, err
 	}
-	return fixed, fset, f
+	return fixed, fset, f, nil
 }

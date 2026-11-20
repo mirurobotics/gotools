@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,7 +121,8 @@ func processFixMode(
 	if err != nil {
 		return 0, false, err
 	}
-	fixed, fset, f = applyOrderFixer(path, fixed, fset, f, cfg)
+	fixed, fset, f, err = applyOrderFixer(path, fixed, fset, f, cfg)
+	warnFixSkipped(cfg.Err, path, err)
 
 	didFix := string(fixed) != string(src)
 	if didFix {
@@ -170,4 +172,10 @@ func skipDir(name string) bool {
 		return true
 	}
 	return strings.HasPrefix(name, ".")
+}
+
+func warnFixSkipped(w io.Writer, path string, err error) {
+	if err != nil {
+		_, _ = fmt.Fprintf(w, "warning: %s: funcorder fix skipped: %v\n", path, err)
+	}
 }

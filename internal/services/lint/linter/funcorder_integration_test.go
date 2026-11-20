@@ -35,14 +35,14 @@ func TestAdoptFix_KeepsSourceWhenFixDoesNotParse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var errW strings.Builder
-	in := checkInput{fset, "foo.go", f, src}
-	got, _, gotF := adoptFix(in, []byte("func {"), &errW)
-	if string(got) != unorderedSrc || gotF != f {
-		t.Errorf("adoptFix replaced the source with unparseable output: %q", got)
+	got, _, gotF, err := adoptFix(checkInput{fset, "foo.go", f, src}, []byte("func {"))
+	if err == nil || string(got) != unorderedSrc || gotF != f {
+		t.Errorf("adoptFix = %q, %v; want the original source and an error", got, err)
 	}
-	if !strings.Contains(errW.String(), "warning: foo.go: fix skipped") {
-		t.Errorf("missing warning, got %q", errW.String())
+	var w strings.Builder
+	warnFixSkipped(&w, "foo.go", err)
+	if !strings.HasPrefix(w.String(), "warning: foo.go: funcorder fix skipped: ") {
+		t.Errorf("warning = %q", w.String())
 	}
 }
 
