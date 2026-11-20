@@ -163,4 +163,3 @@ func (m *model) directlyBelow(x *fn, order []int) []string {
 	msg := fmt.Sprintf("%q should be directly below %q", x.name, m.declName(above))
 	return []string{msg}
 }
-
