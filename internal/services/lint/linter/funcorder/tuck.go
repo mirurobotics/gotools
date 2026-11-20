@@ -7,13 +7,13 @@ import (
 
 func (l *layout) tuckTypes() {
 	isFunc := func(i int) bool { return l.m.fns[i] != nil }
+	isInitVar := func(i int) bool { return l.m.initVars[i] }
 	for _, typeIdx := range slices.Sorted(maps.Keys(l.m.held)) {
 		from := treeOf(l.trees, typeIdx)
-		last := l.m.lastUserTree(l.trees, typeIdx, from)
-		if last < 0 {
+		last, tree := l.m.lastUserTree(l.trees, typeIdx, from), l.trees[from]
+		if last < 0 || slices.ContainsFunc(tree, isInitVar) {
 			continue
 		}
-		tree := l.trees[from]
 		l.below[tree[slices.IndexFunc(tree, isFunc)]] = true
 		l.trees = slices.Delete(l.trees, from, from+1)
 		l.trees[last] = slices.Concat(l.trees[last], tree)
@@ -21,10 +21,15 @@ func (l *layout) tuckTypes() {
 }
 
 func (m *model) lastUserTree(trees [][]int, typeIdx, from int) int {
+	isFunc := func(i int) bool { return m.fns[i] != nil }
 	last := -1
 	for _, user := range m.held[typeIdx] {
 		isMethod := m.fns[user] != nil && m.fns[user].recv != ""
-		if userTree := treeOf(trees, user); !isMethod && userTree < from {
+		userTree := treeOf(trees, user)
+		if isMethod || userTree < 0 || userTree >= from {
+			continue
+		}
+		if slices.ContainsFunc(trees[userTree], isFunc) {
 			last = max(last, userTree)
 		}
 	}

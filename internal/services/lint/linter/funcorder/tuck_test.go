@@ -84,6 +84,32 @@ func Other() {}
 
 func New() obj { return obj{} }
 `,
+		"used only by a var block above it": `package p
+
+import "io"
+
+var _ io.Reader = (*reader)(nil)
+
+type reader struct{}
+
+func (r *reader) Read(p []byte) (int, error) { return 0, nil }
+`,
+		"head holds an initialized var": `package p
+
+func Run() { _ = obj{} }
+
+var a = f("a")
+
+func Other() {}
+
+type obj struct{}
+
+var b = f("b")
+
+func (obj) ID() {}
+
+func f(s string) string { return s }
+`,
 		"used only by another type's methods": `package p
 
 type other struct{}
