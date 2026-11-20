@@ -145,12 +145,12 @@ func (l *layout) fnReady(i int) bool { return l.m.ready(l.m.fns[i], l.done) }
 func walk(
 	items []int, ready func(int) bool, next func(int) []int, emit func(int, bool),
 ) {
-	width := &walker{left: slices.Clone(items), stack: nil, ready: ready, next: next}
-	for len(width.left) > 0 {
-		i, below := width.pick()
+	wlk := &walker{left: slices.Clone(items), stack: nil, ready: ready, next: next}
+	for len(wlk.left) > 0 {
+		i, below := wlk.pick()
 		picked := func(idx int) bool { return idx == i }
-		width.left = slices.DeleteFunc(width.left, picked)
-		width.stack = append(width.stack, i)
+		wlk.left = slices.DeleteFunc(wlk.left, picked)
+		wlk.stack = append(wlk.stack, i)
 		emit(i, below)
 	}
 }
