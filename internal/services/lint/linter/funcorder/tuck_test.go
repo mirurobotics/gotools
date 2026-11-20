@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestCheck_HeldTypeBelowItsUser(t *testing.T) {
+func TestCheck_TuckedTypeBelowItsUser(t *testing.T) {
 	assertMessages(t, `package p
 
 func TestA() { _ = []obj{} }
@@ -20,7 +20,7 @@ func (o obj) ID() string { return o.id }
 	)
 }
 
-func TestCheck_HeldTypeBelowUsersHelpers(t *testing.T) {
+func TestCheck_TuckedTypeBelowUsersHelpers(t *testing.T) {
 	assertMessages(t, `package p
 
 func Run() { helper() }
@@ -37,7 +37,7 @@ func (o obj) ID() string { return "" }
 	)
 }
 
-func TestCheck_HeldTypePastDeclarations(t *testing.T) {
+func TestCheck_TuckedTypePastDeclarations(t *testing.T) {
 	assertMessages(t, `package p
 
 func Run() { _ = obj{} }
@@ -54,7 +54,7 @@ func (o obj) ID() string { return "" }
 	)
 }
 
-func TestCheck_HeldTypesPlaced(t *testing.T) {
+func TestCheck_TuckedTypesPlaced(t *testing.T) {
 	cases := map[string]string{
 		"above its user": `package p
 
@@ -110,6 +110,18 @@ func (obj) ID() {}
 
 func f(s string) string { return s }
 `,
+		"helper called by code it would jump": `package p
+
+func Run() { _ = obj{} }
+
+func Other() { g() }
+
+type obj struct{}
+
+func (o obj) ID() { g() }
+
+func g() {}
+`,
 		"used only by another type's methods": `package p
 
 type other struct{}
@@ -128,7 +140,7 @@ func (o obj) ID() string { return "" }
 	}
 }
 
-func TestFix_HeldTypeMovesBelowItsUser(t *testing.T) {
+func TestFix_TuckedTypeMovesBelowItsUser(t *testing.T) {
 	src := []string{
 		"func TestA() { _ = []obj{} }\n", "func TestB() {}\n",
 		"type obj struct{ id string }\n",
@@ -139,13 +151,33 @@ func TestFix_HeldTypeMovesBelowItsUser(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
-func TestFix_HeldTypesKeepTheirOrder(t *testing.T) {
+func TestFix_TuckedTypesKeepTheirOrder(t *testing.T) {
 	src := []string{
 		"func Run() { _ = b{}; _ = a{} }\n", "func Other() {}\n",
 		"type a struct{}\n", "func (x a) A() {}\n",
 		"type b struct{}\n", "func (x b) B() {}\n",
 	}
 	want := []string{src[0], src[2], src[3], src[4], src[5], src[1]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_TuckedTypeBelowLastUser(t *testing.T) {
+	src := []string{
+		"func A() { _ = obj{} }\n", "func B() { _ = obj{} }\n", "func C() {}\n",
+		"type obj struct{}\n", "func (o obj) ID() string { return \"\" }\n",
+	}
+	want := []string{src[0], src[1], src[3], src[4], src[2]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_TuckedTypePastDeclarations(t *testing.T) {
+	src := []string{
+		"func Run() { _ = obj{} }\n", "type Meta struct{}\n", "func Other() {}\n",
+		"type obj struct{}\n", "func (o obj) ID() string { return \"\" }\n",
+	}
+	want := []string{src[0], src[3], src[4], src[1], src[2]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }

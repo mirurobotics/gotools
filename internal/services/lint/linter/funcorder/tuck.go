@@ -8,10 +8,11 @@ import (
 func (l *layout) tuckTypes() {
 	isFunc := func(i int) bool { return l.m.fns[i] != nil }
 	isInitVar := func(i int) bool { return l.m.initVars[i] }
-	for _, typeIdx := range slices.Sorted(maps.Keys(l.m.held)) {
+	for _, typeIdx := range slices.Sorted(maps.Keys(l.m.tucked)) {
 		from := treeOf(l.trees, typeIdx)
 		last, tree := l.m.lastUserTree(l.trees, typeIdx, from), l.trees[from]
-		if last < 0 || slices.ContainsFunc(tree, isInitVar) {
+		if last < 0 || slices.ContainsFunc(tree, isInitVar) ||
+			l.hasCallerBetween(tree, last, from) {
 			continue
 		}
 		l.below[tree[slices.IndexFunc(tree, isFunc)]] = true
@@ -20,10 +21,20 @@ func (l *layout) tuckTypes() {
 	}
 }
 
+func (l *layout) hasCallerBetween(tree []int, last, from int) bool {
+	isBetween := func(caller int) bool {
+		callerTree := treeOf(l.trees, caller)
+		return callerTree > last && callerTree < from
+	}
+	return slices.ContainsFunc(tree, func(i int) bool {
+		return l.m.fns[i] != nil && slices.ContainsFunc(l.m.fns[i].callers, isBetween)
+	})
+}
+
 func (m *model) lastUserTree(trees [][]int, typeIdx, from int) int {
 	isFunc := func(i int) bool { return m.fns[i] != nil }
 	last := -1
-	for _, user := range m.held[typeIdx] {
+	for _, user := range m.tucked[typeIdx] {
 		isMethod := m.fns[user] != nil && m.fns[user].recv != ""
 		userTree := treeOf(trees, user)
 		if isMethod || userTree < 0 || userTree >= from {

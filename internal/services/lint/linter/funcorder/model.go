@@ -30,7 +30,7 @@ func build(file *ast.File) *model {
 		plain:      nil,
 		typeOwner:  nil,
 		typeBlocks: nil,
-		held:       nil,
+		tucked:     nil,
 		opener:     nil,
 		decls:      file.Decls,
 	}
@@ -51,7 +51,7 @@ func build(file *ast.File) *model {
 	graph.opener = graph.cycleOpeners()
 	graph.initVars = graph.initVarDecls()
 	graph.plain = graph.typeUsers(false)
-	graph.held = graph.typeUsers(true)
+	graph.tucked = graph.typeUsers(true)
 	graph.typeOwner = graph.attachToTypes()
 	graph.typeBlocks = attached(graph.typeOwner)
 	return graph
@@ -118,7 +118,7 @@ type model struct {
 	plain      map[int][]int
 	typeOwner  map[int]int
 	typeBlocks map[int][]int
-	held       map[int][]int
+	tucked     map[int][]int
 	opener     map[int]int
 	decls      []ast.Decl
 }
