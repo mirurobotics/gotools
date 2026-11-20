@@ -72,7 +72,7 @@ func TestCheck_ChangingTestifyArgStartsNewGroup(t *testing.T) {
 func TestX(t *testing.T) {
 	var got T
 	assert.Equal(t, 1, got.A)
-	require.NoError(t, got.Start(), mutate(got))
+	require.NoError(t, got.Start())
 	assert.Equal(t, 2, got.B)
 	assert.Equal(t, 3, got.C)
 }
@@ -94,4 +94,15 @@ func TestZ(t *testing.T) {
 	assert.Equal(t, 3, got.C)
 }
 `, 37)
+}
+
+func TestCheck_HelperCallInTestifyArgStartsNewGroup(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	var got T
+	assert.Equal(t, 1, got.A)
+	assert.Equal(t, 2, got.B)
+	require.NoError(t, mutate(got))
+	assert.Equal(t, 3, got.C)
+}
+`)
 }
