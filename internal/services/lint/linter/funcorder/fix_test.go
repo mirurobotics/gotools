@@ -95,9 +95,7 @@ func TestFix_PlacedTypeKeepsItsVars(t *testing.T) {
 		"var defaultConfig = record(\"c\")\n", "func Load() {}\n",
 		"var ErrBad = record(\"e\")\n", "func (Config) Validate() {}\n",
 	}
-	want := []string{
-		src[0], src[1], src[2], src[4], src[5], src[6], src[3], src[7],
-	}
+	want := []string{src[0], src[1], src[2], src[4], src[5], src[6], src[3], src[7]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
