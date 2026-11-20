@@ -233,7 +233,8 @@ func TestX(t *testing.T) {
 }
 `
 	fset, f := linttest.Parse(t, "foo_test.go", src)
-	linttest.AssertLines(t, Check(fset, "foo_test.go", f), []int{12}, "")
+	diags := Check(fset, "foo_test.go", f)
+	linttest.AssertLines(t, diags, []int{12}, wantMsg(3, "got", "got"))
 }
 
 func TestCheck_CallRootAndOddBases(t *testing.T) {
