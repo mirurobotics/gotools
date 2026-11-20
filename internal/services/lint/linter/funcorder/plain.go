@@ -14,7 +14,7 @@ func (m *model) plainTypes() map[int][]int {
 	plain := map[int][]int{}
 	for t, d := range m.decls {
 		ts := soloTypeSpec(d)
-		isMethod := func(x *fn) bool { return x != nil && x.recv == typeName(ts) }
+		isMethod := func(x *fn) bool { return x != nil && x.recv == ts.Name.Name }
 		if ts == nil || slices.ContainsFunc(m.fns, isMethod) {
 			continue
 		}
@@ -52,7 +52,7 @@ func (m *model) plainOf(i int) (int, bool) {
 }
 
 func (m *model) typeMessage(t int, u use) string {
-	name := typeName(soloTypeSpec(m.decls[t]))
+	name := soloTypeSpec(m.decls[t]).Name.Name
 	user := m.declName(u.user)
 	if u.at == u.user {
 		const msg = "type %q should be directly above its first user %q"
@@ -142,13 +142,6 @@ func soloTypeSpec(d ast.Decl) *ast.TypeSpec {
 	}
 	ts, _ := gd.Specs[0].(*ast.TypeSpec)
 	return ts
-}
-
-func typeName(ts *ast.TypeSpec) string {
-	if ts == nil {
-		return ""
-	}
-	return ts.Name.Name
 }
 
 func usersOf(ts *ast.TypeSpec, decls []ast.Decl) []int {
