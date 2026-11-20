@@ -1,6 +1,7 @@
 package fieldassert
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
@@ -94,7 +95,7 @@ func TestCheck_HelperBuildingValueFlagged(t *testing.T) {
 }
 
 func TestCheck_ExpectedFieldsGroupByActual(t *testing.T) {
-	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	fset, f := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := build(tc.in)
@@ -105,7 +106,9 @@ func TestCheck_ExpectedFieldsGroupByActual(t *testing.T) {
 		})
 	}
 }
-`, 15)
+`)
+	diags := Check(fset, "foo_test.go", f)
+	linttest.AssertLines(t, diags, []int{15}, wantMsg(3, "got", "got"))
 }
 
 func TestCheck_SwappedArgsCounted(t *testing.T) {
@@ -147,9 +150,9 @@ func TestCheck_PackageSelectorsIgnored(t *testing.T) {
 func TestCheck_NonEqualityAssertsIgnored(t *testing.T) {
 	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
 	got := build()
-	assert.NotNil(t, got.A)
+	assert.Contains(t, got.A, "x")
 	assert.Len(t, got.B, 2)
-	assert.True(t, got.C)
+	assert.NotEqual(t, 1, got.C)
 	assert.Equal(t, 1)
 	other.Equal(t, 1, got.D)
 	(build()).Equal(t, 1, got.E)
@@ -160,7 +163,7 @@ func TestCheck_NonEqualityAssertsIgnored(t *testing.T) {
 }
 
 func TestCheck_SeparateBasesAndBlocks(t *testing.T) {
-	got := check(t, "foo_test.go", `func TestX(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
 	a, b := build(), build()
 	assert.Equal(t, 1, a.X)
 	assert.Equal(t, 2, b.X)
@@ -181,10 +184,7 @@ func TestCheck_SeparateBasesAndBlocks(t *testing.T) {
 		assert.Equal(t, 3, (*p).C)
 	}
 }
-`)
-	if len(got) != 2 || got[0] != 21 || got[1] != 27 {
-		t.Errorf("lines = %v, want [21 27]", got)
-	}
+`, 21, 27)
 }
 
 func TestCheck_AssertObjectFlagged(t *testing.T) {
@@ -227,7 +227,7 @@ func TestX(t *testing.T) {
 }
 
 func TestCheck_CallRootAndOddBases(t *testing.T) {
-	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	fset, f := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
 	assert.Equal(t, 1, build().A)
 	assert.Equal(t, 2, build().B)
 	assert.Equal(t, 3, build().C)
@@ -235,7 +235,76 @@ func TestCheck_CallRootAndOddBases(t *testing.T) {
 	assert.Equal(t, 2, []T{}[0].B)
 	assert.Equal(t, 3, []T{}[0].C)
 }
-`, 12, 15)
+`)
+	diags := Check(fset, "foo_test.go", f)
+	linttest.AssertLines(t, diags, []int{12, 15}, "")
+	if diags[0].Message != wantMsg(3, "build()", "") {
+		t.Errorf("message = %q", diags[0].Message)
+	}
+}
+
+func TestCheck_ShadowingAssertObjectFlagged(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	assert := assert.New(t)
+	got := build()
+	assert.Equal(1, got.A)
+	assert.Equal(2, got.B)
+	assert.EqualExportedValuesf(3, got.C, "msg")
+	t.Run("sub", func(t *testing.T) {
+		assert.Equal(1, got.A)
+		assert.Equal(2, got.B)
+		assert.Equal(3, got.C)
+	})
+}
+`, 14, 18)
+}
+
+func TestCheck_RepeatedFieldAllowed(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	c := newCounter()
+	c.Inc()
+	assert.Equal(t, 1, c.Count)
+	c.Inc()
+	assert.Equal(t, 2, c.Count)
+	c.Inc()
+	assert.Equal(t, 3, c.Count)
+	assert.Equal(t, 0, c.Errors)
+}
+`)
+}
+
+func TestCheck_ReassignedValueAllowed(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	got := build()
+	assert.Equal(t, 1, got.A)
+	got = build()
+	assert.Equal(t, 2, got.B)
+	got.n++
+	assert.Equal(t, 3, got.C)
+	var got, other = build(), 1
+	assert.Equal(t, 4, got.D)
+	assert.Equal(t, 5, got.E)
+	got.n, x = 1, 2
+	assert.Equal(t, 6, got.F)
+}
+`)
+}
+
+func TestCheck_HelperClosuresAndMethodsAllowed(t *testing.T) {
+	assertLines(t, "foo_test.go", `func checkThing(t *testing.T, got Thing) {
+	t.Run("fields", func(t *testing.T) {
+		assert.Equal(t, 1, got.A)
+		assert.Equal(t, 2, got.B)
+		assert.Equal(t, 3, got.C)
+	})
+}
+
+func (f *fixture) assertState(t *testing.T) {
+	assert.Equal(t, 1, f.state.A)
+	assert.Equal(t, 2, f.state.B)
+	assert.Equal(t, 3, f.state.C)
+}
+`)
 }
 
 func TestCheck_Nolint(t *testing.T) {
@@ -248,15 +317,13 @@ func TestCheck_Nolint(t *testing.T) {
 `)
 }
 
-func check(t *testing.T, filename, body string) []int {
-	t.Helper()
-	fset, f := linttest.Parse(t, filename, header+body)
-	diags := Check(fset, filename, f)
-	lines := make([]int, 0, len(diags))
-	for _, d := range diags {
-		lines = append(lines, d.Line)
+func wantMsg(n int, base, root string) string {
+	msg := fmt.Sprintf("%d asserts compare fields of %s one at a time;"+
+		" compare the whole value in one assert", n, base)
+	if root != "" {
+		msg += ", or move the checks into a helper that takes " + root
 	}
-	return lines
+	return msg
 }
 
 func assertLines(t *testing.T, filename, body string, want ...int) {

@@ -5,13 +5,13 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"path"
+	"maps"
 	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-// MinFieldAsserts is how many field asserts on one value trigger a report.
+// MinFieldAsserts is how many distinct fields asserted on one value trigger a report.
 const MinFieldAsserts = 3
 
 type checker struct {
@@ -19,15 +19,20 @@ type checker struct {
 	filename string
 	f        *ast.File
 	testify  map[string]bool
-	objects  map[string]bool
 	imports  map[string]bool
 	diags    []analysis.Diagnostic
 }
 
+type scope struct {
+	params  map[string]bool
+	objects map[string]bool
+}
+
 type fieldGroup struct {
-	base  string
-	root  string
-	calls []*ast.CallExpr
+	base   string
+	root   string
+	calls  []*ast.CallExpr
+	fields map[string]bool
 }
 
 // Check reports runs of testify asserts that compare one value field by field.
@@ -44,56 +49,66 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		filename: filename,
 		f:        f,
 		testify:  testify,
-		objects:  assertObjects(f, testify),
 		imports:  importNames(f),
 		diags:    nil,
 	}
+	top := scope{params: map[string]bool{}, objects: map[string]bool{}}
 	for _, decl := range f.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if ok && fn.Body != nil {
-			c.walkFunc(fn.Type, fn.Body)
+			c.walkFunc(fn.Recv, fn.Type, fn.Body, top)
 		}
 	}
 	return c.diags
 }
 
-func (c *checker) walkFunc(ft *ast.FuncType, body *ast.BlockStmt) {
-	params := paramNames(ft)
+func (c *checker) walkFunc(
+	recv *ast.FieldList, ft *ast.FuncType, body *ast.BlockStmt, outer scope,
+) {
+	sc := scope{params: maps.Clone(outer.params), objects: maps.Clone(outer.objects)}
+	addNames(sc.params, recv)
+	addNames(sc.params, ft.Params)
+	maps.Copy(sc.objects, c.assertObjects(body))
 	ast.Inspect(body, func(n ast.Node) bool {
 		switch n := n.(type) {
 		case *ast.FuncLit:
-			c.walkFunc(n.Type, n.Body)
+			c.walkFunc(nil, n.Type, n.Body, sc)
 			return false
 		case *ast.BlockStmt:
-			c.checkStmts(n.List, params)
+			c.checkStmts(n.List, sc)
 		case *ast.CaseClause:
-			c.checkStmts(n.Body, params)
+			c.checkStmts(n.Body, sc)
 		case *ast.CommClause:
-			c.checkStmts(n.Body, params)
+			c.checkStmts(n.Body, sc)
 		}
 		return true
 	})
 }
 
-func (c *checker) checkStmts(stmts []ast.Stmt, params map[string]bool) {
+func (c *checker) checkStmts(stmts []ast.Stmt, sc scope) {
 	var groups []*fieldGroup
-	byBase := make(map[string]*fieldGroup)
+	open := make(map[string]*fieldGroup)
 	for _, s := range stmts {
-		call, sel := c.fieldArg(s)
+		call, sel := c.fieldArg(s, sc)
 		if sel == nil {
+			closeAssigned(open, s)
 			continue
 		}
 		base := types.ExprString(ast.Unparen(sel.X))
-		g := byBase[base]
+		g := open[base]
 		if g == nil {
-			g = &fieldGroup{base: base, root: rootName(sel.X), calls: nil}
-			byBase[base] = g
+			g = &fieldGroup{
+				base: base, root: rootName(sel.X),
+				calls: nil, fields: map[string]bool{},
+			}
+			open[base] = g
 			groups = append(groups, g)
 		}
 		g.calls = append(g.calls, call)
+		g.fields[sel.Sel.Name] = true
 	}
 	for _, g := range groups {
-		if len(g.calls) >= MinFieldAsserts && !params[g.root] {
+		if len(g.fields) >= MinFieldAsserts && !sc.params[g.root] {
 			c.report(g)
 		}
 	}
@@ -105,18 +120,18 @@ func (c *checker) report(g *fieldGroup) {
 	if analysis.NolintOnLines(c.fset, c.f, "fieldassert", first, last) {
 		return
 	}
-	c.diags = append(c.diags, analysis.Diagnostic{
-		File: c.filename,
-		Line: first,
-		Message: fmt.Sprintf(
-			"%d asserts compare fields of %s one at a time; compare the whole value"+
-				" in one assert, or move the checks into a helper that takes %s",
-			len(g.calls), g.base, g.root,
-		),
-	})
+	msg := fmt.Sprintf(
+		"%d asserts compare fields of %s one at a time; compare the whole value in one assert",
+		len(g.calls), g.base,
+	)
+	if g.root != "" {
+		msg += ", or move the checks into a helper that takes " + g.root
+	}
+	c.diags = append(c.diags,
+		analysis.Diagnostic{File: c.filename, Line: first, Message: msg})
 }
 
-func (c *checker) fieldArg(s ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
+func (c *checker) fieldArg(s ast.Stmt, sc scope) (*ast.CallExpr, *ast.SelectorExpr) {
 	es, ok := s.(*ast.ExprStmt)
 	if !ok {
 		return nil, nil
@@ -125,7 +140,7 @@ func (c *checker) fieldArg(s ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
 	if !ok {
 		return nil, nil
 	}
-	vals := c.comparedValues(call)
+	vals := c.comparedValues(call, sc)
 	if vals == nil {
 		return nil, nil
 	}
@@ -141,7 +156,7 @@ func (c *checker) fieldArg(s ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
 	return nil, nil
 }
 
-func (c *checker) comparedValues(call *ast.CallExpr) []ast.Expr {
+func (c *checker) comparedValues(call *ast.CallExpr, sc scope) []ast.Expr {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok || !isEqualityFunc(sel.Sel.Name) {
 		return nil
@@ -152,16 +167,16 @@ func (c *checker) comparedValues(call *ast.CallExpr) []ast.Expr {
 	}
 	args := call.Args
 	switch {
+	case sc.objects[recv.Name]:
+		if len(args) < 2 {
+			return nil
+		}
+		return args[0:2]
 	case c.testify[recv.Name]:
 		if len(args) < 3 {
 			return nil
 		}
 		return args[1:3]
-	case c.objects[recv.Name]:
-		if len(args) < 2 {
-			return nil
-		}
-		return args[0:2]
 	}
 	return nil
 }
@@ -175,6 +190,38 @@ func (c *checker) asField(e ast.Expr) *ast.SelectorExpr {
 		return nil
 	}
 	return sel
+}
+
+func (c *checker) assertObjects(body *ast.BlockStmt) map[string]bool {
+	names := make(map[string]bool)
+	ast.Inspect(body, func(n ast.Node) bool {
+		if _, ok := n.(*ast.FuncLit); ok {
+			return false
+		}
+		as, ok := n.(*ast.AssignStmt)
+		if !ok || len(as.Lhs) != 1 || len(as.Rhs) != 1 {
+			return true
+		}
+		id, ok := as.Lhs[0].(*ast.Ident)
+		if ok && c.isNewCall(as.Rhs[0]) {
+			names[id.Name] = true
+		}
+		return true
+	})
+	return names
+}
+
+func (c *checker) isNewCall(e ast.Expr) bool {
+	call, ok := e.(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != "New" {
+		return false
+	}
+	pkg, ok := sel.X.(*ast.Ident)
+	return ok && c.testify[pkg.Name]
 }
 
 func isLiteral(e ast.Expr) bool {
@@ -197,42 +244,11 @@ func isEqualityFunc(name string) bool {
 	return false
 }
 
-func rootName(e ast.Expr) string {
-	for {
-		switch x := e.(type) {
-		case *ast.Ident:
-			return x.Name
-		case *ast.SelectorExpr:
-			e = x.X
-		case *ast.IndexExpr:
-			e = x.X
-		case *ast.StarExpr:
-			e = x.X
-		case *ast.ParenExpr:
-			e = x.X
-		case *ast.CallExpr:
-			e = x.Fun
-		default:
-			return ""
-		}
-	}
-}
-
-func paramNames(ft *ast.FuncType) map[string]bool {
-	names := make(map[string]bool)
-	for _, field := range ft.Params.List {
-		for _, n := range field.Names {
-			names[n.Name] = true
-		}
-	}
-	return names
-}
-
 func testifyNames(f *ast.File) map[string]bool {
 	names := make(map[string]bool)
 	for _, imp := range f.Imports {
-		if p := importPath(imp); isTestifyPath(p) {
-			names[localName(imp, p)] = true
+		if isTestifyPath(analysis.ImportPath(imp)) {
+			names[analysis.ImportName(imp)] = true
 		}
 	}
 	return names
@@ -246,47 +262,7 @@ func isTestifyPath(p string) bool {
 func importNames(f *ast.File) map[string]bool {
 	names := make(map[string]bool)
 	for _, imp := range f.Imports {
-		names[localName(imp, importPath(imp))] = true
+		names[analysis.ImportName(imp)] = true
 	}
 	return names
-}
-
-func importPath(imp *ast.ImportSpec) string {
-	return strings.Trim(imp.Path.Value, "\"`")
-}
-
-func localName(imp *ast.ImportSpec, p string) string {
-	if imp.Name != nil {
-		return imp.Name.Name
-	}
-	return path.Base(p)
-}
-
-func assertObjects(f *ast.File, testify map[string]bool) map[string]bool {
-	names := make(map[string]bool)
-	ast.Inspect(f, func(n ast.Node) bool {
-		as, ok := n.(*ast.AssignStmt)
-		if !ok || len(as.Lhs) != 1 || len(as.Rhs) != 1 {
-			return true
-		}
-		id, ok := as.Lhs[0].(*ast.Ident)
-		if ok && isNewCall(as.Rhs[0], testify) {
-			names[id.Name] = true
-		}
-		return true
-	})
-	return names
-}
-
-func isNewCall(e ast.Expr, testify map[string]bool) bool {
-	call, ok := e.(*ast.CallExpr)
-	if !ok {
-		return false
-	}
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || sel.Sel.Name != "New" {
-		return false
-	}
-	pkg, ok := sel.X.(*ast.Ident)
-	return ok && testify[pkg.Name]
 }
