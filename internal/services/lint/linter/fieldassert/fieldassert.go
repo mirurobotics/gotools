@@ -126,10 +126,17 @@ func (c *checker) fieldArg(s ast.Stmt) (*ast.CallExpr, *ast.SelectorExpr) {
 		return nil, nil
 	}
 	vals := c.comparedValues(call)
-	for i := len(vals) - 1; i >= 0; i-- {
-		if sel := c.asField(vals[i]); sel != nil {
-			return call, sel
-		}
+	if vals == nil {
+		return nil, nil
+	}
+	if sel := c.asField(vals[1]); sel != nil {
+		return call, sel
+	}
+	if !isLiteral(vals[1]) {
+		return nil, nil
+	}
+	if sel := c.asField(vals[0]); sel != nil {
+		return call, sel
 	}
 	return nil, nil
 }
@@ -168,6 +175,18 @@ func (c *checker) asField(e ast.Expr) *ast.SelectorExpr {
 		return nil
 	}
 	return sel
+}
+
+func isLiteral(e ast.Expr) bool {
+	switch x := ast.Unparen(e).(type) {
+	case *ast.BasicLit:
+		return true
+	case *ast.UnaryExpr:
+		return isLiteral(x.X)
+	case *ast.Ident:
+		return x.Name == "true" || x.Name == "false" || x.Name == "nil"
+	}
+	return false
 }
 
 func isEqualityFunc(name string) bool {

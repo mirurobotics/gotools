@@ -113,9 +113,26 @@ func TestCheck_SwappedArgsCounted(t *testing.T) {
 	got := build()
 	assert.Equal(t, got.A, 1)
 	assert.Exactlyf(t, got.B, 2, "msg")
-	assert.EqualValues(t, got.C, 3)
+	assert.EqualValues(t, got.C, -3)
+	assert.Equal(t, got.D, true)
+	assert.Equal(t, got.E, (nil))
 }
 `, 13)
+}
+
+func TestCheck_ExpectedFieldsWithoutStructAllowed(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	code, body, err := do(tc.req)
+	assert.Equal(t, tc.wantCode, code)
+	assert.Equal(t, tc.wantBody, body)
+	assert.Equal(t, tc.wantErr, err)
+	assert.Equal(t, tc.wantName, got.GetName())
+	assert.Equal(t, tc.wantKind, -code)
+	assert.Equal(t, tc.wantOK, false)
+	assert.Equal(t, tc.wantID, ident)
+	assert.Equal(t, code, 200)
+}
+`)
 }
 
 func TestCheck_PackageSelectorsIgnored(t *testing.T) {
