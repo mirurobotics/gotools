@@ -133,6 +133,9 @@ func (m *model) ready(x *fn, done map[int]bool) bool {
 			return false
 		}
 	}
+	if x.waitsInCycle && !slices.ContainsFunc(x.cycleCallers, isDone) {
+		return false
+	}
 	return m.ranked(x, isDone)
 }
 

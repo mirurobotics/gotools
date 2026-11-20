@@ -75,3 +75,24 @@ func TestWalk_NothingReady(t *testing.T) {
 		t.Errorf("got %v, want [1 2]", got)
 	}
 }
+
+func TestCheck_CycleMemberFollowsItsCaller(t *testing.T) {
+	assertMessages(t, `package p
+
+func b() { a() }
+
+func Run() { a() }
+
+func a() { b() }
+`,
+		`"b" should be directly below "a"`,
+	)
+	assertMessages(t, `package p
+
+func b() { a() }
+
+func a() { b() }
+
+func Run() {}
+`)
+}

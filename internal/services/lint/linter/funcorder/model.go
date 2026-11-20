@@ -18,6 +18,8 @@ type fn struct {
 	hasInFileCaller bool
 	callees         []int
 	callers         []int
+	cycleCallers    []int
+	waitsInCycle    bool
 }
 
 func build(f *ast.File) *model {
@@ -43,6 +45,7 @@ func build(f *ast.File) *model {
 	for _, x := range m.funcs() {
 		m.linkCallees(x)
 	}
+	m.markCycleWaits()
 	m.heads = m.typeHeads()
 	m.initVars = m.initVarDecls()
 	m.plain = m.plainTypes()
@@ -133,10 +136,31 @@ func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
 func (m *model) linkCallees(x *fn) {
 	for _, j := range x.callees {
 		to := m.fns[j]
-		if enforced(x, to) && !m.reaches(j, x.idx) {
+		switch {
+		case !enforced(x, to):
+		case m.reaches(j, x.idx):
+			to.cycleCallers = append(to.cycleCallers, x.idx)
+		default:
 			to.callers = append(to.callers, x.idx)
 		}
 	}
+}
+
+func (m *model) markCycleWaits() {
+	for _, x := range m.funcs() {
+		inCycleOnly := len(x.callers) == 0 && len(x.cycleCallers) > 0
+		x.waitsInCycle = inCycleOnly && !m.opensCycle(x)
+	}
+}
+
+func (m *model) opensCycle(x *fn) bool {
+	for _, y := range m.funcs() {
+		inCycle := y != x && m.reaches(x.idx, y.idx) && m.reaches(y.idx, x.idx)
+		if inCycle && (y.idx < x.idx || len(y.callers) > 0) {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *model) reaches(from, to int) bool {
@@ -240,6 +264,8 @@ func newFn(i int, d *ast.FuncDecl) *fn {
 		hasInFileCaller: false,
 		callees:         nil,
 		callers:         nil,
+		cycleCallers:    nil,
+		waitsInCycle:    false,
 	}
 	if x.recv != "" {
 		x.name = x.recv + "." + x.name
