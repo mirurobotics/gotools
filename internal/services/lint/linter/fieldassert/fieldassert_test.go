@@ -1,23 +1,10 @@
 package fieldassert
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/linttest"
 )
-
-const header = `package foo
-
-import (
-	"net/http"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
-
-`
 
 func TestCheck_ThreeFieldAssertsFlagged(t *testing.T) {
 	fset, f := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
@@ -108,7 +95,7 @@ func TestCheck_ExpectedFieldsGroupByActual(t *testing.T) {
 }
 `)
 	diags := Check(fset, "foo_test.go", f)
-	linttest.AssertLines(t, diags, []int{15}, wantMsg(3, "got", "got"))
+	linttest.AssertLines(t, diags, []int{15}, wantMsg("got", "got"))
 }
 
 func TestCheck_SwappedArgsCounted(t *testing.T) {
@@ -234,7 +221,7 @@ func TestX(t *testing.T) {
 `
 	fset, f := linttest.Parse(t, "foo_test.go", src)
 	diags := Check(fset, "foo_test.go", f)
-	linttest.AssertLines(t, diags, []int{12}, wantMsg(3, "got", "got"))
+	linttest.AssertLines(t, diags, []int{12}, wantMsg("got", "got"))
 }
 
 func TestCheck_CallRootAndOddBases(t *testing.T) {
@@ -249,7 +236,7 @@ func TestCheck_CallRootAndOddBases(t *testing.T) {
 `)
 	diags := Check(fset, "foo_test.go", f)
 	linttest.AssertLines(t, diags, []int{12, 15}, "")
-	if diags[0].Message != wantMsg(3, "build()", "") {
+	if diags[0].Message != wantMsg("build()", "") {
 		t.Errorf("message = %q", diags[0].Message)
 	}
 }
@@ -264,17 +251,15 @@ func TestCheck_Nolint(t *testing.T) {
 `)
 }
 
-func wantMsg(n int, base, root string) string {
-	msg := fmt.Sprintf("%d asserts compare fields of %s one at a time;"+
-		" compare the whole value in one assert", n, base)
-	if root != "" {
-		msg += ", or move the checks into a helper that takes " + root
-	}
-	return msg
+func TestCheck_ShadowStartsNewGroup(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	got := build()
+	t.Run("x", func(t *testing.T) {
+		assert.Equal(t, 1, got.A)
+		got := got.Child
+		assert.Equal(t, 2, got.B)
+		assert.Equal(t, 3, got.C)
+	})
 }
-
-func assertLines(t *testing.T, filename, body string, want ...int) {
-	t.Helper()
-	fset, f := linttest.Parse(t, filename, header+body)
-	linttest.AssertLines(t, Check(fset, filename, f), want, "")
+`)
 }

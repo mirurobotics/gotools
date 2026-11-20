@@ -24,6 +24,11 @@ type checker struct {
 	diags    []analysis.Diagnostic
 }
 
+type groupKey struct {
+	base string
+	root any
+}
+
 type fieldGroup struct {
 	base   string
 	root   *ast.Ident
@@ -66,7 +71,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 
 func (c *checker) checkStmts(stmts []ast.Stmt) {
 	var groups []*fieldGroup
-	open := make(map[string]*fieldGroup)
+	open := make(map[groupKey]*fieldGroup)
 	for _, s := range stmts {
 		call, sel := c.fieldArg(s)
 		if sel == nil {
@@ -74,13 +79,15 @@ func (c *checker) checkStmts(stmts []ast.Stmt) {
 			continue
 		}
 		base := types.ExprString(ast.Unparen(sel.X))
-		g := open[base]
+		root := rootIdent(sel.X)
+		key := groupKey{base: base, root: rootKey(root)}
+		g := open[key]
 		if g == nil {
 			g = &fieldGroup{
-				base: base, root: rootIdent(sel.X), deps: identSet(sel.X),
+				base: base, root: root, deps: identSet(sel.X),
 				calls: nil, fields: map[string]bool{},
 			}
-			open[base] = g
+			open[key] = g
 			groups = append(groups, g)
 		}
 		g.calls = append(g.calls, call)

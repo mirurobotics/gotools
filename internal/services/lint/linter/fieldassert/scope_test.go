@@ -206,7 +206,7 @@ func TestCheck_LocalShadowingImportIsAValue(t *testing.T) {
 }
 
 func TestCheck_VarAssertObjectFlagged(t *testing.T) {
-	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	assertGotThree(t, `func TestX(t *testing.T) {
 	var a = assert.New(t)
 	var b, c int
 	got := build()
@@ -230,7 +230,7 @@ func helper(a *assert.Assertions, r require.Assertions, n *other.Assertions, m *
 }
 
 func TestCheck_MultiAssignAssertObjectFlagged(t *testing.T) {
-	assertLines(t, "foo_test.go", `func TestY(t *testing.T) {
+	assertGotThree(t, `func TestY(t *testing.T) {
 	a, r := assert.New(t), require.New(t)
 	x, y := build(), 2
 	var v, w = 1, require.New(t)
