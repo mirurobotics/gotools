@@ -82,19 +82,15 @@ func (a *attacher) releaseInitVars() {
 }
 
 func (a *attacher) release(t, f int) {
-	end := t
-	for owns(a.owner, f, end+1) {
-		end++
-	}
-	if end == f-1 {
+	if owns(a.owner, f, f-1) {
 		return
 	}
-	k := t + 1
-	for k <= end && !a.m.initVars[k] {
-		k++
-	}
-	for ; k <= end; k++ {
-		delete(a.owner, k)
+	released := false
+	for i := t + 1; owns(a.owner, f, i); i++ {
+		released = released || a.m.initVars[i]
+		if released {
+			delete(a.owner, i)
+		}
 	}
 }
 
@@ -102,7 +98,7 @@ func (a *attacher) claimLeads(settled bool) {
 	leads := func(i int) bool {
 		tok := a.m.declTok(i)
 		isBlock := tok == token.CONST || tok == token.VAR
-		return isBlock && !(settled && a.m.initVars[i])
+		return isBlock && (!settled || !a.m.initVars[i])
 	}
 	for _, x := range a.m.funcs() {
 		if x.recv == "" {
