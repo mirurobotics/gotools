@@ -206,7 +206,7 @@ func TestCheck_LocalShadowingImportIsAValue(t *testing.T) {
 }
 
 func TestCheck_VarAssertObjectFlagged(t *testing.T) {
-	assertGotThree(t, `func TestX(t *testing.T) {
+	assertGotFlagged(t, `func TestX(t *testing.T) {
 	var a = assert.New(t)
 	var b, c int
 	got := build()
@@ -230,7 +230,7 @@ func helper(a *assert.Assertions, r require.Assertions, n *other.Assertions, m *
 }
 
 func TestCheck_MultiAssignAssertObjectFlagged(t *testing.T) {
-	assertGotThree(t, `func TestY(t *testing.T) {
+	assertGotFlagged(t, `func TestY(t *testing.T) {
 	a, r := assert.New(t), require.New(t)
 	x, y := build(), 2
 	var v, w = 1, require.New(t)
@@ -291,30 +291,29 @@ func TestX(t *testing.T) {
 	linttest.AssertLines(t, Check(fset, "foo_test.go", f), []int{12}, "")
 }
 
-func TestCheck_AddressTakenOrRangeAssignStartsNewGroup(t *testing.T) {
-	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+func TestCheck_UseOutsideAssertStartsNewGroup(t *testing.T) {
+	assertGotFlagged(t, `func TestX(t *testing.T) {
 	var got T
 	assert.Equal(t, 1, got.A)
 	require.NoError(t, json.Unmarshal(b, &got))
 	assert.Equal(t, 2, got.B)
+	got.Stop()
 	assert.Equal(t, 3, got.C)
+	fill(got)
+	assert.Equal(t, 4, got.D)
+	for got = range xs {
+	}
+	assert.Equal(t, 5, got.E)
 }
 
 func TestY(t *testing.T) {
-	var got T
+	got := build()
 	assert.Equal(t, 1, got.A)
-	for got = range xs {
-	}
+	require.Len(t, got.Items, 2)
 	assert.Equal(t, 2, got.B)
+	err := other()
 	assert.Equal(t, 3, got.C)
+	_ = err
 }
-
-func TestZ(t *testing.T) {
-	var got T
-	assert.Equal(t, 1, got.A)
-	_ = -got.A
-	assert.Equal(t, 2, got.B)
-	assert.Equal(t, 3, got.C)
-}
-`, 30)
+`, 27)
 }

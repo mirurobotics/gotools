@@ -2,51 +2,39 @@ package fieldassert
 
 import (
 	"go/ast"
-	"go/token"
 	"maps"
 )
 
-func closeAssigned(open map[string]*fieldGroup, s ast.Stmt) {
-	for _, key := range assignedKeys(s) {
-		maps.DeleteFunc(open, func(_ string, g *fieldGroup) bool { return g.deps[key] })
+func (c *checker) closeUsed(open map[string]*fieldGroup, s ast.Stmt) {
+	if c.isTestifyStmt(s) {
+		return
 	}
-}
-
-func assignedKeys(s ast.Stmt) []any {
-	var keys []any
-	ast.Inspect(s, func(n ast.Node) bool {
-		switch n := n.(type) {
-		case *ast.AssignStmt:
-			for _, lhs := range n.Lhs {
-				keys = appendKey(keys, rootIdent(lhs))
+	used := identSet(s)
+	maps.DeleteFunc(open, func(_ string, g *fieldGroup) bool {
+		for key := range g.deps {
+			if used[key] {
+				return true
 			}
-		case *ast.IncDecStmt:
-			keys = appendKey(keys, rootIdent(n.X))
-		case *ast.UnaryExpr:
-			if n.Op == token.AND {
-				keys = appendKey(keys, rootIdent(n.X))
-			}
-		case *ast.RangeStmt:
-			keys = appendKey(keys, rootIdent(n.Key))
-			keys = appendKey(keys, rootIdent(n.Value))
 		}
-		return true
+		return false
 	})
-	return keys
 }
 
-func appendKey(keys []any, id *ast.Ident) []any {
-	if id == nil {
-		return keys
+func (c *checker) isTestifyStmt(s ast.Stmt) bool {
+	es, ok := s.(*ast.ExprStmt)
+	if !ok {
+		return false
 	}
-	return append(keys, identKey(id))
-}
-
-func identKey(id *ast.Ident) any {
-	if id.Obj != nil {
-		return id.Obj
+	call, ok := es.X.(*ast.CallExpr)
+	if !ok {
+		return false
 	}
-	return id.Name
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	recv, ok := sel.X.(*ast.Ident)
+	return ok && (c.isTestifyPkg(recv) || c.isAssertObject(recv))
 }
 
 func (c *checker) isAssertObject(id *ast.Ident) bool {
@@ -170,7 +158,7 @@ func resultFields(f *ast.File) map[*ast.Field]bool {
 	return fields
 }
 
-func identSet(e ast.Expr) map[any]bool {
+func identSet(e ast.Node) map[any]bool {
 	keys := make(map[any]bool)
 	ast.Inspect(e, func(n ast.Node) bool {
 		if id, ok := n.(*ast.Ident); ok {
@@ -179,4 +167,11 @@ func identSet(e ast.Expr) map[any]bool {
 		return true
 	})
 	return keys
+}
+
+func identKey(id *ast.Ident) any {
+	if id.Obj != nil {
+		return id.Obj
+	}
+	return id.Name
 }

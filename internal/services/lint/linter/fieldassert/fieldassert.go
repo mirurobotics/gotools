@@ -71,7 +71,7 @@ func (c *checker) checkStmts(stmts []ast.Stmt) {
 	for _, s := range stmts {
 		call, sel := c.fieldArg(s)
 		if sel == nil {
-			closeAssigned(open, s)
+			c.closeUsed(open, s)
 			continue
 		}
 		base := types.ExprString(ast.Unparen(sel.X))

@@ -7,16 +7,13 @@ import (
 )
 
 func TestCheck_ThreeFieldAssertsFlagged(t *testing.T) {
-	fset, f := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
+	assertGotFlagged(t, `func TestX(t *testing.T) {
 	got := build()
 	assert.Equal(t, 1, got.A)
 	assert.Equal(t, "b", got.B)
 	require.Equal(t, true, got.C)
 }
-`)
-	linttest.AssertLines(t, Check(fset, "foo_test.go", f), []int{13},
-		"3 asserts compare fields of got one at a time; compare the whole value"+
-			" in one assert, or move the checks into a helper that takes got")
+`, 13)
 }
 
 func TestCheck_TwoFieldAssertsAllowed(t *testing.T) {
@@ -82,7 +79,7 @@ func TestCheck_HelperBuildingValueFlagged(t *testing.T) {
 }
 
 func TestCheck_ExpectedFieldsGroupByActual(t *testing.T) {
-	fset, f := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
+	assertGotFlagged(t, `func TestX(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := build(tc.in)
@@ -93,9 +90,7 @@ func TestCheck_ExpectedFieldsGroupByActual(t *testing.T) {
 		})
 	}
 }
-`)
-	diags := Check(fset, "foo_test.go", f)
-	linttest.AssertLines(t, diags, []int{15}, wantMsg("got", "got"))
+`, 15)
 }
 
 func TestCheck_SwappedArgsCounted(t *testing.T) {

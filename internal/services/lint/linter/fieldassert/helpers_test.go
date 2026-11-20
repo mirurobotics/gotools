@@ -24,7 +24,7 @@ func assertLines(t *testing.T, filename, body string, want ...int) {
 	linttest.AssertLines(t, Check(fset, filename, f), want, "")
 }
 
-func assertGotThree(t *testing.T, body string, want ...int) {
+func assertGotFlagged(t *testing.T, body string, want ...int) {
 	t.Helper()
 	fset, f := linttest.Parse(t, "foo_test.go", header+body)
 	diags := Check(fset, "foo_test.go", f)
