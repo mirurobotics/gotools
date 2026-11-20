@@ -93,7 +93,7 @@ func (m *model) grouped(x *fn) string {
 	if prev >= 0 || !ok || t > x.idx {
 		return ""
 	}
-	if head := m.typeHead(t, m.gluedTypes()); head[len(head)-1] != x.idx-1 {
+	if head := m.typeHead(t); head[len(head)-1] != x.idx-1 {
 		return fmt.Sprintf("type %q should be directly above its methods", x.recv)
 	}
 	return ""
@@ -116,10 +116,9 @@ func (m *model) order() []int {
 func (m *model) units() [][]int {
 	var units [][]int
 	group := map[string]int{}
-	types := m.gluedTypes()
 	glued := map[int]bool{}
-	for t := range types {
-		for _, i := range m.typeHead(t, types) {
+	for t := range m.gluedTypes() {
+		for _, i := range m.typeHead(t) {
 			glued[i] = true
 		}
 	}
@@ -133,7 +132,7 @@ func (m *model) units() [][]int {
 			units[u] = append(units[u], i)
 		default:
 			group[x.recv] = len(units) + 1
-			units = append(units, m.unitHead(x.recv, i, types))
+			units = append(units, m.unitHead(x.recv, i))
 		}
 	}
 	return units
@@ -149,16 +148,20 @@ func (m *model) gluedTypes() map[int]bool {
 	return types
 }
 
-func (m *model) unitHead(recv string, i int, types map[int]bool) []int {
+func (m *model) unitHead(recv string, i int) []int {
 	if t, ok := m.soloType[recv]; ok {
-		return append(m.typeHead(t, types), i)
+		return append(m.typeHead(t), i)
 	}
 	return []int{i}
 }
 
-func (m *model) typeHead(t int, types map[int]bool) []int {
+func (m *model) typeHead(t int) []int {
+	isType := map[int]bool{}
+	for _, i := range m.typeDecl {
+		isType[i] = true
+	}
 	head := []int{t}
-	for i := t + 1; i < len(m.fns) && m.fns[i] == nil && !types[i]; i++ {
+	for i := t + 1; i < len(m.fns) && m.fns[i] == nil && !isType[i]; i++ {
 		head = append(head, i)
 	}
 	return head

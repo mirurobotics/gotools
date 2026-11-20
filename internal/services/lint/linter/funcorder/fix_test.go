@@ -47,6 +47,16 @@ func TestFix_TypeCarriesItsConsts(t *testing.T) {
 		"package p\n\n"+run+"\n"+typ+"\n"+method)
 }
 
+func TestFix_TypeLeavesOtherTypesBehind(t *testing.T) {
+	typ := "type T struct{}\n"
+	group := "type (\n\tA struct{}\n\tB struct{}\n)\n"
+	an := "func (A) N() {}\n"
+	run := "func Run() {}\n"
+	m := "func (T) M() {}\n"
+	assertFix(t, "package p\n\n"+typ+"\n"+group+"\n"+an+"\n"+run+"\n"+m,
+		"package p\n\n"+group+"\n"+an+"\n"+run+"\n"+typ+"\n"+m)
+}
+
 func TestFix_PackageLineComment(t *testing.T) {
 	head := "package p /* a\nb */\n\n"
 	assertFix(t, head+"func helper() {}\n\nfunc Run() { helper() }\n",

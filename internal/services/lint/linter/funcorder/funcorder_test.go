@@ -256,6 +256,18 @@ func (T) B() {}
 `,
 		`type "T" should be directly above its methods`,
 	)
+	assertMessages(t, `package p
+
+type T struct{}
+
+type Rule string
+
+const R Rule = "r"
+
+func (T) M() {}
+`,
+		`type "T" should be directly above its methods`,
+	)
 }
 
 func TestCheck_ExportedCalledInFile(t *testing.T) {
