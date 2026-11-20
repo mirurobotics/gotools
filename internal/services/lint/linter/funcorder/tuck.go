@@ -14,7 +14,7 @@ func (l *layout) tuckOnce() bool {
 	isFunc := func(i int) bool { return l.m.fns[i] != nil }
 	for _, typeIdx := range slices.Sorted(maps.Keys(l.m.tucked)) {
 		from := treeOf(l.trees, typeIdx)
-		last, tree := l.m.lastUserTree(l.trees, typeIdx, from), l.trees[from]
+		last, tree := l.lastUserTree(typeIdx, from), l.trees[from]
 		if !l.isTuckable(tree, typeIdx, last, from) {
 			continue
 		}
@@ -44,24 +44,21 @@ func (l *layout) hasCallerBetween(tree []int, last, from int) bool {
 	})
 }
 
-func (m *model) lastUserTree(trees [][]int, typeIdx, from int) int {
+func (l *layout) lastUserTree(typeIdx, from int) int {
 	last := -1
-	for _, user := range m.tucked[typeIdx] {
-		userTree := treeOf(trees, user)
-		if userTree >= 0 && userTree < from && m.isFreeUser(trees[userTree], user) {
+	for _, user := range l.m.tucked[typeIdx] {
+		userTree := treeOf(l.trees, user)
+		if userTree >= 0 && userTree < from && l.isFreeUser(user) {
 			last = max(last, userTree)
 		}
 	}
 	return last
 }
 
-func (m *model) isFreeUser(tree []int, user int) bool {
-	if m.fns[user] == nil {
-		isFunc := func(i int) bool { return m.fns[i] != nil }
-		root := slices.IndexFunc(tree, isFunc)
-		return root >= 0 && m.fns[tree[root]].recv == ""
-	}
-	return m.fns[user].recv == ""
+func (l *layout) isFreeUser(user int) bool {
+	unit := l.unit[l.unitOf[user]]
+	owner := l.m.fns[unit[len(unit)-1]]
+	return owner != nil && owner.recv == ""
 }
 
 func treeOf(trees [][]int, i int) int {
