@@ -43,8 +43,13 @@ func (c *checker) isAssertObject(id *ast.Ident) bool {
 	if id.Obj == nil {
 		return false
 	}
-	as, ok := id.Obj.Decl.(*ast.AssignStmt)
-	return ok && len(as.Rhs) == 1 && c.isNewCall(as.Rhs[0])
+	switch d := id.Obj.Decl.(type) {
+	case *ast.AssignStmt:
+		return len(d.Rhs) == 1 && c.isNewCall(d.Rhs[0])
+	case *ast.ValueSpec:
+		return len(d.Values) == 1 && c.isNewCall(d.Values[0])
+	}
+	return false
 }
 
 func (c *checker) isNewCall(e ast.Expr) bool {

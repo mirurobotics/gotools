@@ -204,3 +204,24 @@ func TestCheck_LocalShadowingImportIsAValue(t *testing.T) {
 }
 `, 13)
 }
+
+func TestCheck_VarAssertObjectFlagged(t *testing.T) {
+	assertLines(t, "foo_test.go", `func TestX(t *testing.T) {
+	var a = assert.New(t)
+	var b, c int
+	got := build()
+	a.Equal(1, got.A)
+	a.Equal(2, got.B)
+	a.Equal(3, got.C)
+	b.Equal(1, got.D)
+	_ = c
+}
+
+func helper(a *assert.Assertions) {
+	got := build()
+	a.Equal(1, got.A)
+	a.Equal(2, got.B)
+	a.Equal(3, got.C)
+}
+`, 15)
+}
