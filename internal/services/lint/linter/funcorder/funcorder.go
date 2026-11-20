@@ -100,6 +100,14 @@ func (m *model) grouped(x *fn) string {
 }
 
 func (m *model) order() []int {
+	out := m.arrange(m.heads)
+	if m.keepsInitOrder(out) {
+		return out
+	}
+	return m.arrange(m.settledHeads())
+}
+
+func (m *model) arrange(heads map[string][]int) []int {
 	done := map[int]bool{}
 	var out []int
 	mark := func(i int) {
@@ -109,15 +117,43 @@ func (m *model) order() []int {
 	unitReady := func(u []int) bool { return m.unitReady(u, done) }
 	fnReady := func(i int) bool { return m.ready(m.fns[i], done) }
 	emitUnit := func(u []int) { kahn(u, fnReady, mark) }
-	kahn(m.units(), unitReady, emitUnit)
+	kahn(m.units(heads), unitReady, emitUnit)
 	return out
 }
 
-func (m *model) units() [][]int {
+func (m *model) keepsInitOrder(order []int) bool {
+	var vars []int
+	for _, i := range order {
+		if m.initVars[i] {
+			vars = append(vars, i)
+		}
+	}
+	return slices.IsSorted(vars)
+}
+
+func (m *model) settledHeads() map[string][]int {
+	isInit := func(i int) bool { return m.initVars[i] }
+	heads := map[string][]int{}
+	for recv, head := range m.heads {
+		heads[recv] = head
+		if k := slices.IndexFunc(head, isInit); k > 0 && m.moves(recv, head) {
+			heads[recv] = head[:k]
+		}
+	}
+	return heads
+}
+
+func (m *model) moves(recv string, head []int) bool {
+	isMethod := func(x *fn) bool { return x != nil && x.recv == recv }
+	first := slices.IndexFunc(m.fns, isMethod)
+	return head[len(head)-1] != first-1
+}
+
+func (m *model) units(heads map[string][]int) [][]int {
 	var units [][]int
 	group := map[string]int{}
 	glued := map[int]bool{}
-	for _, head := range m.heads {
+	for _, head := range heads {
 		for _, i := range head {
 			glued[i] = true
 		}
@@ -132,17 +168,10 @@ func (m *model) units() [][]int {
 			units[u] = append(units[u], i)
 		default:
 			group[x.recv] = len(units) + 1
-			units = append(units, m.unitHead(x.recv, i))
+			units = append(units, unitHead(heads, x.recv, i))
 		}
 	}
 	return units
-}
-
-func (m *model) unitHead(recv string, i int) []int {
-	if head, ok := m.heads[recv]; ok {
-		return append(slices.Clip(head), i)
-	}
-	return []int{i}
 }
 
 func (m *model) unitReady(u []int, done map[int]bool) bool {
@@ -174,6 +203,13 @@ func (m *model) ranked(y *fn, isDone func(int) bool) bool {
 		}
 	}
 	return true
+}
+
+func unitHead(heads map[string][]int, recv string, i int) []int {
+	if head, ok := heads[recv]; ok {
+		return append(slices.Clip(head), i)
+	}
+	return []int{i}
 }
 
 func mustPrecede(x, y *fn) bool {

@@ -270,6 +270,29 @@ func (T) M() {}
 	)
 }
 
+func TestCheck_OnlyMovedTypeLosesItsVars(t *testing.T) {
+	assertMessages(t, `package p
+
+type Kind int
+
+var kindNames = record("k")
+
+func (Kind) String() string { return "" }
+
+type Config struct{}
+
+var defaultConfig = record("c")
+
+func Load() {}
+
+var ErrBad = record("e")
+
+func (Config) Validate() {}
+`,
+		`type "Config" should be directly above its methods`,
+	)
+}
+
 func TestCheck_ExportedCalledInFile(t *testing.T) {
 	assertMessages(t, `package p
 

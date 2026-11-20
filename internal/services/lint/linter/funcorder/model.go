@@ -25,6 +25,7 @@ func build(f *ast.File) *model {
 		fns:      make([]*fn, len(f.Decls)),
 		typeDecl: map[string]int{},
 		heads:    nil,
+		initVars: nil,
 	}
 	byName := map[string]int{}
 	for i, d := range f.Decls {
@@ -40,9 +41,7 @@ func build(f *ast.File) *model {
 		m.linkCallees(x)
 	}
 	m.heads = m.typeHeads(f.Decls)
-	if initVars := initVarDecls(f.Decls); !m.keepsInitOrder(initVars) {
-		m.dropInitVars(initVars)
-	}
+	m.initVars = initVarDecls(f.Decls)
 	return m
 }
 
@@ -50,6 +49,7 @@ type model struct {
 	fns      []*fn
 	typeDecl map[string]int
 	heads    map[string][]int
+	initVars map[int]bool
 }
 
 func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
@@ -134,25 +134,6 @@ func (m *model) typeHead(t int, isType map[int]bool) []int {
 		head = append(head, i)
 	}
 	return head
-}
-
-func (m *model) keepsInitOrder(initVars map[int]bool) bool {
-	var vars []int
-	for _, i := range m.order() {
-		if initVars[i] {
-			vars = append(vars, i)
-		}
-	}
-	return slices.IsSorted(vars)
-}
-
-func (m *model) dropInitVars(initVars map[int]bool) {
-	isInit := func(i int) bool { return initVars[i] }
-	for recv, head := range m.heads {
-		if k := slices.IndexFunc(head, isInit); k > 0 {
-			m.heads[recv] = head[:k]
-		}
-	}
 }
 
 func initVarDecls(decls []ast.Decl) map[int]bool {
