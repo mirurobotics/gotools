@@ -88,6 +88,14 @@ func TestFix_KeepsVarInitOrderAcrossTypes(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
+func TestFix_TypeMovesUpWithItsConsts(t *testing.T) {
+	m := "func (k Kind) String() string { return \"\" }\n"
+	run := "func Run() {}\n"
+	typ := "type Kind int\n\nconst A Kind = 0\n"
+	assertFix(t, "package p\n\n"+m+"\n"+run+"\n"+typ,
+		"package p\n\n"+typ+"\n"+m+"\n"+run)
+}
+
 func TestFix_PackageLineComment(t *testing.T) {
 	head := "package p /* a\nb */\n\n"
 	assertFix(t, head+"func helper() {}\n\nfunc Run() { helper() }\n",

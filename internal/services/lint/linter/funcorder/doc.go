@@ -7,10 +7,10 @@
 //   - an exported entry point (a function nothing in the file calls), main or
 //     init sits above unexported functions that nothing in the file calls;
 //   - a type's methods sit together below the type, ordered by the same rules;
-//     a type declared on its own sits directly above its methods, after any
-//     const and var blocks that follow it up to the next type, and Fix moves
-//     them together, leaving an initialized var in place if it would pass
-//     another, so package initialization order is kept.
+//     a type declared on its own sits directly above its methods, after the
+//     const and var blocks directly below it, and Fix moves them together;
+//     if that would reorder initialized vars, the type moves without its
+//     blocks from the first initialized var on.
 //
 // Calls are matched by name, and methods only through their receiver, so
 // calls across files or through other values are not constrained. Recursion
