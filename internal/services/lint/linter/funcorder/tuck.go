@@ -5,25 +5,24 @@ import (
 	"slices"
 )
 
-func (m *model) tuckTypes(out, roots []int, below map[int]bool) []int {
-	trees := splitTrees(out, roots)
-	isFunc := func(i int) bool { return m.fns[i] != nil }
-	for _, typeIdx := range slices.Sorted(maps.Keys(m.held)) {
-		from := treeOf(trees, typeIdx)
-		last := m.lastUserTree(trees, typeIdx, from)
+func (l *layout) tuckTypes() {
+	isFunc := func(i int) bool { return l.m.fns[i] != nil }
+	for _, typeIdx := range slices.Sorted(maps.Keys(l.m.held)) {
+		from := treeOf(l.trees, typeIdx)
+		last := l.m.lastUserTree(l.trees, typeIdx, from)
 		if last < 0 {
 			continue
 		}
 		end := last + 1
-		for end < from && !slices.ContainsFunc(trees[end], isFunc) {
+		for end < from && !slices.ContainsFunc(l.trees[end], isFunc) {
 			end++
 		}
-		tree := trees[from]
-		below[tree[slices.IndexFunc(tree, isFunc)]] = true
-		merged := slices.Concat(slices.Concat(trees[last:end]...), tree)
-		trees = slices.Replace(slices.Delete(trees, from, from+1), last, end, merged)
+		tree := l.trees[from]
+		l.below[tree[slices.IndexFunc(tree, isFunc)]] = true
+		merged := slices.Concat(slices.Concat(l.trees[last:end]...), tree)
+		l.trees = slices.Delete(l.trees, from, from+1)
+		l.trees = slices.Replace(l.trees, last, end, merged)
 	}
-	return slices.Concat(trees...)
 }
 
 func (m *model) lastUserTree(trees [][]int, typeIdx, from int) int {
@@ -35,18 +34,6 @@ func (m *model) lastUserTree(trees [][]int, typeIdx, from int) int {
 		}
 	}
 	return last
-}
-
-func splitTrees(out, roots []int) [][]int {
-	trees := make([][]int, len(roots))
-	for treeIdx, start := range roots {
-		end := len(out)
-		if treeIdx+1 < len(roots) {
-			end = roots[treeIdx+1]
-		}
-		trees[treeIdx] = out[start:end]
-	}
-	return trees
 }
 
 func treeOf(trees [][]int, i int) int {

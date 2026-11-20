@@ -18,8 +18,7 @@ func (m *model) arrange(settled bool) ([]int, map[int]bool) {
 		unitOf: map[int]int{},
 		done:   map[int]bool{},
 		below:  map[int]bool{},
-		out:    nil,
-		roots:  nil,
+		trees:  nil,
 	}
 	keys := make([]int, len(units))
 	for unitIdx, unit := range units {
@@ -30,8 +29,8 @@ func (m *model) arrange(settled bool) ([]int, map[int]bool) {
 		}
 	}
 	walk(keys, lay.unitReady, lay.unitNext, lay.emitUnit)
-	out := m.tuckTypes(lay.out, lay.roots, lay.below)
-	return m.placeTypes(units, out), lay.below
+	lay.tuckTypes()
+	return m.placeTypes(units, slices.Concat(lay.trees...)), lay.below
 }
 
 func (m *model) units(settled bool) [][]int {
@@ -114,8 +113,7 @@ type layout struct {
 	unitOf map[int]int
 	done   map[int]bool
 	below  map[int]bool
-	out    []int
-	roots  []int
+	trees  [][]int
 }
 
 func (l *layout) unitReady(unitIdx int) bool {
@@ -124,7 +122,7 @@ func (l *layout) unitReady(unitIdx int) bool {
 
 func (l *layout) unitNext(unitIdx int) []int {
 	var next []int
-	for _, i := range l.out {
+	for _, i := range slices.Concat(l.trees...) {
 		if l.unitOf[i] != unitIdx {
 			continue
 		}
@@ -137,12 +135,13 @@ func (l *layout) unitNext(unitIdx int) []int {
 
 func (l *layout) emitUnit(unitIdx int, below bool) {
 	if !below {
-		l.roots = append(l.roots, len(l.out))
+		l.trees = append(l.trees, nil)
 	}
+	tree := &l.trees[len(l.trees)-1]
 	walk(l.unit[unitIdx], l.fnReady, l.m.next, func(i int, inner bool) {
 		l.done[i] = true
 		l.below[i] = below || inner
-		l.out = append(l.out, i)
+		*tree = append(*tree, i)
 	})
 }
 
