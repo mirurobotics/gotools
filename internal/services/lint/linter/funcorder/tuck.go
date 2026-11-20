@@ -15,7 +15,7 @@ func (l *layout) tuckOnce() bool {
 	for _, typeIdx := range slices.Sorted(maps.Keys(l.m.tucked)) {
 		from := treeOf(l.trees, typeIdx)
 		last, tree := l.m.lastUserTree(l.trees, typeIdx, from), l.trees[from]
-		if !l.isTuckable(tree, last, from) {
+		if !l.isTuckable(tree, typeIdx, last, from) {
 			continue
 		}
 		l.below[tree[slices.IndexFunc(tree, isFunc)]] = true
@@ -26,9 +26,9 @@ func (l *layout) tuckOnce() bool {
 	return false
 }
 
-func (l *layout) isTuckable(tree []int, last, from int) bool {
+func (l *layout) isTuckable(tree []int, typeIdx, last, from int) bool {
 	isInitVar := func(i int) bool { return l.m.initVars[i] }
-	if last < 0 || slices.ContainsFunc(tree, isInitVar) {
+	if last < 0 || tree[0] != typeIdx || slices.ContainsFunc(tree, isInitVar) {
 		return false
 	}
 	return !l.hasCallerBetween(tree, last, from)

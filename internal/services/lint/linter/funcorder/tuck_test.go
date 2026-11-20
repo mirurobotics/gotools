@@ -197,10 +197,11 @@ func TestFix_TuckedTypesKeepTheirOrder(t *testing.T) {
 
 func TestFix_TuckedTypeBelowLastUser(t *testing.T) {
 	src := []string{
-		"func A() { _ = obj{} }\n", "func B() { _ = obj{} }\n", "func C() {}\n",
+		"func A() { _ = obj{} }\n", "func X() {}\n", "func B() { _ = obj{} }\n",
+		"func C() {}\n",
 		"type obj struct{}\n", "func (o obj) ID() string { return \"\" }\n",
 	}
-	want := []string{src[0], src[1], src[3], src[4], src[2]}
+	want := []string{src[0], src[1], src[2], src[4], src[5], src[3]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
