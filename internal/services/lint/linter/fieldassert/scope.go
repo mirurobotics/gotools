@@ -185,8 +185,12 @@ func resultFields(f *ast.File) map[*ast.Field]bool {
 func identSet(e ast.Node) map[any]bool {
 	keys := make(map[any]bool)
 	ast.Inspect(e, func(n ast.Node) bool {
-		if id, ok := n.(*ast.Ident); ok {
-			keys[identKey(id)] = true
+		switch x := n.(type) {
+		case *ast.SelectorExpr:
+			maps.Copy(keys, identSet(x.X))
+			return false
+		case *ast.Ident:
+			keys[identKey(x)] = true
 		}
 		return true
 	})
