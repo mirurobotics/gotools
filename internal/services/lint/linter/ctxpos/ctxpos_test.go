@@ -106,6 +106,26 @@ func TestCheck_TestingTFirstThenContextSecond(t *testing.T) {
 	})
 }
 
+func TestCheck_TestingTBFirstThenContextSecond(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo; import "context"` +
+			`; import "testing"` +
+			`; func helper(tb testing.TB, ctx context.Context) {}`,
+		wantN:   0,
+		wantMsg: "",
+	})
+}
+
+func TestCheck_AliasedTestingFirstThenContextSecond(t *testing.T) {
+	runCheckCase(t, checkCase{
+		src: `package foo; import "context"` +
+			`; import tst "testing"` +
+			`; func TestFoo(t *tst.T, ctx context.Context) {}`,
+		wantN:   0,
+		wantMsg: "",
+	})
+}
+
 func TestCheck_TestingBFirstThenContextSecond(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo; import "context"` +
@@ -190,16 +210,16 @@ func TestCheck_NonContextSelectorBeforeContext(t *testing.T) {
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
+	fset, file := linttest.Parse(t, "test.go", tc.src)
+	linttest.AssertCount(t, Check(fset, "test.go", file), tc.wantN, tc.wantMsg)
 }
 
 func TestFuncParams_NilParams(t *testing.T) {
 	//nolint:exhaustruct // only Type matters here
-	fn := &ast.FuncDecl{Type: &ast.FuncType{}}
-	if _, _, ok := funcParams(fn); ok {
+	decl := &ast.FuncDecl{Type: &ast.FuncType{}}
+	if _, _, ok := funcParams(decl); ok {
 		t.Error("funcParams should report false for nil params")
 	}
 }
@@ -214,18 +234,18 @@ func TestCtxParamIndex(t *testing.T) {
 		{"grouped params", "func(a, b int, ctx context.Context)", 2},
 		{"no context", "func(a int)", -1},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e, err := parser.ParseExpr(tt.sig)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			expr, err := parser.ParseExpr(tc.sig)
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			ft, ok := e.(*ast.FuncType)
+			funcType, ok := expr.(*ast.FuncType)
 			if !ok {
-				t.Fatalf("%q is not a func type", tt.sig)
+				t.Fatalf("%q is not a func type", tc.sig)
 			}
-			if got := ctxParamIndex(ft.Params, "context"); got != tt.want {
-				t.Errorf("ctxParamIndex(%q) = %d, want %d", tt.sig, got, tt.want)
+			if got := ctxParamIndex(funcType.Params, "context"); got != tc.want {
+				t.Errorf("ctxParamIndex(%q) = %d, want %d", tc.sig, got, tc.want)
 			}
 		})
 	}

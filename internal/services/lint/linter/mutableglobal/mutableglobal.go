@@ -9,20 +9,20 @@ import (
 )
 
 // Check reports diagnostics for mutable package-level variables.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 
-	for _, decl := range f.Decls {
-		gd, ok := decl.(*ast.GenDecl)
-		if !ok || gd.Tok != token.VAR {
+	for _, decl := range file.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.VAR {
 			continue
 		}
 
-		if hasNolint(fset, f, gd.TokPos) {
+		if hasNolint(fset, file, genDecl.TokPos) {
 			continue
 		}
 
-		for _, name := range declMutableNames(fset, f, gd) {
+		for _, name := range declMutableNames(fset, file, genDecl) {
 			pos := fset.Position(name.Pos())
 			diags = append(diags, analysis.Diagnostic{
 				File:    filename,
@@ -35,30 +35,32 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-func declMutableNames(fset *token.FileSet, f *ast.File, gd *ast.GenDecl) []*ast.Ident {
+func declMutableNames(
+	fset *token.FileSet, file *ast.File, decl *ast.GenDecl,
+) []*ast.Ident {
 	var names []*ast.Ident
-	for _, spec := range gd.Specs {
-		vs, ok := spec.(*ast.ValueSpec)
-		if !ok || hasNolint(fset, f, vs.Pos()) {
+	for _, spec := range decl.Specs {
+		valueSpec, ok := spec.(*ast.ValueSpec)
+		if !ok || hasNolint(fset, file, valueSpec.Pos()) {
 			continue
 		}
-		names = append(names, mutableNames(vs)...)
+		names = append(names, mutableNames(valueSpec)...)
 	}
 	return names
 }
 
-func hasNolint(fset *token.FileSet, f *ast.File, pos token.Pos) bool {
+func hasNolint(fset *token.FileSet, file *ast.File, pos token.Pos) bool {
 	line := fset.Position(pos).Line
-	return analysis.NolintOnLines(fset, f, "mutableglobal", line-1, line)
+	return analysis.NolintOnLines(fset, file, "mutableglobal", line-1, line)
 }
 
-func mutableNames(vs *ast.ValueSpec) []*ast.Ident {
+func mutableNames(spec *ast.ValueSpec) []*ast.Ident {
 	var names []*ast.Ident
-	for i, name := range vs.Names {
+	for i, name := range spec.Names {
 		if isInterfaceCheck(name) {
 			continue
 		}
-		if i < len(vs.Values) && isErrorSentinel(name, vs.Values[i]) {
+		if i < len(spec.Values) && isErrorSentinel(name, spec.Values[i]) {
 			continue
 		}
 		names = append(names, name)
@@ -95,11 +97,12 @@ func isErrorConstructor(call *ast.CallExpr) bool {
 	if !ok {
 		return false
 	}
-	fn := sel.Sel.Name
-	if fn == "New" || (len(fn) > 3 && fn[:3] == "New" && fn[3] >= 'A' && fn[3] <= 'Z') {
+	funcName := sel.Sel.Name
+	rest, isNew := strings.CutPrefix(funcName, "New")
+	if isNew && (rest == "" || rest[0] >= 'A' && rest[0] <= 'Z') {
 		return true
 	}
-	if strings.HasSuffix(fn, "Errorf") {
+	if strings.HasSuffix(funcName, "Errorf") {
 		return true
 	}
 	return false

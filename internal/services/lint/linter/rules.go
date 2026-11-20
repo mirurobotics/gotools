@@ -35,6 +35,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/tempdir"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/todoissue"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/typeassert"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/varname"
 )
 
 // Rule identifies a linter rule.
@@ -70,6 +71,7 @@ const (
 	RuleCommentedCode Rule = "commentedcode"
 	RuleFuncOrder     Rule = "funcorder"
 	RuleFieldAssert   Rule = "fieldassert"
+	RuleVarName       Rule = "varname"
 )
 
 // Config holds linter configuration.
@@ -87,18 +89,18 @@ type Config struct {
 	Err             io.Writer
 }
 
-func (c Config) runRule(r Rule) bool { return !c.Exclude[r] }
+func (c Config) runRule(rule Rule) bool { return !c.Exclude[rule] }
 
 // ValidateExclusions returns an error if any key in exclude is not a known rule name.
 func ValidateExclusions(exclude map[Rule]bool) error {
 	all := AllRules()
 	valid := make(map[Rule]bool, len(all))
-	for _, r := range all {
-		valid[r] = true
+	for _, rule := range all {
+		valid[rule] = true
 	}
-	for r := range exclude {
-		if !valid[r] {
-			return fmt.Errorf("unknown lint rule: %q", r)
+	for rule := range exclude {
+		if !valid[rule] {
+			return fmt.Errorf("unknown lint rule: %q", rule)
 		}
 	}
 	return nil
@@ -111,7 +113,7 @@ func AllRules() []Rule {
 		RuleErrFmt, RuleCtxPos, RuleNoFmt, RuleRcvrName,
 		RuleTypeAssert, RuleParamCount,
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
-		RuleTodoIssue, RuleExprWrap, RuleFieldAssert,
+		RuleTodoIssue, RuleExprWrap, RuleFieldAssert, RuleVarName,
 		RuleFuncComment, RuleDocLen, RuleStrayComment, RulePrivDoc,
 		RuleDocRestate, RuleCommentedCode,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline, RuleFuncOrder,
@@ -125,16 +127,18 @@ type checkInput struct {
 	src  []byte
 }
 
-func runChecks(in checkInput, cfg Config, includeFixable bool) []analysis.Diagnostic {
+func runChecks(
+	input checkInput, cfg Config, includeFixable bool,
+) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
-	for _, rc := range ruleCheckers(cfg) {
-		if !includeFixable && rc.fixable {
+	for _, entry := range ruleCheckers(cfg) {
+		if !includeFixable && entry.fixable {
 			continue
 		}
-		if !cfg.runRule(rc.rule) {
+		if !cfg.runRule(entry.rule) {
 			continue
 		}
-		diags = append(diags, rc.check(in)...)
+		diags = append(diags, entry.check(input)...)
 	}
 	return diags
 }
@@ -146,92 +150,107 @@ type ruleEntry struct {
 }
 
 func ruleCheckers(cfg Config) []ruleEntry {
-	w, tw := cfg.MaxLineWidth, cfg.TabWidth
+	width, tabWidth := cfg.MaxLineWidth, cfg.TabWidth
 	return []ruleEntry{
-		{RulePkgName, false, func(in checkInput) []analysis.Diagnostic {
-			return pkgname.Check(in.fset, in.path, in.f)
+		{RulePkgName, false, func(input checkInput) []analysis.Diagnostic {
+			return pkgname.Check(input.fset, input.path, input.f)
 		}},
-		{RuleLineLen, false, func(in checkInput) []analysis.Diagnostic {
-			return linelen.Check(in.fset, in.path, in.f, in.src, w, tw)
+		{RuleLineLen, false, func(input checkInput) []analysis.Diagnostic {
+			return linelen.Check(
+				input.fset, input.path, input.f, input.src, width, tabWidth,
+			)
 		}},
-		{RuleFuncLen, false, func(in checkInput) []analysis.Diagnostic {
-			return funclen.Check(in.fset, in.path, in.f, in.src, cfg.MaxFuncLen)
+		{RuleFuncLen, false, func(input checkInput) []analysis.Diagnostic {
+			return funclen.Check(
+				input.fset, input.path, input.f, input.src, cfg.MaxFuncLen,
+			)
 		}},
-		{RuleFileLen, false, func(in checkInput) []analysis.Diagnostic {
-			return filelen.Check(in.fset, in.path, in.f, in.src, cfg.MaxFileLen)
+		{RuleFileLen, false, func(input checkInput) []analysis.Diagnostic {
+			return filelen.Check(
+				input.fset, input.path, input.f, input.src, cfg.MaxFileLen,
+			)
 		}},
-		{RuleNestDepth, false, func(in checkInput) []analysis.Diagnostic {
-			return nestdepth.Check(in.fset, in.path, in.f, cfg.MaxNestDepth)
+		{RuleNestDepth, false, func(input checkInput) []analysis.Diagnostic {
+			return nestdepth.Check(input.fset, input.path, input.f, cfg.MaxNestDepth)
 		}},
-		{RuleErrFmt, false, func(in checkInput) []analysis.Diagnostic {
-			return errfmt.Check(in.fset, in.path, in.f)
+		{RuleErrFmt, false, func(input checkInput) []analysis.Diagnostic {
+			return errfmt.Check(input.fset, input.path, input.f)
 		}},
-		{RuleCtxPos, false, func(in checkInput) []analysis.Diagnostic {
-			return ctxpos.Check(in.fset, in.path, in.f)
+		{RuleCtxPos, false, func(input checkInput) []analysis.Diagnostic {
+			return ctxpos.Check(input.fset, input.path, input.f)
 		}},
-		{RuleNoFmt, false, func(in checkInput) []analysis.Diagnostic {
-			return nofmt.Check(in.fset, in.path, in.f)
+		{RuleNoFmt, false, func(input checkInput) []analysis.Diagnostic {
+			return nofmt.Check(input.fset, input.path, input.f)
 		}},
-		{RuleRcvrName, false, func(in checkInput) []analysis.Diagnostic {
-			return rcvrname.Check(in.fset, in.path, in.f)
+		{RuleRcvrName, false, func(input checkInput) []analysis.Diagnostic {
+			return rcvrname.Check(input.fset, input.path, input.f)
 		}},
-		{RuleTypeAssert, false, func(in checkInput) []analysis.Diagnostic {
-			return typeassert.Check(in.fset, in.path, in.f)
+		{RuleTypeAssert, false, func(input checkInput) []analysis.Diagnostic {
+			return typeassert.Check(input.fset, input.path, input.f)
 		}},
-		{RuleParamCount, false, func(in checkInput) []analysis.Diagnostic {
-			return paramcount.Check(in.fset, in.path, in.f, cfg.MaxParamCount)
+		{RuleParamCount, false, func(input checkInput) []analysis.Diagnostic {
+			return paramcount.Check(input.fset, input.path, input.f, cfg.MaxParamCount)
 		}},
-		{RuleMutableGlobal, false, func(in checkInput) []analysis.Diagnostic {
-			return mutableglobal.Check(in.fset, in.path, in.f)
+		{RuleMutableGlobal, false, func(input checkInput) []analysis.Diagnostic {
+			return mutableglobal.Check(input.fset, input.path, input.f)
 		}},
-		{RuleImportAlias, false, func(in checkInput) []analysis.Diagnostic {
-			return importalias.Check(in.fset, in.path, in.f)
+		{RuleImportAlias, false, func(input checkInput) []analysis.Diagnostic {
+			return importalias.Check(input.fset, input.path, input.f)
 		}},
-		{RuleBgCtx, false, func(in checkInput) []analysis.Diagnostic {
-			return bgctx.Check(in.fset, in.path, in.f)
+		{RuleBgCtx, false, func(input checkInput) []analysis.Diagnostic {
+			return bgctx.Check(input.fset, input.path, input.f)
 		}},
-		{RuleTempDir, false, func(in checkInput) []analysis.Diagnostic {
-			return tempdir.Check(in.fset, in.path, in.f)
+		{RuleTempDir, false, func(input checkInput) []analysis.Diagnostic {
+			return tempdir.Check(input.fset, input.path, input.f)
 		}},
-		{RuleTodoIssue, false, func(in checkInput) []analysis.Diagnostic {
-			return todoissue.Check(in.fset, in.path, in.f)
+		{RuleTodoIssue, false, func(input checkInput) []analysis.Diagnostic {
+			return todoissue.Check(input.fset, input.path, input.f)
 		}},
-		{RuleFieldAssert, false, func(in checkInput) []analysis.Diagnostic {
-			return fieldassert.Check(in.fset, in.path, in.f)
+		{RuleFieldAssert, false, func(input checkInput) []analysis.Diagnostic {
+			return fieldassert.Check(input.fset, input.path, input.f)
 		}},
-		{RuleFuncComment, false, func(in checkInput) []analysis.Diagnostic {
-			return funccomment.Check(in.fset, in.path, in.f)
+		{RuleVarName, false, func(input checkInput) []analysis.Diagnostic {
+			return varname.Check(input.fset, input.path, input.f)
 		}},
-		{RuleDocLen, false, func(in checkInput) []analysis.Diagnostic {
+		{RuleFuncComment, false, func(input checkInput) []analysis.Diagnostic {
+			return funccomment.Check(input.fset, input.path, input.f)
+		}},
+		{RuleDocLen, false, func(input checkInput) []analysis.Diagnostic {
 			lim := doclen.Limits{Doc: cfg.MaxDocLines, DocGoPkg: cfg.MaxDocFileLines}
-			return doclen.Check(in.fset, in.path, in.f, lim)
+			return doclen.Check(input.fset, input.path, input.f, lim)
 		}},
-		{RuleStrayComment, false, func(in checkInput) []analysis.Diagnostic {
-			return straycomment.Check(in.fset, in.path, in.f)
+		{RuleStrayComment, false, func(input checkInput) []analysis.Diagnostic {
+			return straycomment.Check(input.fset, input.path, input.f)
 		}},
-		{RulePrivDoc, false, func(in checkInput) []analysis.Diagnostic {
-			return privdoc.Check(in.fset, in.path, in.f)
+		{RulePrivDoc, false, func(input checkInput) []analysis.Diagnostic {
+			return privdoc.Check(input.fset, input.path, input.f)
 		}},
-		{RuleExprWrap, false, func(in checkInput) []analysis.Diagnostic {
-			return exprwrap.Check(in.fset, in.path, in.f)
+		{RuleExprWrap, false, func(input checkInput) []analysis.Diagnostic {
+			return exprwrap.Check(input.fset, input.path, input.f)
 		}},
-		{RuleDocRestate, false, func(in checkInput) []analysis.Diagnostic {
-			return docrestate.Check(in.fset, in.path, in.f)
+		{RuleDocRestate, false, func(input checkInput) []analysis.Diagnostic {
+			return docrestate.Check(input.fset, input.path, input.f)
 		}},
-		{RuleCommentedCode, false, func(in checkInput) []analysis.Diagnostic {
-			return commentedcode.Check(in.fset, in.path, in.f, in.src)
+		{RuleCommentedCode, false, func(input checkInput) []analysis.Diagnostic {
+			return commentedcode.Check(input.fset, input.path, input.f, input.src)
 		}},
-		{RuleCollapse, true, func(in checkInput) []analysis.Diagnostic {
-			return collapse.Check(in.fset, in.path, in.f, in.src, w, tw)
+		{RuleCollapse, true, func(input checkInput) []analysis.Diagnostic {
+			return collapse.Check(
+				input.fset, input.path, input.f, input.src, width, tabWidth,
+			)
 		}},
-		{RuleFuncSig, true, func(in checkInput) []analysis.Diagnostic {
-			return funcsig.Check(in.fset, in.path, in.f, in.src, w, tw)
+		{RuleFuncSig, true, func(input checkInput) []analysis.Diagnostic {
+			return funcsig.Check(
+				input.fset, input.path, input.f, input.src, width, tabWidth,
+			)
 		}},
-		{RuleFuncInline, true, func(in checkInput) []analysis.Diagnostic {
-			return funcinline.Check(in.fset, in.path, in.f, in.src, w, tw)
+		{RuleFuncInline, true, func(input checkInput) []analysis.Diagnostic {
+			return funcinline.Check(
+				input.fset, input.path, input.f, input.src, width, tabWidth,
+			)
 		}},
-		{RuleFuncOrder, true, func(in checkInput) []analysis.Diagnostic {
-			return funcorder.Check(in.fset, in.path, in.f)
+		{RuleFuncOrder, true, func(input checkInput) []analysis.Diagnostic {
+			return funcorder.Check(input.fset, input.path, input.f)
 		}},
 	}
 }
@@ -240,7 +259,7 @@ func applyCandidateFixers(
 	path string,
 	src []byte,
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	cfg Config,
 ) ([]byte, *token.FileSet, *ast.File, error) {
 	fixers := []struct {
@@ -251,47 +270,47 @@ func applyCandidateFixers(
 		{RuleFuncSig, funcsig.FindCandidates},
 		{RuleFuncInline, funcinline.FindCandidates},
 	}
-	for _, fx := range fixers {
-		if !cfg.runRule(fx.rule) {
+	for _, fixer := range fixers {
+		if !cfg.runRule(fixer.rule) {
 			continue
 		}
-		candidates := fx.find(fset, f, src, cfg.MaxLineWidth, cfg.TabWidth)
+		candidates := fixer.find(fset, file, src, cfg.MaxLineWidth, cfg.TabWidth)
 		if len(candidates) == 0 {
 			continue
 		}
 		src = analysis.Fix(fset, src, candidates)
 		var err error
-		fset, f, err = reparse(path, src)
+		fset, file, err = reparse(path, src)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 	}
-	return src, fset, f, nil
+	return src, fset, file, nil
 }
 
 func applyOrderFixer(
 	path string,
 	src []byte,
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	cfg Config,
 ) ([]byte, *token.FileSet, *ast.File, error) {
 	if !cfg.runRule(RuleFuncOrder) {
-		return src, fset, f, nil
+		return src, fset, file, nil
 	}
-	in := checkInput{fset, path, f, src}
-	return adoptOrderFix(in, funcorder.Fix(fset, f, src))
+	input := checkInput{fset, path, file, src}
+	return adoptOrderFix(input, funcorder.Fix(fset, file, src))
 }
 
 func adoptOrderFix(
-	in checkInput, fixed []byte,
+	input checkInput, fixed []byte,
 ) ([]byte, *token.FileSet, *ast.File, error) {
 	if fixed == nil {
-		return in.src, in.fset, in.f, nil
+		return input.src, input.fset, input.f, nil
 	}
-	fset, f, err := reparse(in.path, fixed)
+	fset, file, err := reparse(input.path, fixed)
 	if err != nil {
-		return in.src, in.fset, in.f, err
+		return input.src, input.fset, input.f, err
 	}
-	return fixed, fset, f, nil
+	return fixed, fset, file, nil
 }

@@ -29,10 +29,10 @@ func NewCoverageCommand() *cobra.Command {
 		},
 	}
 
-	fl := cmd.Flags()
-	fl.StringVar(&opts.SrcPrefix, "src-prefix", "pkg", "source package prefix")
-	fl.StringVar(&opts.TestPrefix, "test-prefix", "tests", "external test prefix")
-	fl.BoolVar(&opts.NoHTML, "no-html", false, "skip opening HTML report")
+	flags := cmd.Flags()
+	flags.StringVar(&opts.SrcPrefix, "src-prefix", "pkg", "source package prefix")
+	flags.StringVar(&opts.TestPrefix, "test-prefix", "tests", "external test prefix")
+	flags.BoolVar(&opts.NoHTML, "no-html", false, "skip opening HTML report")
 
 	return cmd
 }

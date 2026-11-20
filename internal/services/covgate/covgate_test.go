@@ -21,10 +21,10 @@ func TestCheckPackage_Pass(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "75.0\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
+	res := run.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
 	if !res.passed {
 		t.Error("expected pass")
 	}
@@ -38,10 +38,10 @@ func TestCheckPackage_Fail_BelowThreshold(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "90.0\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
+	res := run.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
 	if res.passed {
 		t.Error("expected fail")
 	}
@@ -54,7 +54,7 @@ func TestCheckPackage_Fail_TestError(t *testing.T) {
 	testutil.MakePkgDir(t, pkgRel)
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	run := runner{
 		measure: func(string, []string) (float64, []byte, error) {
 			return 0, []byte("compile error\n"),
 				fmt.Errorf("exit 1")
@@ -62,7 +62,7 @@ func TestCheckPackage_Fail_TestError(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
+	res := run.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
 	if res.passed {
 		t.Error("expected fail")
 	}
@@ -81,10 +81,10 @@ func TestCheckPackage_DefaultThreshold(t *testing.T) {
 	testutil.MakePkgDir(t, pkgRel)
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
+	res := run.checkPackage(pkgName, checkPackageCtx{module: modName, threshold: 80.0})
 	if !res.passed {
 		t.Error("expected pass with default threshold")
 	}
@@ -98,7 +98,7 @@ func TestRun_AllPass(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
 			return []string{"example.com/mod/pkg/a"}, nil
@@ -107,7 +107,7 @@ func TestRun_AllPass(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0})
+	err := job.run(Opts{Out: &buf, DefaultThreshold: 80.0})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestRun_WithFailure(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
 			return []string{"example.com/mod/pkg/a"}, nil
@@ -131,7 +131,7 @@ func TestRun_WithFailure(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0})
+	err := job.run(Opts{Out: &buf, DefaultThreshold: 80.0})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -146,11 +146,11 @@ func fakeMeasure(cov float64) func(string, []string) (float64, []byte, error) {
 
 func TestRun_NilWriter(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return "", fmt.Errorf("stop") },
 	}
 	//nolint:exhaustruct // test uses partial initialization
-	_ = r.run(Opts{Out: nil})
+	_ = job.run(Opts{Out: nil})
 }
 
 func TestRun_PublicWrapper(t *testing.T) {
@@ -190,12 +190,12 @@ func TestRun_PublicWrapper_HappyPath(t *testing.T) {
 func TestRun_GoModuleError(t *testing.T) {
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return "", fmt.Errorf("no module") },
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf})
+	err := job.run(Opts{Out: &buf})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -207,7 +207,7 @@ func TestRun_GoModuleError(t *testing.T) {
 func TestRun_GoListError(t *testing.T) {
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return "mod", nil },
 		goListPackages: func(string) ([]string, error) {
 			return nil, fmt.Errorf("list failed")
@@ -215,7 +215,7 @@ func TestRun_GoListError(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf})
+	err := job.run(Opts{Out: &buf})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -254,14 +254,14 @@ func TestMeasure_TestFailure(t *testing.T) {
 
 func assertOutput(t *testing.T, out string, want, unwanted []string) {
 	t.Helper()
-	for _, w := range want {
-		if !strings.Contains(out, w) {
-			t.Errorf("output missing %q:\n%s", w, out)
+	for _, wanted := range want {
+		if !strings.Contains(out, wanted) {
+			t.Errorf("output missing %q:\n%s", wanted, out)
 		}
 	}
-	for _, u := range unwanted {
-		if strings.Contains(out, u) {
-			t.Errorf("output unexpectedly contains %q:\n%s", u, out)
+	for _, unwant := range unwanted {
+		if strings.Contains(out, unwant) {
+			t.Errorf("output unexpectedly contains %q:\n%s", unwant, out)
 		}
 	}
 }

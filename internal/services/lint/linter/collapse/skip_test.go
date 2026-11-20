@@ -59,14 +59,14 @@ func f() {
 }
 `
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", []byte(src), parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", []byte(src), parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidates := FindCandidates(fset, f, []byte(src), 88, 4)
+	candidates := FindCandidates(fset, file, []byte(src), 88, 4)
 
-	for _, c := range candidates {
-		pos := fset.Position(c.Pos)
+	for _, cand := range candidates {
+		pos := fset.Position(cand.Pos)
 		if pos.Line == 4 {
 			t.Error(
 				"foo() should not be collapsed because" +

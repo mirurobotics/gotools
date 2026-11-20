@@ -20,14 +20,14 @@ import (
 
 func assertLines(t *testing.T, filename, body string, want ...int) {
 	t.Helper()
-	fset, f := linttest.Parse(t, filename, header+body)
-	linttest.AssertLines(t, Check(fset, filename, f), want, "")
+	fset, file := linttest.Parse(t, filename, header+body)
+	linttest.AssertLines(t, Check(fset, filename, file), want, "")
 }
 
 func assertGotFlagged(t *testing.T, body string, want ...int) {
 	t.Helper()
-	fset, f := linttest.Parse(t, "foo_test.go", header+body)
-	diags := Check(fset, "foo_test.go", f)
+	fset, file := linttest.Parse(t, "foo_test.go", header+body)
+	diags := Check(fset, "foo_test.go", file)
 	linttest.AssertLines(t, diags, want, wantMsg("got", "got"))
 }
 

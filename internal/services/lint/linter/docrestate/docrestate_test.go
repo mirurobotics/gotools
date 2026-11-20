@@ -217,6 +217,6 @@ func TestCheck_StarredBlockCommentFlagged(t *testing.T) {
 
 func assertCheck(t *testing.T, src, wantMsg string, wantLines ...int) {
 	t.Helper()
-	fset, f := linttest.Parse(t, "foo.go", src)
-	linttest.AssertLines(t, Check(fset, "foo.go", f), wantLines, wantMsg)
+	fset, file := linttest.Parse(t, "foo.go", src)
+	linttest.AssertLines(t, Check(fset, "foo.go", file), wantLines, wantMsg)
 }

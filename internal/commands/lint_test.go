@@ -64,15 +64,18 @@ func TestSharedLinterFlags_ConsistentBetweenCheckAndLint(t *testing.T) {
 		shared = append(shared, name)
 	}
 	for _, name := range shared {
-		cf, lf := check.Lookup(name), lint.Lookup(name)
-		if cf == nil || lf == nil {
-			t.Errorf("flag %q missing in check=%v, lint=%v", name, cf == nil, lf == nil)
+		checkFlag, lintFlag := check.Lookup(name), lint.Lookup(name)
+		if checkFlag == nil || lintFlag == nil {
+			t.Errorf(
+				"flag %q missing in check=%v, lint=%v",
+				name, checkFlag == nil, lintFlag == nil,
+			)
 			continue
 		}
-		if cf.DefValue != lf.DefValue {
+		if checkFlag.DefValue != lintFlag.DefValue {
 			t.Errorf(
 				"flag %q default mismatch: check=%q, lint=%q",
-				name, cf.DefValue, lf.DefValue,
+				name, checkFlag.DefValue, lintFlag.DefValue,
 			)
 		}
 	}
@@ -98,8 +101,8 @@ func TestNewLintCommand_Flags(t *testing.T) {
 }
 
 func TestNewLintCommand_FlagDefaults(t *testing.T) {
-	fl := NewLintCommand().Flags()
-	assertStringDefaults(t, fl, map[string]string{
+	flags := NewLintCommand().Flags()
+	assertStringDefaults(t, flags, map[string]string{
 		"paths":            "",
 		"deadcode-exclude": "",
 		"new-from-rev":     "",
@@ -107,11 +110,11 @@ func TestNewLintCommand_FlagDefaults(t *testing.T) {
 		"exclude":          "",
 		"rule":             "",
 	})
-	assertBoolDefaults(t, fl, map[string]bool{
+	assertBoolDefaults(t, flags, map[string]bool{
 		"fix":         true,
 		"deadcode":    true,
 		"no-gofumpt":  false,
 		"no-golangci": false,
 	})
-	assertIntDefaults(t, fl, linterIntDefaults())
+	assertIntDefaults(t, flags, linterIntDefaults())
 }

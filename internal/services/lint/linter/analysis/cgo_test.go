@@ -34,11 +34,11 @@ var _ = strings.ToUpper
 
 func TestCgoPreambles(t *testing.T) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "foo.go", cgoSrc, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "foo.go", cgoSrc, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := CgoPreambles(f)
+	got := CgoPreambles(file)
 	want := map[string]bool{
 		"single preamble\n":                  true,
 		"grouped doc, not a preamble\n":      false,
@@ -46,10 +46,10 @@ func TestCgoPreambles(t *testing.T) {
 		"grouped doc, undocumented C spec\n": false,
 		"plain import doc\n":                 false,
 	}
-	for _, cg := range f.Comments {
-		text := cg.Text()
-		if got[cg] != want[text] {
-			t.Errorf("CgoPreambles[%q] = %v, want %v", text, got[cg], want[text])
+	for _, group := range file.Comments {
+		text := group.Text()
+		if got[group] != want[text] {
+			t.Errorf("CgoPreambles[%q] = %v, want %v", text, got[group], want[text])
 		}
 	}
 }

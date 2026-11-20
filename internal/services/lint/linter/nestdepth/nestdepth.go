@@ -12,32 +12,32 @@ import (
 func Check(
 	fset *token.FileSet,
 	filename string,
-	f *ast.File,
+	file *ast.File,
 	maxDepth int,
 ) []analysis.Diagnostic {
 	if maxDepth <= 0 {
 		return nil
 	}
-	c := &checker{fset: fset, filename: filename, maxDepth: maxDepth, diags: nil}
+	chk := &checker{fset: fset, filename: filename, maxDepth: maxDepth, diags: nil}
 
-	for _, decl := range f.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Body == nil {
+	for _, decl := range file.Decls {
+		funcDecl, ok := decl.(*ast.FuncDecl)
+		if !ok || funcDecl.Body == nil {
 			continue
 		}
-		c.checkBlock(fn.Body.List, 0)
+		chk.checkBlock(funcDecl.Body.List, 0)
 	}
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		fl, ok := n.(*ast.FuncLit)
-		if !ok || fl.Body == nil {
+	ast.Inspect(file, func(node ast.Node) bool {
+		lit, ok := node.(*ast.FuncLit)
+		if !ok || lit.Body == nil {
 			return true
 		}
-		c.checkBlock(fl.Body.List, 0)
+		chk.checkBlock(lit.Body.List, 0)
 		return true
 	})
 
-	return c.diags
+	return chk.diags
 }
 
 type checker struct {
@@ -55,37 +55,37 @@ func (c *checker) checkBlock(stmts []ast.Stmt, depth int) {
 
 func (c *checker) checkStmt(stmt ast.Stmt, depth int) {
 	if body := nestingBody(stmt); body != nil {
-		if d, ok := c.deeper(stmt.Pos(), depth); ok {
-			c.checkBlock(body.List, d)
+		if nested, ok := c.deeper(stmt.Pos(), depth); ok {
+			c.checkBlock(body.List, nested)
 		}
 	}
-	switch s := stmt.(type) {
+	switch stmt := stmt.(type) {
 	case *ast.IfStmt:
-		if s.Else != nil {
-			c.checkStmt(s.Else, depth)
+		if stmt.Else != nil {
+			c.checkStmt(stmt.Else, depth)
 		}
 	case *ast.CaseClause:
-		c.checkBlock(s.Body, depth)
+		c.checkBlock(stmt.Body, depth)
 	case *ast.CommClause:
-		c.checkBlock(s.Body, depth)
+		c.checkBlock(stmt.Body, depth)
 	case *ast.BlockStmt:
-		c.checkBlock(s.List, depth)
+		c.checkBlock(stmt.List, depth)
 	case *ast.LabeledStmt:
-		c.checkStmt(s.Stmt, depth)
+		c.checkStmt(stmt.Stmt, depth)
 	}
 }
 
 func (c *checker) deeper(pos token.Pos, depth int) (int, bool) {
-	d := depth + 1
-	if d > c.maxDepth {
-		c.report(pos, d)
-		return d, false
+	nested := depth + 1
+	if nested > c.maxDepth {
+		c.report(pos, nested)
+		return nested, false
 	}
-	return d, true
+	return nested, true
 }
 
 func (c *checker) report(pos token.Pos, depth int) {
-	p := c.fset.Position(pos)
+	position := c.fset.Position(pos)
 	msg := fmt.Sprintf(
 		"nesting depth is %d (limit %d)"+
 			" — consider early returns or extracting a helper",
@@ -93,25 +93,25 @@ func (c *checker) report(pos token.Pos, depth int) {
 	)
 	c.diags = append(c.diags, analysis.Diagnostic{
 		File:    c.filename,
-		Line:    p.Line,
+		Line:    position.Line,
 		Message: msg,
 	})
 }
 
 func nestingBody(stmt ast.Stmt) *ast.BlockStmt {
-	switch s := stmt.(type) {
+	switch stmt := stmt.(type) {
 	case *ast.IfStmt:
-		return s.Body
+		return stmt.Body
 	case *ast.ForStmt:
-		return s.Body
+		return stmt.Body
 	case *ast.RangeStmt:
-		return s.Body
+		return stmt.Body
 	case *ast.SwitchStmt:
-		return s.Body
+		return stmt.Body
 	case *ast.TypeSwitchStmt:
-		return s.Body
+		return stmt.Body
 	case *ast.SelectStmt:
-		return s.Body
+		return stmt.Body
 	}
 	return nil
 }

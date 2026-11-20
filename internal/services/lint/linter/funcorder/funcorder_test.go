@@ -388,12 +388,12 @@ func TestCheck_ParenReceiver(t *testing.T) {
 
 func assertMessages(t *testing.T, src string, want ...string) {
 	t.Helper()
-	fset, f := linttest.Parse(t, "a.go", src)
-	diags := Check(fset, "a.go", f)
+	fset, file := linttest.Parse(t, "a.go", src)
+	diags := Check(fset, "a.go", file)
 	if got, exp := messages(diags), strings.Join(want, "\n"); got != exp {
 		t.Errorf("messages:\n%s\nwant:\n%s", got, exp)
 	}
-	fixed := Fix(fset, f, []byte(src))
+	fixed := Fix(fset, file, []byte(src))
 	if (fixed == nil) != (len(diags) == 0) {
 		t.Errorf("Fix changed = %v, Check found %d", fixed != nil, len(diags))
 	}
@@ -404,19 +404,19 @@ func assertMessages(t *testing.T, src string, want ...string) {
 
 func messages(diags []analysis.Diagnostic) string {
 	msgs := make([]string, len(diags))
-	for i, d := range diags {
-		msgs[i] = d.Message
+	for i, diag := range diags {
+		msgs[i] = diag.Message
 	}
 	return strings.Join(msgs, "\n")
 }
 
 func assertStable(t *testing.T, fixed string) {
 	t.Helper()
-	fset, f := linttest.Parse(t, "a.go", fixed)
-	if diags := Check(fset, "a.go", f); len(diags) != 0 {
+	fset, file := linttest.Parse(t, "a.go", fixed)
+	if diags := Check(fset, "a.go", file); len(diags) != 0 {
 		t.Errorf("fixed source still has diagnostics: %v", diags)
 	}
-	if again := Fix(fset, f, []byte(fixed)); again != nil {
+	if again := Fix(fset, file, []byte(fixed)); again != nil {
 		t.Errorf("Fix is not idempotent:\n%s", again)
 	}
 }

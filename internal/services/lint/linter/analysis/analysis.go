@@ -39,16 +39,16 @@ func LineStartOffset(src []byte, off int) int {
 }
 
 // VisualWidth returns the visual width of a string, expanding tabs.
-func VisualWidth(s string, tabWidth int) int {
-	w := 0
-	for _, ch := range s {
-		if ch == '\t' {
-			w += tabWidth - (w % tabWidth)
+func VisualWidth(text string, tabWidth int) int {
+	width := 0
+	for _, char := range text {
+		if char == '\t' {
+			width += tabWidth - (width % tabWidth)
 		} else {
-			w++
+			width++
 		}
 	}
-	return w
+	return width
 }
 
 // LineEndOffset returns the offset of the newline or EOF ending off's line.
@@ -64,15 +64,15 @@ func LineEndOffset(src []byte, off int) int {
 // HasCommentsBetween reports whether any comment lies between open and closePos.
 func HasCommentsBetween(
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	open,
 	closePos token.Pos,
 ) bool {
 	openOff := fset.Position(open).Offset
 	closeOff := fset.Position(closePos).Offset
 
-	for _, c := range Comments(f) {
-		cOff := fset.Position(c.Pos()).Offset
+	for _, comment := range Comments(file) {
+		cOff := fset.Position(comment.Pos()).Offset
 		if cOff > openOff && cOff < closeOff {
 			return true
 		}
@@ -81,9 +81,9 @@ func HasCommentsBetween(
 }
 
 // ContainsFuncLit returns true if the AST node is or contains a *ast.FuncLit.
-func ContainsFuncLit(n ast.Node) bool {
+func ContainsFuncLit(root ast.Node) bool {
 	found := false
-	ast.Inspect(n, func(node ast.Node) bool {
+	ast.Inspect(root, func(node ast.Node) bool {
 		if found {
 			return false
 		}

@@ -16,9 +16,9 @@ import (
 	` + "`raw/pkg`" + `
 )
 `
-	f := parseTestFile(t, src)
+	file := parseTestFile(t, src)
 	want := []string{"context", "ctx2", "chi", "yaml", "cmp", "v2", "sqlite3", "pkg"}
-	for i, imp := range f.Imports {
+	for i, imp := range file.Imports {
 		if got := ImportName(imp); got != want[i] {
 			t.Errorf("import %d: got %q, want %q", i, got, want[i])
 		}
@@ -26,11 +26,11 @@ import (
 }
 
 func TestPkgImportName(t *testing.T) {
-	f := parseTestFile(t, `package foo; import t2 "testing"`)
-	if got := PkgImportName(f, "testing"); got != "t2" {
+	file := parseTestFile(t, `package foo; import t2 "testing"`)
+	if got := PkgImportName(file, "testing"); got != "t2" {
 		t.Errorf("got %q, want t2", got)
 	}
-	if got := PkgImportName(f, "context"); got != "" {
+	if got := PkgImportName(file, "context"); got != "" {
 		t.Errorf("got %q, want empty", got)
 	}
 }

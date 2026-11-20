@@ -92,35 +92,35 @@ func ParseExclusions(csv string) map[linter.Rule]bool {
 	if csv == "" {
 		return excl
 	}
-	for _, r := range strings.Split(csv, ",") {
-		excl[linter.Rule(strings.TrimSpace(r))] = true
+	for _, name := range strings.Split(csv, ",") {
+		excl[linter.Rule(strings.TrimSpace(name))] = true
 	}
 	return excl
 }
 
 // BuildSingleRuleExclusions returns exclusions for every rule except the given one.
 func BuildSingleRuleExclusions(name string) map[linter.Rule]bool {
-	r := linter.Rule(name)
-	check := map[linter.Rule]bool{r: true}
+	rule := linter.Rule(name)
+	check := map[linter.Rule]bool{rule: true}
 	if err := linter.ValidateExclusions(check); err != nil {
 		return nil
 	}
 	excl := make(map[linter.Rule]bool)
-	for _, ar := range linter.AllRules() {
-		if ar != r {
-			excl[ar] = true
+	for _, other := range linter.AllRules() {
+		if other != rule {
+			excl[other] = true
 		}
 	}
 	return excl
 }
 
 // SummarizeOutcome prints a summary and returns the exit code.
-func SummarizeOutcome(w io.Writer, doFix bool, diags, fixed int) int {
+func SummarizeOutcome(out io.Writer, doFix bool, diags, fixed int) int {
 	if doFix && fixed > 0 {
-		_, _ = fmt.Fprintf(w, "\n%d file(s) fixed.\n", fixed)
+		_, _ = fmt.Fprintf(out, "\n%d file(s) fixed.\n", fixed)
 	}
 	if diags > 0 {
-		_, _ = fmt.Fprintf(w, "\n%d violation(s) found.\n", diags)
+		_, _ = fmt.Fprintf(out, "\n%d violation(s) found.\n", diags)
 		return 1
 	}
 	return 0

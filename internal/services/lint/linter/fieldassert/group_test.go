@@ -48,7 +48,7 @@ func TestCheck_ReadingTestifyArgKeepsGroup(t *testing.T) {
 }
 
 func TestCheck_SameFieldNameElsewhereKeepsGroup(t *testing.T) {
-	fset, f := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
+	fset, file := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
 	got := build()
 	assert.Equal(t, 1, got.Meta.A)
 	_ = other.Meta
@@ -56,7 +56,7 @@ func TestCheck_SameFieldNameElsewhereKeepsGroup(t *testing.T) {
 	assert.Equal(t, 3, got.Meta.C)
 }
 `)
-	diags := Check(fset, "foo_test.go", f)
+	diags := Check(fset, "foo_test.go", file)
 	linttest.AssertLines(t, diags, []int{13}, wantMsg("got.Meta", "got"))
 }
 

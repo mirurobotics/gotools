@@ -15,10 +15,10 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/cmdutil"
 )
 
-// Parallelism returns n when positive, otherwise the number of CPUs.
-func Parallelism(n int) int {
-	if n > 0 {
-		return n
+// Parallelism returns requested when positive, otherwise the number of CPUs.
+func Parallelism(requested int) int {
+	if requested > 0 {
+		return requested
 	}
 	return runtime.NumCPU()
 }
@@ -64,9 +64,9 @@ func GoListTestPackages(pattern string) ([]string, error) {
 }
 
 // NonEmptyLines splits a string into non-empty, trimmed lines.
-func NonEmptyLines(s string) []string {
+func NonEmptyLines(text string) []string {
 	var lines []string
-	scanner := bufio.NewScanner(strings.NewReader(s))
+	scanner := bufio.NewScanner(strings.NewReader(text))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" {
@@ -78,8 +78,8 @@ func NonEmptyLines(s string) []string {
 
 // GetThreshold reads the .covgate threshold, falling back to the default.
 func GetThreshold(pkgDir string, defaultThreshold float64) float64 {
-	if v, ok := LookupThreshold(pkgDir); ok {
-		return v
+	if threshold, ok := LookupThreshold(pkgDir); ok {
+		return threshold
 	}
 	return defaultThreshold
 }

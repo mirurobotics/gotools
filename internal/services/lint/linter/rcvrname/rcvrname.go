@@ -9,18 +9,18 @@ import (
 )
 
 // Check reports receiver names that are over 2 chars or inconsistent per type.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
 
 	firstRecv := map[string]string{}
 
-	for _, decl := range f.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Recv == nil || len(fn.Recv.List) == 0 {
+	for _, decl := range file.Decls {
+		funcDecl, ok := decl.(*ast.FuncDecl)
+		if !ok || funcDecl.Recv == nil || len(funcDecl.Recv.List) == 0 {
 			continue
 		}
 
-		recv := fn.Recv.List[0]
+		recv := funcDecl.Recv.List[0]
 		if len(recv.Names) == 0 {
 			continue
 		}

@@ -18,21 +18,21 @@ func Fix(fset *token.FileSet, src []byte, candidates []Candidate) []byte {
 		return src
 	}
 
-	sort.Slice(candidates, func(i, j int) bool {
-		iOff := fset.Position(candidates[i].Pos).Offset
-		jOff := fset.Position(candidates[j].Pos).Offset
+	sort.Slice(candidates, func(a, b int) bool {
+		iOff := fset.Position(candidates[a].Pos).Offset
+		jOff := fset.Position(candidates[b].Pos).Offset
 		return iOff > jOff
 	})
 
 	candidates = filterOverlapping(fset, candidates)
 
-	for _, c := range candidates {
-		startOff := fset.Position(c.Pos).Offset
-		endOff := fset.Position(c.End).Offset
+	for _, cand := range candidates {
+		startOff := fset.Position(cand.Pos).Offset
+		endOff := fset.Position(cand.End).Offset
 
-		out := make([]byte, 0, startOff+len(c.Collapsed)+(len(src)-endOff))
+		out := make([]byte, 0, startOff+len(cand.Collapsed)+(len(src)-endOff))
 		out = append(out, src[:startOff]...)
-		out = append(out, c.Collapsed...)
+		out = append(out, cand.Collapsed...)
 		out = append(out, src[endOff:]...)
 		src = out
 	}
@@ -45,20 +45,20 @@ func filterOverlapping(fset *token.FileSet, candidates []Candidate) []Candidate 
 		return candidates
 	}
 	kept := make([]Candidate, 0, len(candidates))
-	for _, c := range candidates {
-		if !overlapsAny(fset, c, kept) {
-			kept = append(kept, c)
+	for _, cand := range candidates {
+		if !overlapsAny(fset, cand, kept) {
+			kept = append(kept, cand)
 		}
 	}
 	return kept
 }
 
-func overlapsAny(fset *token.FileSet, c Candidate, kept []Candidate) bool {
-	cStart := fset.Position(c.Pos).Offset
-	cEnd := fset.Position(c.End).Offset
-	for _, k := range kept {
-		kStart := fset.Position(k.Pos).Offset
-		kEnd := fset.Position(k.End).Offset
+func overlapsAny(fset *token.FileSet, cand Candidate, kept []Candidate) bool {
+	cStart := fset.Position(cand.Pos).Offset
+	cEnd := fset.Position(cand.End).Offset
+	for _, candidate := range kept {
+		kStart := fset.Position(candidate.Pos).Offset
+		kEnd := fset.Position(candidate.End).Offset
 		if cStart < kEnd && cEnd > kStart {
 			return true
 		}
@@ -74,8 +74,8 @@ func CheckCandidates(
 	message string,
 ) []Diagnostic {
 	diags := make([]Diagnostic, 0, len(candidates))
-	for _, c := range candidates {
-		pos := fset.Position(c.Pos)
+	for _, cand := range candidates {
+		pos := fset.Position(cand.Pos)
 		diags = append(diags, Diagnostic{
 			File:    filename,
 			Line:    pos.Line,

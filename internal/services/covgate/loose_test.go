@@ -13,10 +13,10 @@ func TestCheckPackage_Loose_Fires(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "10.0\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(80.0)}
+	run := runner{measure: fakeMeasure(80.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{
+	res := run.checkPackage(pkgName, checkPackageCtx{
 		module:             modName,
 		threshold:          50.0,
 		tightnessEnabled:   true,
@@ -41,10 +41,10 @@ func TestCheckPackage_Loose_WithinTolerance(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "79.6\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(80.0)}
+	run := runner{measure: fakeMeasure(80.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{
+	res := run.checkPackage(pkgName, checkPackageCtx{
 		module:             modName,
 		threshold:          50.0,
 		tightnessEnabled:   true,
@@ -66,10 +66,10 @@ func TestCheckPackage_Loose_AtExactTolerance(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "79.5\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(80.0)}
+	run := runner{measure: fakeMeasure(80.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{
+	res := run.checkPackage(pkgName, checkPackageCtx{
 		module:             modName,
 		threshold:          50.0,
 		tightnessEnabled:   true,
@@ -88,10 +88,10 @@ func TestCheckPackage_Loose_JustOverTolerance(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "79.4\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(80.0)}
+	run := runner{measure: fakeMeasure(80.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{
+	res := run.checkPackage(pkgName, checkPackageCtx{
 		module:             modName,
 		threshold:          50.0,
 		tightnessEnabled:   true,
@@ -110,10 +110,10 @@ func TestCheckPackage_Loose_ZeroCoverageAllowed(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "0\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(0.0)}
+	run := runner{measure: fakeMeasure(0.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{
+	res := run.checkPackage(pkgName, checkPackageCtx{
 		module:             modName,
 		threshold:          50.0,
 		tightnessEnabled:   true,
@@ -131,10 +131,10 @@ func TestCheckPackage_Loose_NoCovgateFile_UsesDefault(t *testing.T) {
 	testutil.MakePkgDir(t, pkgRel)
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(80.0)}
+	run := runner{measure: fakeMeasure(80.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{
+	res := run.checkPackage(pkgName, checkPackageCtx{
 		module:             modName,
 		threshold:          10.0,
 		tightnessEnabled:   true,
@@ -153,10 +153,10 @@ func TestCheckPackage_Loose_Disabled(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "10.0\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(80.0)}
+	run := runner{measure: fakeMeasure(80.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{
+	res := run.checkPackage(pkgName, checkPackageCtx{
 		module:             modName,
 		threshold:          50.0,
 		tightnessEnabled:   false,
@@ -175,10 +175,10 @@ func TestCheckPackage_CustomTolerance(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "70.0\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(80.0)}
+	run := runner{measure: fakeMeasure(80.0)}
 
 	//nolint:exhaustruct // test uses partial initialization
-	res := r.checkPackage(pkgName, checkPackageCtx{
+	res := run.checkPackage(pkgName, checkPackageCtx{
 		module:             modName,
 		threshold:          50.0,
 		tightnessEnabled:   true,
@@ -198,7 +198,7 @@ func TestRun_LooseFailsOverall(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
 			return []string{"example.com/mod/pkg/a"}, nil
@@ -207,7 +207,7 @@ func TestRun_LooseFailsOverall(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{
+	err := job.run(Opts{
 		Out:                &buf,
 		DefaultThreshold:   50.0,
 		TightnessEnabled:   true,

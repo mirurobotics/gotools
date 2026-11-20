@@ -10,18 +10,19 @@ import (
 const messageSuffix = " should not be used outside main; use structured logging or t.Log"
 
 // Check reports print and log calls outside main, cmd/, linter source, and examples.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	if isExempt(filename, f) {
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
+	if isExempt(filename, file) {
 		return nil
 	}
 
 	var diags []analysis.Diagnostic
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		if fn, ok := n.(*ast.FuncDecl); ok && analysis.IsExampleFunc(filename, fn) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		decl, isFunc := node.(*ast.FuncDecl)
+		if isFunc && analysis.IsExampleFunc(filename, decl) {
 			return false
 		}
-		call, ok := n.(*ast.CallExpr)
+		call, ok := node.(*ast.CallExpr)
 		if !ok {
 			return true
 		}
@@ -30,7 +31,7 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 			return true
 		}
 		pos := fset.Position(call.Pos())
-		if analysis.NolintOnLines(fset, f, "nofmt", pos.Line, pos.Line) {
+		if analysis.NolintOnLines(fset, file, "nofmt", pos.Line, pos.Line) {
 			return true
 		}
 		diags = append(diags, analysis.Diagnostic{
@@ -44,23 +45,23 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-func isExempt(filename string, f *ast.File) bool {
-	if f.Name.Name == "main" {
+func isExempt(filename string, file *ast.File) bool {
+	if file.Name.Name == "main" {
 		return true
 	}
 	return analysis.IsLintSource(filename) || analysis.IsCmdSource(filename)
 }
 
 func callName(call *ast.CallExpr) string {
-	switch fn := call.Fun.(type) {
+	switch expr := call.Fun.(type) {
 	case *ast.SelectorExpr:
-		ident, ok := fn.X.(*ast.Ident)
+		ident, ok := expr.X.(*ast.Ident)
 		if !ok {
 			return ""
 		}
-		return ident.Name + "." + fn.Sel.Name
+		return ident.Name + "." + expr.Sel.Name
 	case *ast.Ident:
-		return fn.Name
+		return expr.Name
 	}
 	return ""
 }

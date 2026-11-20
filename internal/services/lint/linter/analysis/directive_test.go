@@ -21,9 +21,9 @@ func TestIsDirective(t *testing.T) {
 		{"// Note: a colon in prose", false},
 		{"/* block */", false},
 	}
-	for _, tt := range tests {
-		if got := IsDirective(tt.text); got != tt.want {
-			t.Errorf("IsDirective(%q) = %v, want %v", tt.text, got, tt.want)
+	for _, tc := range tests {
+		if got := IsDirective(tc.text); got != tc.want {
+			t.Errorf("IsDirective(%q) = %v, want %v", tc.text, got, tc.want)
 		}
 	}
 }

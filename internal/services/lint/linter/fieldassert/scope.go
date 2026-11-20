@@ -7,10 +7,10 @@ import (
 	"maps"
 )
 
-func (c *checker) closeUsed(open map[string]*fieldGroup, s ast.Stmt) {
-	used := c.usedKeys(s)
-	maps.DeleteFunc(open, func(_ string, g *fieldGroup) bool {
-		for key := range g.deps {
+func (c *checker) closeUsed(open map[string]*fieldGroup, stmt ast.Stmt) {
+	used := c.usedKeys(stmt)
+	maps.DeleteFunc(open, func(_ string, group *fieldGroup) bool {
+		for key := range group.deps {
 			if used[key] {
 				return true
 			}
@@ -19,30 +19,30 @@ func (c *checker) closeUsed(open map[string]*fieldGroup, s ast.Stmt) {
 	})
 }
 
-func (c *checker) usedKeys(s ast.Stmt) map[any]bool {
-	call, _, args := c.testifyCall(s)
+func (c *checker) usedKeys(stmt ast.Stmt) map[any]bool {
+	call, _, args := c.testifyCall(stmt)
 	if call == nil {
-		return identSet(s)
+		return identSet(stmt)
 	}
 	used := make(map[any]bool)
 	for _, arg := range args {
-		ast.Inspect(arg, func(n ast.Node) bool {
-			if !mayChange(n) {
+		ast.Inspect(arg, func(node ast.Node) bool {
+			if !mayChange(node) {
 				return true
 			}
-			maps.Copy(used, identSet(n))
+			maps.Copy(used, identSet(node))
 			return false
 		})
 	}
 	return used
 }
 
-func (c *checker) testifyCall(s ast.Stmt) (*ast.CallExpr, string, []ast.Expr) {
-	es, ok := s.(*ast.ExprStmt)
+func (c *checker) testifyCall(stmt ast.Stmt) (*ast.CallExpr, string, []ast.Expr) {
+	exprStmt, ok := stmt.(*ast.ExprStmt)
 	if !ok {
 		return nil, "", nil
 	}
-	call, ok := es.X.(*ast.CallExpr)
+	call, ok := exprStmt.X.(*ast.CallExpr)
 	if !ok {
 		return nil, "", nil
 	}
@@ -66,13 +66,13 @@ func (c *checker) isAssertObject(id *ast.Ident) bool {
 	if id.Obj == nil {
 		return false
 	}
-	switch d := id.Obj.Decl.(type) {
+	switch typed := id.Obj.Decl.(type) {
 	case *ast.AssignStmt:
-		return c.isNewValue(id, d.Lhs, d.Rhs)
+		return c.isNewValue(id, typed.Lhs, typed.Rhs)
 	case *ast.ValueSpec:
-		return c.isNewValue(id, identExprs(d.Names), d.Values)
+		return c.isNewValue(id, identExprs(typed.Names), typed.Values)
 	case *ast.Field:
-		return c.isAssertionsType(d.Type)
+		return c.isAssertionsType(typed.Type)
 	}
 	return false
 }
@@ -80,25 +80,25 @@ func (c *checker) isAssertObject(id *ast.Ident) bool {
 func (c *checker) isNewValue(id *ast.Ident, lhs, rhs []ast.Expr) bool {
 	i := 0
 	for ; i < len(lhs); i++ {
-		if l, ok := lhs[i].(*ast.Ident); ok && l.Obj == id.Obj {
+		if name, ok := lhs[i].(*ast.Ident); ok && name.Obj == id.Obj {
 			break
 		}
 	}
 	return len(lhs) == len(rhs) && i < len(rhs) && c.isNewCall(rhs[i])
 }
 
-func (c *checker) isNewCall(e ast.Expr) bool {
-	call, ok := e.(*ast.CallExpr)
+func (c *checker) isNewCall(expr ast.Expr) bool {
+	call, ok := expr.(*ast.CallExpr)
 	return ok && c.isTestifySel(call.Fun, "New")
 }
 
-func (c *checker) isAssertionsType(e ast.Expr) bool {
-	star, ok := e.(*ast.StarExpr)
+func (c *checker) isAssertionsType(expr ast.Expr) bool {
+	star, ok := expr.(*ast.StarExpr)
 	return ok && c.isTestifySel(star.X, "Assertions")
 }
 
-func (c *checker) isTestifySel(e ast.Expr, name string) bool {
-	sel, ok := e.(*ast.SelectorExpr)
+func (c *checker) isTestifySel(expr ast.Expr, name string) bool {
+	sel, ok := expr.(*ast.SelectorExpr)
 	if !ok || sel.Sel.Name != name {
 		return false
 	}
@@ -122,15 +122,15 @@ func (c *checker) isPkg(id *ast.Ident) bool {
 	return id.Obj == nil && c.imports[id.Name]
 }
 
-func identSet(e ast.Node) map[any]bool {
+func identSet(node ast.Node) map[any]bool {
 	keys := make(map[any]bool)
-	ast.Inspect(e, func(n ast.Node) bool {
-		switch x := n.(type) {
+	ast.Inspect(node, func(child ast.Node) bool {
+		switch child := child.(type) {
 		case *ast.SelectorExpr:
-			maps.Copy(keys, identSet(x.X))
+			maps.Copy(keys, identSet(child.X))
 			return false
 		case *ast.Ident:
-			keys[identKey(x)] = true
+			keys[identKey(child)] = true
 		}
 		return true
 	})
@@ -144,14 +144,14 @@ func identKey(id *ast.Ident) any {
 	return id.Name
 }
 
-func mayChange(n ast.Node) bool {
-	switch n := n.(type) {
+func mayChange(node ast.Node) bool {
+	switch node := node.(type) {
 	case *ast.CallExpr:
-		return !isPureUniverseCall(n.Fun)
+		return !isPureUniverseCall(node.Fun)
 	case *ast.FuncLit:
 		return true
 	case *ast.UnaryExpr:
-		return n.Op == token.AND
+		return node.Op == token.AND
 	}
 	return false
 }
@@ -181,21 +181,21 @@ func identExprs(ids []*ast.Ident) []ast.Expr {
 	return exprs
 }
 
-func rootIdent(e ast.Expr) *ast.Ident {
+func rootIdent(expr ast.Expr) *ast.Ident {
 	for {
-		switch x := e.(type) {
+		switch inner := expr.(type) {
 		case *ast.Ident:
-			return x
+			return inner
 		case *ast.SelectorExpr:
-			e = x.X
+			expr = inner.X
 		case *ast.IndexExpr:
-			e = x.X
+			expr = inner.X
 		case *ast.StarExpr:
-			e = x.X
+			expr = inner.X
 		case *ast.ParenExpr:
-			e = x.X
+			expr = inner.X
 		case *ast.CallExpr:
-			e = methodRecv(x)
+			expr = methodRecv(inner)
 		default:
 			return nil
 		}
@@ -204,28 +204,28 @@ func rootIdent(e ast.Expr) *ast.Ident {
 
 func methodRecv(call *ast.CallExpr) ast.Expr {
 	fun := call.Fun
-	switch x := fun.(type) {
+	switch expr := fun.(type) {
 	case *ast.IndexExpr:
-		fun = x.X
+		fun = expr.X
 	case *ast.IndexListExpr:
-		fun = x.X
+		fun = expr.X
 	}
-	switch x := fun.(type) {
+	switch fun := fun.(type) {
 	case *ast.Ident:
 		return nil
 	case *ast.SelectorExpr:
-		if id, ok := x.X.(*ast.Ident); ok && id.Obj == nil {
+		if id, ok := fun.X.(*ast.Ident); ok && id.Obj == nil {
 			return nil
 		}
 	}
 	return fun
 }
 
-func resultFields(f *ast.File) map[*ast.Field]bool {
+func resultFields(file *ast.File) map[*ast.Field]bool {
 	fields := make(map[*ast.Field]bool)
-	ast.Inspect(f, func(n ast.Node) bool {
-		if ft, ok := n.(*ast.FuncType); ok && ft.Results != nil {
-			for _, field := range ft.Results.List {
+	ast.Inspect(file, func(node ast.Node) bool {
+		if funcType, ok := node.(*ast.FuncType); ok && funcType.Results != nil {
+			for _, field := range funcType.Results.List {
 				fields[field] = true
 			}
 		}

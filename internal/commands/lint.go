@@ -35,73 +35,73 @@ func NewLintCommand() *cobra.Command {
 }
 
 func bindLintFlags(cmd *cobra.Command, opts *lint.LintOpts) {
-	fl := cmd.Flags()
-	fl.StringVar(
+	flags := cmd.Flags()
+	flags.StringVar(
 		&opts.Paths, "paths", "",
 		"comma-separated directories for the custom linter",
 	)
-	fl.BoolVar(
+	flags.BoolVar(
 		&opts.DoFix, "fix", true,
 		"auto-fix violations (false for CI check-only mode)",
 	)
-	bindLinterConfigFlags(fl, &opts.LinterFlags)
-	fl.BoolVar(&opts.Deadcode, "deadcode", true, "run deadcode checker")
-	fl.StringVar(
+	bindLinterConfigFlags(flags, &opts.LinterFlags)
+	flags.BoolVar(&opts.Deadcode, "deadcode", true, "run deadcode checker")
+	flags.StringVar(
 		&opts.DeadcodeExclude, "deadcode-exclude", "",
 		"grep-v pattern for deadcode false positives",
 	)
-	fl.BoolVar(&opts.NoGofumpt, "no-gofumpt", false, "skip gofumpt")
-	fl.BoolVar(&opts.NoGolangci, "no-golangci", false, "skip golangci-lint")
-	fl.StringVar(
+	flags.BoolVar(&opts.NoGofumpt, "no-gofumpt", false, "skip gofumpt")
+	flags.BoolVar(&opts.NoGolangci, "no-golangci", false, "skip golangci-lint")
+	flags.StringVar(
 		&opts.NewFromRev, "new-from-rev", "",
 		"only report new golangci-lint issues since this git revision",
 	)
-	fl.StringVar(
+	flags.StringVar(
 		&opts.GOOS, "goos", "",
 		"comma-separated extra GOOS targets to run golangci-lint for "+
 			"(e.g. windows); the host GOOS and duplicates are skipped",
 	)
 }
 
-func bindLinterConfigFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
-	fl.IntVar(
+func bindLinterConfigFlags(flagSet *pflag.FlagSet, flags *lint.LinterFlags) {
+	flagSet.IntVar(
 		&flags.MaxLineWidth, "max-line-width", 88,
 		"maximum line width for collapsing multi-line calls",
 	)
-	fl.IntVar(
+	flagSet.IntVar(
 		&flags.TabWidth, "tab-width", 4,
 		"tab width for calculating visual line width",
 	)
-	fl.IntVar(
+	flagSet.IntVar(
 		&flags.MaxFuncLen, "max-func-len", 30,
 		"maximum function length (code lines; a multi-line literal counts once)",
 	)
-	fl.IntVar(
+	flagSet.IntVar(
 		&flags.MaxFileLen, "max-file-len", 300,
 		"maximum file length (non-blank, non-comment)",
 	)
-	fl.IntVar(
+	flagSet.IntVar(
 		&flags.MaxNestDepth, "max-nest-depth", 2,
 		"maximum nesting depth within functions",
 	)
-	fl.IntVar(
+	flagSet.IntVar(
 		&flags.MaxParamCount, "max-param-count", 6,
 		"maximum param count excluding context.Context",
 	)
-	bindDocFlags(fl, flags)
-	fl.StringVar(
+	bindDocFlags(flagSet, flags)
+	flagSet.StringVar(
 		&flags.Exclude, "exclude", "",
 		"comma-separated rules to exclude (empty=run all)",
 	)
-	fl.StringVar(&flags.Rule, "rule", "", "only run a specific rule")
+	flagSet.StringVar(&flags.Rule, "rule", "", "only run a specific rule")
 }
 
-func bindDocFlags(fl *pflag.FlagSet, flags *lint.LinterFlags) {
-	fl.IntVar(
+func bindDocFlags(flagSet *pflag.FlagSet, flags *lint.LinterFlags) {
+	flagSet.IntVar(
 		&flags.MaxDocLines, "max-doc-lines", 1,
 		"maximum lines in a doc comment, excluding directives",
 	)
-	fl.IntVar(
+	flagSet.IntVar(
 		&flags.MaxDocFileLines, "max-doc-file-lines", 20,
 		"maximum lines in the package doc comment of a doc.go file",
 	)

@@ -109,7 +109,8 @@ func TestIsExampleFunc(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := IsExampleFunc(tc.file, parseFunc(t, tc.src)); got != tc.want {
+			got := IsExampleFunc(tc.file, parseFunc(t, tc.src))
+			if got != tc.want {
 				t.Errorf("IsExampleFunc(%q, %q) = %v", tc.file, tc.src, got)
 			}
 		})
@@ -118,13 +119,13 @@ func TestIsExampleFunc(t *testing.T) {
 
 func parseFunc(t *testing.T, src string) *ast.FuncDecl {
 	t.Helper()
-	f, err := parser.ParseFile(token.NewFileSet(), "x.go", "package x\n"+src, 0)
+	file, err := parser.ParseFile(token.NewFileSet(), "x.go", "package x\n"+src, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fn, ok := f.Decls[0].(*ast.FuncDecl)
+	decl, ok := file.Decls[0].(*ast.FuncDecl)
 	if !ok {
-		t.Fatalf("first decl is %T, want *ast.FuncDecl", f.Decls[0])
+		t.Fatalf("first decl is %T, want *ast.FuncDecl", file.Decls[0])
 	}
-	return fn
+	return decl
 }

@@ -14,13 +14,13 @@ func TestFix_MultiLineTrailingComment(t *testing.T) {
 }
 
 func TestFix_SharedHelperGroupsUnderLastCaller(t *testing.T) {
-	h := "func h() {}\n"
+	shared := "func h() {}\n"
 	a := "func A() { a1(); h() }\n"
-	a1 := "func a1() {}\n"
+	subA := "func a1() {}\n"
 	b := "func B() { b1(); h() }\n"
-	b1 := "func b1() {}\n"
-	src := "package p\n\n" + a + "\n" + h + "\n" + a1 + "\n" + b + "\n" + b1
-	want := "package p\n\n" + a + "\n" + a1 + "\n" + b + "\n" + b1 + "\n" + h
+	subB := "func b1() {}\n"
+	src := "package p\n\n" + a + "\n" + shared + "\n" + subA + "\n" + b + "\n" + subB
+	want := "package p\n\n" + a + "\n" + subA + "\n" + b + "\n" + subB + "\n" + shared
 	assertFix(t, src, want)
 }
 
@@ -51,30 +51,30 @@ func TestFix_TypeCarriesItsConsts(t *testing.T) {
 func TestFix_TypeLeavesOtherTypesBehind(t *testing.T) {
 	typ := "type T struct{}\n"
 	group := "type (\n\tA struct{}\n\tB struct{}\n)\n"
-	an := "func (A) N() {}\n"
+	methodA := "func (A) N() {}\n"
 	run := "func Run() {}\n"
-	m := "func (T) M() {}\n"
-	assertFix(t, "package p\n\n"+typ+"\n"+group+"\n"+an+"\n"+run+"\n"+m,
-		"package p\n\n"+group+"\n"+an+"\n"+run+"\n"+typ+"\n"+m)
+	method := "func (T) M() {}\n"
+	assertFix(t, "package p\n\n"+typ+"\n"+group+"\n"+methodA+"\n"+run+"\n"+method,
+		"package p\n\n"+group+"\n"+methodA+"\n"+run+"\n"+typ+"\n"+method)
 }
 
 func TestFix_KeepsVarInitOrder(t *testing.T) {
 	typ := "type T struct{}\n"
 	a := "var a = record(\"a\")\n"
-	f := "func f() {}\n"
+	fnc := "func f() {}\n"
 	b := "var b = record(\"b\")\n"
-	m := "func (T) M() {}\n"
-	assertFix(t, "package p\n\n"+typ+"\n"+a+"\n"+f+"\n"+b+"\n"+m,
-		"package p\n\n"+a+"\n"+f+"\n"+b+"\n"+typ+"\n"+m)
+	method := "func (T) M() {}\n"
+	assertFix(t, "package p\n\n"+typ+"\n"+a+"\n"+fnc+"\n"+b+"\n"+method,
+		"package p\n\n"+a+"\n"+fnc+"\n"+b+"\n"+typ+"\n"+method)
 }
 
 func TestFix_KeepsVarInitOrderMovingUp(t *testing.T) {
-	m := "func (T) M() {}\n"
+	method := "func (T) M() {}\n"
 	b := "var b = record(\"b\")\n"
 	typ := "type T struct{}\n"
 	a := "var a = record(\"a\")\n"
-	assertFix(t, "package p\n\n"+m+"\n"+b+"\n"+typ+"\n"+a,
-		"package p\n\n"+typ+"\n"+m+"\n"+b+"\n"+a)
+	assertFix(t, "package p\n\n"+method+"\n"+b+"\n"+typ+"\n"+a,
+		"package p\n\n"+typ+"\n"+method+"\n"+b+"\n"+a)
 }
 
 func TestFix_KeepsVarInitOrderAcrossTypes(t *testing.T) {
@@ -101,11 +101,11 @@ func TestFix_PlacedTypeKeepsItsVars(t *testing.T) {
 }
 
 func TestFix_TypeMovesUpWithItsConsts(t *testing.T) {
-	m := "func (k Kind) String() string { return \"\" }\n"
+	method := "func (k Kind) String() string { return \"\" }\n"
 	run := "func Run() {}\n"
 	typ := "type Kind int\n\nconst A Kind = 0\n"
-	assertFix(t, "package p\n\n"+m+"\n"+run+"\n"+typ,
-		"package p\n\n"+typ+"\n"+m+"\n"+run)
+	assertFix(t, "package p\n\n"+method+"\n"+run+"\n"+typ,
+		"package p\n\n"+typ+"\n"+method+"\n"+run)
 }
 
 func TestFix_PackageLineComment(t *testing.T) {
@@ -180,8 +180,8 @@ func TestFix_NoTrailingNewline(t *testing.T) {
 
 func assertFix(t *testing.T, src, want string) {
 	t.Helper()
-	fset, f := linttest.Parse(t, "a.go", src)
-	got := string(Fix(fset, f, []byte(src)))
+	fset, file := linttest.Parse(t, "a.go", src)
+	got := string(Fix(fset, file, []byte(src)))
 	if got != want {
 		t.Fatalf("Fix:\n%s\nwant:\n%s", got, want)
 	}
@@ -190,8 +190,8 @@ func assertFix(t *testing.T, src, want string) {
 
 func TestFix_AlreadyOrdered(t *testing.T) {
 	src := "package p\n\nfunc A() { b() }\n\nfunc b() {}\n"
-	fset, f := linttest.Parse(t, "a.go", src)
-	if got := Fix(fset, f, nil); got != nil {
+	fset, file := linttest.Parse(t, "a.go", src)
+	if got := Fix(fset, file, nil); got != nil {
 		t.Errorf("Fix = %q, want nil", got)
 	}
 }

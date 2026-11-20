@@ -122,14 +122,14 @@ func TestCheckCandidates_WithCandidates(t *testing.T) {
 func parseCalls(t *testing.T, src string) (*token.FileSet, []*ast.CallExpr) {
 	t.Helper()
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var calls []*ast.CallExpr
-	ast.Inspect(f, func(n ast.Node) bool {
-		if c, ok := n.(*ast.CallExpr); ok {
-			calls = append(calls, c)
+	ast.Inspect(file, func(node ast.Node) bool {
+		if call, ok := node.(*ast.CallExpr); ok {
+			calls = append(calls, call)
 		}
 		return true
 	})

@@ -51,15 +51,15 @@ func TestRunLint_AllSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	s := out.String()
-	if !strings.Contains(s, "Lint complete") {
-		t.Errorf("expected 'Lint complete' in output, got %q", s)
+	output := out.String()
+	if !strings.Contains(output, "Lint complete") {
+		t.Errorf("expected 'Lint complete' in output, got %q", output)
 	}
-	if !strings.Contains(s, "Timings") {
-		t.Errorf("expected timing summary in output, got %q", s)
+	if !strings.Contains(output, "Timings") {
+		t.Errorf("expected timing summary in output, got %q", output)
 	}
-	if !strings.Contains(s, "total") {
-		t.Errorf("expected total timing in output, got %q", s)
+	if !strings.Contains(output, "total") {
+		t.Errorf("expected total timing in output, got %q", output)
 	}
 }
 
@@ -101,12 +101,12 @@ func TestRunLint_EmptyPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	s := out.String()
-	if strings.Contains(s, "custom linter") {
+	output := out.String()
+	if strings.Contains(output, "custom linter") {
 		t.Error("custom linter should not have run with empty Paths")
 	}
-	if !strings.Contains(s, "Lint complete") {
-		t.Errorf("expected 'Lint complete' in output, got %q", s)
+	if !strings.Contains(output, "Lint complete") {
+		t.Errorf("expected 'Lint complete' in output, got %q", output)
 	}
 }
 
@@ -120,10 +120,10 @@ func TestFmtDuration_Seconds(t *testing.T) {
 		{3200 * time.Millisecond, "3.2s"},
 		{59*time.Second + 900*time.Millisecond, "59.9s"},
 	}
-	for _, tt := range tests {
-		got := fmtDuration(tt.d)
-		if got != tt.want {
-			t.Errorf("fmtDuration(%v) = %q, want %q", tt.d, got, tt.want)
+	for _, tc := range tests {
+		got := fmtDuration(tc.d)
+		if got != tc.want {
+			t.Errorf("fmtDuration(%v) = %q, want %q", tc.d, got, tc.want)
 		}
 	}
 }
@@ -136,10 +136,10 @@ func TestFmtDuration_Minutes(t *testing.T) {
 		{60 * time.Second, "1m00s"},
 		{7*time.Minute + 45*time.Second, "7m45s"},
 	}
-	for _, tt := range tests {
-		got := fmtDuration(tt.d)
-		if got != tt.want {
-			t.Errorf("fmtDuration(%v) = %q, want %q", tt.d, got, tt.want)
+	for _, tc := range tests {
+		got := fmtDuration(tc.d)
+		if got != tc.want {
+			t.Errorf("fmtDuration(%v) = %q, want %q", tc.d, got, tc.want)
 		}
 	}
 }
@@ -154,14 +154,14 @@ func TestRunLint_ParallelGolangciAndDeadcode(t *testing.T) {
 		Out:        &out,
 		Err:        io.Discard,
 	})
-	s := out.String()
-	if !strings.Contains(s, "golangci-lint") {
+	output := out.String()
+	if !strings.Contains(output, "golangci-lint") {
 		t.Error("expected golangci-lint in timing output")
 	}
-	if !strings.Contains(s, "deadcode") {
+	if !strings.Contains(output, "deadcode") {
 		t.Error("expected deadcode in timing output")
 	}
-	if !strings.Contains(s, "Timings") {
+	if !strings.Contains(output, "Timings") {
 		t.Error("expected Timings header")
 	}
 	_ = err
@@ -242,11 +242,11 @@ func TestPrintTimings_WidensForLongStepNames(t *testing.T) {
 	var buf bytes.Buffer
 	name := "golangci-lint (windows)"
 	printTimings(&buf, []stepTiming{{name, time.Second}}, 2*time.Second)
-	s := buf.String()
+	output := buf.String()
 	pad := strings.Repeat(" ", len(name)-len("total"))
 	for _, want := range []string{name + "    1.0s\n", "total" + pad + "    2.0s\n"} {
-		if !strings.Contains(s, want) {
-			t.Errorf("expected %q in output, got %q", want, s)
+		if !strings.Contains(output, want) {
+			t.Errorf("expected %q in output, got %q", want, output)
 		}
 	}
 }
@@ -258,17 +258,17 @@ func TestPrintTimings(t *testing.T) {
 		{"golangci-lint", 7*time.Minute + 45*time.Second},
 	}
 	printTimings(&buf, timings, 8*time.Minute+10*time.Second)
-	s := buf.String()
-	if !strings.Contains(s, "Timings") {
+	output := buf.String()
+	if !strings.Contains(output, "Timings") {
 		t.Error("missing Timings header")
 	}
-	if !strings.Contains(s, "gofumpt") {
+	if !strings.Contains(output, "gofumpt") {
 		t.Error("missing gofumpt timing")
 	}
-	if !strings.Contains(s, "golangci-lint") {
+	if !strings.Contains(output, "golangci-lint") {
 		t.Error("missing golangci-lint timing")
 	}
-	if !strings.Contains(s, "total") {
+	if !strings.Contains(output, "total") {
 		t.Error("missing total timing")
 	}
 	for _, want := range []string{
@@ -276,8 +276,8 @@ func TestPrintTimings(t *testing.T) {
 		"golangci-lint      7m45s\n",
 		"total              8m10s\n",
 	} {
-		if !strings.Contains(s, want) {
-			t.Errorf("expected %q in output, got %q", want, s)
+		if !strings.Contains(output, want) {
+			t.Errorf("expected %q in output, got %q", want, output)
 		}
 	}
 }

@@ -12,26 +12,28 @@ type use struct{ user, at int }
 
 func (m *model) plainTypes() map[int][]int {
 	plain := map[int][]int{}
-	for t, d := range m.decls {
-		ts := soloTypeSpec(d)
-		isMethod := func(x *fn) bool { return x != nil && x.recv == ts.Name.Name }
-		if ts == nil || slices.ContainsFunc(m.fns, isMethod) {
+	for typeIdx, decl := range m.decls {
+		spec := soloTypeSpec(decl)
+		isMethod := func(fnc *fn) bool {
+			return fnc != nil && fnc.recv == spec.Name.Name
+		}
+		if spec == nil || slices.ContainsFunc(m.fns, isMethod) {
 			continue
 		}
-		if users := usersOf(ts, m.decls); len(users) > 0 {
-			plain[t] = users
+		if users := usersOf(spec, m.decls); len(users) > 0 {
+			plain[typeIdx] = users
 		}
 	}
 	return plain
 }
 
-func (m *model) typePlaced(t int, uses map[int]use) bool {
-	at, head := uses[t].at, m.plainHead(t)
-	if t > at {
+func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
+	usePos, head := uses[typeIdx].at, m.plainHead(typeIdx)
+	if typeIdx > usePos {
 		return false
 	}
-	for i := head[len(head)-1] + 1; i < at; i++ {
-		if p, ok := m.plainOf(i); !ok || uses[p].at != at {
+	for i := head[len(head)-1] + 1; i < usePos; i++ {
+		if owner, ok := m.plainOf(i); !ok || uses[owner].at != usePos {
 			return false
 		}
 	}
@@ -44,47 +46,47 @@ func (m *model) inPlain(i int) bool {
 }
 
 func (m *model) plainOf(i int) (int, bool) {
-	if o, ok := m.typeOwner[i]; ok {
-		i = o
+	if ownerIdx, ok := m.typeOwner[i]; ok {
+		i = ownerIdx
 	}
 	_, ok := m.plain[i]
 	return i, ok
 }
 
-func (m *model) typeMessage(t int, u use) string {
-	name := soloTypeSpec(m.decls[t]).Name.Name
-	user := m.declName(u.user)
-	if u.at == u.user {
+func (m *model) typeMessage(typeIdx int, usage use) string {
+	name := soloTypeSpec(m.decls[typeIdx]).Name.Name
+	user := m.declName(usage.user)
+	if usage.at == usage.user {
 		const msg = "type %q should be directly above its first user %q"
 		return fmt.Sprintf(msg, name, user)
 	}
-	if x := m.fns[u.at]; x != nil {
+	if fnc := m.fns[usage.at]; fnc != nil {
 		const msg = "type %q should be directly above the methods of %q, " +
 			"which hold its first user %q"
-		return fmt.Sprintf(msg, name, x.recv, user)
+		return fmt.Sprintf(msg, name, fnc.recv, user)
 	}
-	if soloTypeSpec(m.decls[u.at]) == nil {
+	if soloTypeSpec(m.decls[usage.at]) == nil {
 		const msg = "type %q should be directly above %q, " +
 			"which sits over its first user %q"
-		return fmt.Sprintf(msg, name, m.declName(u.at), user)
+		return fmt.Sprintf(msg, name, m.declName(usage.at), user)
 	}
 	return fmt.Sprintf(
 		"type %q should be directly above %q, which holds its first user %q",
-		name, m.declName(u.at), user,
+		name, m.declName(usage.at), user,
 	)
 }
 
 func (m *model) declName(i int) string {
-	if x := m.fns[i]; x != nil {
-		return x.name
+	if fnc := m.fns[i]; fnc != nil {
+		return fnc.name
 	}
 	var name string
-	ast.Inspect(m.decls[i], func(n ast.Node) bool {
-		switch s := n.(type) {
+	ast.Inspect(m.decls[i], func(node ast.Node) bool {
+		switch node := node.(type) {
 		case *ast.TypeSpec:
-			name = s.Name.Name
+			name = node.Name.Name
 		case *ast.ValueSpec:
-			name = s.Names[0].Name
+			name = node.Names[0].Name
 		}
 		return name == ""
 	})
@@ -93,69 +95,71 @@ func (m *model) declName(i int) string {
 
 func (m *model) placeTypes(units [][]int, out []int) []int {
 	pos := make(map[int]int, len(out))
-	for p, i := range out {
-		pos[i] = p
+	for outPos, i := range out {
+		pos[i] = outPos
 	}
 	uses := m.firstUses(units, func(i int) int { return pos[i] })
 	above := map[int][]int{}
-	for _, t := range slices.Sorted(maps.Keys(uses)) {
-		above[uses[t].at] = append(above[uses[t].at], m.plainHead(t)...)
+	for _, idx := range slices.Sorted(maps.Keys(uses)) {
+		above[uses[idx].at] = append(above[uses[idx].at], m.plainHead(idx)...)
 	}
 	var placed []int
-	for p, i := range out {
-		placed = append(append(placed, above[p]...), i)
+	for outPos, i := range out {
+		placed = append(append(placed, above[outPos]...), i)
 	}
 	return placed
 }
 
 func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 	start := map[int]int{}
-	for _, u := range units {
-		p := pos(slices.MinFunc(u, func(a, b int) int { return pos(a) - pos(b) }))
-		for _, i := range u {
-			start[i] = p
+	byPos := func(a, b int) int { return pos(a) - pos(b) }
+	for _, unit := range units {
+		outPos := pos(slices.MinFunc(unit, byPos))
+		for _, i := range unit {
+			start[i] = outPos
 		}
 	}
 	uses := map[int]use{}
-	for t, users := range m.plain {
-		u := slices.MinFunc(users, func(a, b int) int { return start[a] - start[b] })
-		uses[t] = use{user: u, at: start[u]}
+	byStart := func(a, b int) int { return start[a] - start[b] }
+	for typeIdx, users := range m.plain {
+		first := slices.MinFunc(users, byStart)
+		uses[typeIdx] = use{user: first, at: start[first]}
 	}
 	return uses
 }
 
-func (m *model) plainHead(t int) []int {
-	head := append([]int{t}, m.typeBlocks[t]...)
+func (m *model) plainHead(typeIdx int) []int {
+	head := append([]int{typeIdx}, m.typeBlocks[typeIdx]...)
 	slices.Sort(head)
 	return head
 }
 
-func soloTypeSpec(d ast.Decl) *ast.TypeSpec {
-	gd, ok := d.(*ast.GenDecl)
-	if !ok || gd.Tok != token.TYPE || len(gd.Specs) != 1 {
+func soloTypeSpec(decl ast.Decl) *ast.TypeSpec {
+	genDecl, ok := decl.(*ast.GenDecl)
+	if !ok || genDecl.Tok != token.TYPE || len(genDecl.Specs) != 1 {
 		return nil
 	}
-	ts, _ := gd.Specs[0].(*ast.TypeSpec)
-	return ts
+	spec, _ := genDecl.Specs[0].(*ast.TypeSpec)
+	return spec
 }
 
-func usersOf(ts *ast.TypeSpec, decls []ast.Decl) []int {
+func usersOf(spec *ast.TypeSpec, decls []ast.Decl) []int {
 	var users []int
-	for i, d := range decls {
-		if gd, ok := d.(*ast.GenDecl); ok && gd.Tok != token.VAR {
+	for i, decl := range decls {
+		if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok != token.VAR {
 			continue
 		}
-		if refersTo(d, ts) {
+		if refersTo(decl, spec) {
 			users = append(users, i)
 		}
 	}
 	return users
 }
 
-func refersTo(n ast.Node, ts *ast.TypeSpec) bool {
+func refersTo(node ast.Node, spec *ast.TypeSpec) bool {
 	found := false
-	refIdents(n, func(*ast.SelectorExpr) {}, func(id *ast.Ident) bool {
-		found = id.Obj != nil && id.Obj.Decl == ts
+	refIdents(node, func(*ast.SelectorExpr) {}, func(id *ast.Ident) bool {
+		found = id.Obj != nil && id.Obj.Decl == spec
 		return !found
 	})
 	return found

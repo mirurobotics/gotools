@@ -12,11 +12,11 @@ import (
 func Check(
 	fset *token.FileSet,
 	filename string,
-	f *ast.File,
+	file *ast.File,
 	src []byte,
 	maxLineWidth, tabWidth int,
 ) []analysis.Diagnostic {
-	candidates := FindCandidates(fset, f, src, maxLineWidth, tabWidth)
+	candidates := FindCandidates(fset, file, src, maxLineWidth, tabWidth)
 	return analysis.CheckCandidates(
 		fset, filename, candidates,
 		"multi-line function signature "+
@@ -27,31 +27,31 @@ func Check(
 // FindCandidates returns multi-line function signatures that fit on one line.
 func FindCandidates(
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	src []byte,
 	maxLineWidth, tabWidth int,
 ) []analysis.Candidate {
 	var candidates []analysis.Candidate
-	add := func(c analysis.Candidate, ok bool) {
+	add := func(cand analysis.Candidate, ok bool) {
 		if ok {
-			candidates = append(candidates, c)
+			candidates = append(candidates, cand)
 		}
 	}
 
-	for _, decl := range f.Decls {
-		if fn, ok := decl.(*ast.FuncDecl); ok {
+	for _, decl := range file.Decls {
+		if funcDecl, ok := decl.(*ast.FuncDecl); ok {
 			add(tryCollapseSig(
-				fset, f, fn.Type.Func, fn.Recv,
-				fn.Name.Name, fn.Type, fn.Body,
+				fset, file, funcDecl.Type.Func, funcDecl.Recv,
+				funcDecl.Name.Name, funcDecl.Type, funcDecl.Body,
 				src, maxLineWidth, tabWidth,
 			))
 		}
 	}
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		if lit, ok := n.(*ast.FuncLit); ok {
+	ast.Inspect(file, func(node ast.Node) bool {
+		if lit, ok := node.(*ast.FuncLit); ok {
 			add(tryCollapseSig(
-				fset, f, lit.Type.Func, nil,
+				fset, file, lit.Type.Func, nil,
 				"", lit.Type, lit.Body,
 				src, maxLineWidth, tabWidth,
 			))
@@ -64,7 +64,7 @@ func FindCandidates(
 
 func tryCollapseSig(
 	fset *token.FileSet,
-	f *ast.File,
+	file *ast.File,
 	funcPos token.Pos,
 	recv *ast.FieldList,
 	name string,
@@ -81,7 +81,7 @@ func tryCollapseSig(
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
-	if analysis.HasCommentsBetween(fset, f, funcPos, body.Lbrace) {
+	if analysis.HasCommentsBetween(fset, file, funcPos, body.Lbrace) {
 		return analysis.Candidate{}, false //nolint:exhaustruct
 	}
 
@@ -217,8 +217,8 @@ func fieldText(fset *token.FileSet, field *ast.Field, src []byte) string {
 		return typeText
 	}
 	names := make([]string, len(field.Names))
-	for i, n := range field.Names {
-		names[i] = n.Name
+	for i, ident := range field.Names {
+		names[i] = ident.Name
 	}
 	return strings.Join(names, ", ") + " " + typeText
 }

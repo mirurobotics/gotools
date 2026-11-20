@@ -37,9 +37,9 @@ func rebuildBlock(block ImportBlock) string {
 	for _, imp := range block.Imports {
 		groups[imp.Group] = append(groups[imp.Group], imp)
 	}
-	for g := range groups {
-		sort.Slice(groups[g], func(i, j int) bool {
-			return groups[g][i].Path < groups[g][j].Path
+	for group := range groups {
+		sort.Slice(groups[group], func(a, b int) bool {
+			return groups[group][a].Path < groups[group][b].Path
 		})
 	}
 
@@ -47,8 +47,8 @@ func rebuildBlock(block ImportBlock) string {
 	b.WriteString("import (\n")
 
 	first := true
-	for _, g := range []ImportGroup{GroupStd, GroupInternal, GroupExternal} {
-		imps, ok := groups[g]
+	for _, group := range []ImportGroup{GroupStd, GroupInternal, GroupExternal} {
+		imps, ok := groups[group]
 		if !ok {
 			continue
 		}

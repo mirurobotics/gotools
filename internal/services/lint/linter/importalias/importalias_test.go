@@ -149,12 +149,12 @@ var x_y = my_fmt.Sprint()`,
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	filename := tt.filename
+	filename := tc.filename
 	if filename == "" {
 		filename = "test.go"
 	}
-	fset, f := linttest.Parse(t, filename, tt.src)
-	linttest.AssertCount(t, Check(fset, filename, f), tt.wantN, tt.wantMsg)
+	fset, file := linttest.Parse(t, filename, tc.src)
+	linttest.AssertCount(t, Check(fset, filename, file), tc.wantN, tc.wantMsg)
 }

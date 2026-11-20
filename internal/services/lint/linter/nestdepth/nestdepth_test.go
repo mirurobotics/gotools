@@ -311,9 +311,9 @@ func f() {
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	diags := Check(fset, "test.go", f, tt.maxDepth)
-	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
+	fset, file := linttest.Parse(t, "test.go", tc.src)
+	diags := Check(fset, "test.go", file, tc.maxDepth)
+	linttest.AssertCount(t, diags, tc.wantN, tc.wantMsg)
 }

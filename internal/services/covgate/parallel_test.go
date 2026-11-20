@@ -14,7 +14,7 @@ func TestRun_Parallelism_DefaultsToNumCPU(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
 			return []string{modName + "/pkg/a"}, nil
@@ -23,7 +23,7 @@ func TestRun_Parallelism_DefaultsToNumCPU(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 0})
+	err := job.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: 0})
 	if err != nil {
 		t.Fatalf("unexpected error with Parallelism=0 (NumCPU): %v", err)
 	}
@@ -74,14 +74,14 @@ func runPkgs(t *testing.T, progress bool, parallelism int, rels ...string) strin
 	}
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule:       func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) { return pkgs, nil },
 		measure:        fakeMeasure(90.0),
 		progress:       gocover.Progress{Enabled: progress, Table: table()},
 	}
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: parallelism})
+	err := job.run(Opts{Out: &buf, DefaultThreshold: 80.0, Parallelism: parallelism})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

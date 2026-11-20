@@ -14,7 +14,7 @@ func TestRun_Success(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
 			return []string{modName + "/pkg/a"}, nil
@@ -23,7 +23,7 @@ func TestRun_Success(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf})
+	err := job.run(Opts{Out: &buf})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestRun_WithFailures(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
 			return []string{modName + "/pkg/a"}, nil
@@ -52,7 +52,7 @@ func TestRun_WithFailures(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf})
+	err := job.run(Opts{Out: &buf})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -63,22 +63,22 @@ func TestRun_WithFailures(t *testing.T) {
 
 func TestRun_NilWriter(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return "", fmt.Errorf("stop") },
 	}
 	//nolint:exhaustruct // test uses partial initialization
-	_ = r.run(Opts{Out: nil})
+	_ = job.run(Opts{Out: nil})
 }
 
 func TestRun_GoModuleError(t *testing.T) {
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return "", fmt.Errorf("no module") },
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf})
+	err := job.run(Opts{Out: &buf})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -90,7 +90,7 @@ func TestRun_GoModuleError(t *testing.T) {
 func TestRun_GoListError(t *testing.T) {
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	job := runner{
 		goModule: func() (string, error) { return "mod", nil },
 		goListPackages: func(string) ([]string, error) {
 			return nil, fmt.Errorf("list failed")
@@ -98,7 +98,7 @@ func TestRun_GoListError(t *testing.T) {
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf})
+	err := job.run(Opts{Out: &buf})
 	if err == nil {
 		t.Fatal("expected error")
 	}

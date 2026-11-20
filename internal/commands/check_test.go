@@ -44,9 +44,9 @@ func TestNewCheckCommand_Help(t *testing.T) {
 }
 
 func TestNewCheckCommand_FlagDefaults(t *testing.T) {
-	fl := NewCheckCommand().Flags()
-	assertStringDefaults(t, fl,
+	flags := NewCheckCommand().Flags()
+	assertStringDefaults(t, flags,
 		map[string]string{"path": ".", "exclude": "", "rule": ""})
-	assertBoolDefaults(t, fl, map[string]bool{"fix": false})
-	assertIntDefaults(t, fl, linterIntDefaults())
+	assertBoolDefaults(t, flags, map[string]bool{"fix": false})
+	assertIntDefaults(t, flags, linterIntDefaults())
 }

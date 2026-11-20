@@ -8,19 +8,19 @@ import (
 )
 
 // Check reports diagnostics for bare type assertions that don't use the comma-ok idiom.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	safe := safeAssertions(f)
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
+	safe := safeAssertions(file)
 
 	var diags []analysis.Diagnostic
-	ast.Inspect(f, func(n ast.Node) bool {
-		ta, ok := n.(*ast.TypeAssertExpr)
+	ast.Inspect(file, func(node ast.Node) bool {
+		assert, ok := node.(*ast.TypeAssertExpr)
 		if !ok {
 			return true
 		}
-		if safe[ta.Pos()] || ta.Type == nil {
+		if safe[assert.Pos()] || assert.Type == nil {
 			return true
 		}
-		pos := fset.Position(ta.Pos())
+		pos := fset.Position(assert.Pos())
 		diags = append(diags, analysis.Diagnostic{
 			File:    filename,
 			Line:    pos.Line,
@@ -32,16 +32,16 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-func safeAssertions(f *ast.File) map[token.Pos]bool {
+func safeAssertions(file *ast.File) map[token.Pos]bool {
 	safe := map[token.Pos]bool{}
-	ast.Inspect(f, func(n ast.Node) bool {
-		switch s := n.(type) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		switch node := node.(type) {
 		case *ast.AssignStmt:
-			if len(s.Lhs) == 2 {
-				markSingleAssert(safe, s.Rhs)
+			if len(node.Lhs) == 2 {
+				markSingleAssert(safe, node.Rhs)
 			}
 		case *ast.TypeSwitchStmt:
-			switch a := s.Assign.(type) {
+			switch a := node.Assign.(type) {
 			case *ast.ExprStmt:
 				markSingleAssert(safe, []ast.Expr{a.X})
 			case *ast.AssignStmt:
@@ -57,7 +57,7 @@ func markSingleAssert(safe map[token.Pos]bool, rhs []ast.Expr) {
 	if len(rhs) != 1 {
 		return
 	}
-	if ta, ok := rhs[0].(*ast.TypeAssertExpr); ok {
-		safe[ta.Pos()] = true
+	if assert, ok := rhs[0].(*ast.TypeAssertExpr); ok {
+		safe[assert.Pos()] = true
 	}
 }

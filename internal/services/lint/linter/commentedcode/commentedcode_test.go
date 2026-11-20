@@ -331,9 +331,9 @@ func f() {
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	fset, f := linttest.Parse(t, tt.filename, tt.src)
-	diags := Check(fset, tt.filename, f, []byte(tt.src))
-	linttest.AssertLines(t, diags, tt.wantLines, message)
+	fset, file := linttest.Parse(t, tc.filename, tc.src)
+	diags := Check(fset, tc.filename, file, []byte(tc.src))
+	linttest.AssertLines(t, diags, tc.wantLines, message)
 }

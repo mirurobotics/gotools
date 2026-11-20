@@ -10,19 +10,19 @@ import (
 )
 
 // Check reports underscored import aliases, except test_ and mock_.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
 	var diags []analysis.Diagnostic
-	for _, is := range f.Imports {
-		if is.Name == nil || !isBadAlias(is.Name.Name) {
+	for _, imp := range file.Imports {
+		if imp.Name == nil || !isBadAlias(imp.Name.Name) {
 			continue
 		}
-		pos := fset.Position(is.Name.Pos())
+		pos := fset.Position(imp.Name.Pos())
 		diags = append(diags, analysis.Diagnostic{
 			File: filename,
 			Line: pos.Line,
 			Message: fmt.Sprintf(
 				"import alias %q contains underscore; use camelCase instead",
-				is.Name.Name,
+				imp.Name.Name,
 			),
 		})
 	}

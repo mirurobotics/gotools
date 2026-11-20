@@ -77,8 +77,8 @@ func (r *runner) checkTestOnly(pkg string, ctx checkPackageCtx) checkResult {
 }
 
 func packageThreshold(relPkg string, def float64) (threshold float64, explicit bool) {
-	if v, ok := gocover.LookupThreshold("./" + relPkg); ok {
-		return v, true
+	if found, ok := gocover.LookupThreshold("./" + relPkg); ok {
+		return found, true
 	}
 	return def, false
 }

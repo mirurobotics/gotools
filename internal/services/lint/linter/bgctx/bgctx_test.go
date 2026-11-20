@@ -159,10 +159,10 @@ func f() context.Context {
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	fset, f := linttest.Parse(t, tt.filename, tt.src)
-	linttest.AssertCount(t, Check(fset, tt.filename, f), tt.wantN, tt.wantMsg)
+	fset, file := linttest.Parse(t, tc.filename, tc.src)
+	linttest.AssertCount(t, Check(fset, tc.filename, file), tc.wantN, tc.wantMsg)
 }
 
 func TestIsBackgroundCall(t *testing.T) {
@@ -175,18 +175,18 @@ func TestIsBackgroundCall(t *testing.T) {
 		{"Background()", false},
 		{"a.context.Background()", false},
 	}
-	for _, tt := range tests {
-		t.Run(tt.expr, func(t *testing.T) {
-			e, err := parser.ParseExpr(tt.expr)
+	for _, tc := range tests {
+		t.Run(tc.expr, func(t *testing.T) {
+			parsed, err := parser.ParseExpr(tc.expr)
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			call, ok := e.(*ast.CallExpr)
+			call, ok := parsed.(*ast.CallExpr)
 			if !ok {
-				t.Fatalf("%q is not a call", tt.expr)
+				t.Fatalf("%q is not a call", tc.expr)
 			}
-			if got := isBackgroundCall(call, "context"); got != tt.want {
-				t.Errorf("isBackgroundCall(%q) = %v, want %v", tt.expr, got, tt.want)
+			if got := isBackgroundCall(call, "context"); got != tc.want {
+				t.Errorf("isBackgroundCall(%q) = %v, want %v", tc.expr, got, tc.want)
 			}
 		})
 	}

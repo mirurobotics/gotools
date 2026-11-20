@@ -50,8 +50,8 @@ func TestCheck_MultipleUnderscoresRejected(t *testing.T) {
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	fset, f := linttest.Parse(t, "test.go", tt.src)
-	linttest.AssertCount(t, Check(fset, "test.go", f), tt.wantN, tt.wantMsg)
+	fset, file := linttest.Parse(t, "test.go", tc.src)
+	linttest.AssertCount(t, Check(fset, "test.go", file), tc.wantN, tc.wantMsg)
 }

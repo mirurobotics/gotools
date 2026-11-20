@@ -17,7 +17,7 @@ func table() gocover.Table {
 }
 
 func (r *runner) printResults(
-	w io.Writer,
+	out io.Writer,
 	results []checkResult,
 	excluded []string,
 	module string,
@@ -25,7 +25,7 @@ func (r *runner) printResults(
 ) error {
 	hasFailures := false
 	for _, res := range results {
-		_, _ = fmt.Fprint(w, r.progress.Rest(res.output))
+		_, _ = fmt.Fprint(out, r.progress.Rest(res.output))
 		if !res.passed {
 			hasFailures = true
 		}
@@ -34,20 +34,20 @@ func (r *runner) printResults(
 	indent := r.progress.Indent(len(results))
 	for _, pkg := range excluded {
 		row := skippedRow(gocover.RelPkg(pkg, module))
-		_, _ = fmt.Fprintf(w, "%s%s", indent, row)
+		_, _ = fmt.Fprintf(out, "%s%s", indent, row)
 	}
 
-	_, _ = fmt.Fprintf(w, "\nTotal time: %s\n", fmtDuration(totalTime))
+	_, _ = fmt.Fprintf(out, "\nTotal time: %s\n", fmtDuration(totalTime))
 	if hasFailures {
 		_, _ = fmt.Fprintln(
-			w, "ERROR: One or more packages failed "+
+			out, "ERROR: One or more packages failed "+
 				"tests, are below their minimum coverage, "+
 				"or have loose .covgate thresholds",
 		)
 		return fmt.Errorf("coverage gate failed")
 	}
 
-	_, _ = fmt.Fprintln(w, "All packages meet minimum coverage requirement")
+	_, _ = fmt.Fprintln(out, "All packages meet minimum coverage requirement")
 	return nil
 }
 
@@ -58,12 +58,12 @@ func skippedRow(relPkg string) string {
 	)
 }
 
-func fmtDuration(d time.Duration) string {
-	d = d.Round(100 * time.Millisecond)
-	if d < time.Minute {
-		return fmt.Sprintf("%.1fs", d.Seconds())
+func fmtDuration(dur time.Duration) string {
+	dur = dur.Round(100 * time.Millisecond)
+	if dur < time.Minute {
+		return fmt.Sprintf("%.1fs", dur.Seconds())
 	}
-	m := int(d.Minutes())
-	s := d - time.Duration(m)*time.Minute
-	return fmt.Sprintf("%dm%02.0fs", m, s.Seconds())
+	mins := int(dur.Minutes())
+	secs := dur - time.Duration(mins)*time.Minute
+	return fmt.Sprintf("%dm%02.0fs", mins, secs.Seconds())
 }

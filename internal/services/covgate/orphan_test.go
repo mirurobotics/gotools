@@ -13,14 +13,14 @@ func TestRun_OrphanTests_RunsUnclaimedPackage(t *testing.T) {
 	testutil.MakePkgDir(t, "internal/foo")
 
 	var ranPaths [][]string
-	r, patterns := orphanRunner(func(paths []string) ([]byte, error) {
+	job, patterns := orphanRunner(func(paths []string) ([]byte, error) {
 		ranPaths = append(ranPaths, paths)
 		return nil, nil
 	})
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{
+	err := job.run(Opts{
 		Out:              &buf,
 		DefaultThreshold: 80.0,
 		SrcPrefix:        "internal",
@@ -45,13 +45,13 @@ func TestRun_OrphanTests_RunsUnclaimedPackage(t *testing.T) {
 func TestRun_OrphanTests_FailureFailsGate(t *testing.T) {
 	testutil.MakePkgDir(t, "internal/foo")
 
-	r, _ := orphanRunner(func([]string) ([]byte, error) {
+	job, _ := orphanRunner(func([]string) ([]byte, error) {
 		return []byte("--- FAIL: TestBroken\n"), fmt.Errorf("exit status 1")
 	})
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{
+	err := job.run(Opts{
 		Out:              &buf,
 		DefaultThreshold: 80.0,
 		SrcPrefix:        "internal",
@@ -73,7 +73,7 @@ func TestRun_OrphanTests_NoTestDirSkipsLookup(t *testing.T) {
 	testutil.MakePkgDir(t, "internal/foo")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := &runner{
+	job := &runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
 			return []string{modName + "/internal/foo"}, nil
@@ -87,7 +87,7 @@ func TestRun_OrphanTests_NoTestDirSkipsLookup(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{Out: &buf, DefaultThreshold: 80.0, SrcPrefix: "internal"})
+	err := job.run(Opts{Out: &buf, DefaultThreshold: 80.0, SrcPrefix: "internal"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestRun_OrphanTests_NoTestDirSkipsLookup(t *testing.T) {
 func TestRun_OrphanTests_ClaimedPackageNotDuplicated(t *testing.T) {
 	testutil.MakePkgDir(t, "internal/foo")
 
-	r, _ := orphanRunner(func(paths []string) ([]byte, error) {
+	job, _ := orphanRunner(func(paths []string) ([]byte, error) {
 		if len(paths) == 1 && paths[0] == "./tests/foo" {
 			t.Errorf("claimed test package scheduled as orphan: %v", paths)
 		}
@@ -105,7 +105,7 @@ func TestRun_OrphanTests_ClaimedPackageNotDuplicated(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{
+	err := job.run(Opts{
 		Out:              &buf,
 		DefaultThreshold: 80.0,
 		SrcPrefix:        "internal",
@@ -119,12 +119,12 @@ func TestRun_OrphanTests_ClaimedPackageNotDuplicated(t *testing.T) {
 func TestRun_OrphanTests_ExcludeApplies(t *testing.T) {
 	testutil.MakePkgDir(t, "internal/foo")
 
-	r, _ := orphanRunner(func(paths []string) ([]byte, error) {
+	job, _ := orphanRunner(func(paths []string) ([]byte, error) {
 		t.Errorf("excluded orphan must not run: %v", paths)
 		return nil, nil
 	})
-	inner := r.goListPackages
-	r.goListPackages = func(pattern string) ([]string, error) {
+	inner := job.goListPackages
+	job.goListPackages = func(pattern string) ([]string, error) {
 		if pattern == "./tests/bar" {
 			return []string{modName + "/tests/bar"}, nil
 		}
@@ -133,7 +133,7 @@ func TestRun_OrphanTests_ExcludeApplies(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{
+	err := job.run(Opts{
 		Out:              &buf,
 		DefaultThreshold: 80.0,
 		SrcPrefix:        "internal",
@@ -151,7 +151,7 @@ func TestRun_OrphanTests_ExcludeApplies(t *testing.T) {
 func orphanRunner(runTests func([]string) ([]byte, error)) (*runner, *[]string) {
 	var listedPatterns []string
 	//nolint:exhaustruct // test uses partial initialization
-	r := &runner{
+	run := &runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
 			return []string{modName + "/internal/foo", modName + "/cmd/tool"}, nil
@@ -163,19 +163,19 @@ func orphanRunner(runTests func([]string) ([]byte, error)) (*runner, *[]string) 
 		measure:  fakeMeasure(90.0),
 		runTests: runTests,
 	}
-	return r, &listedPatterns
+	return run, &listedPatterns
 }
 
 func TestFindOrphanTests_EmptySrcPrefixOrphansEverything(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
-	r := &runner{
+	run := &runner{
 		goListTestPackages: func(string) ([]string, error) {
 			return []string{modName + "/tests/foo"}, nil
 		},
 	}
 
 	//nolint:exhaustruct // test uses partial initialization
-	orphans, err := r.findOrphanTests(
+	orphans, err := run.findOrphanTests(
 		[]string{modName + "/internal/foo"}, modName,
 		Opts{TestDir: "tests", SrcPrefix: ""},
 	)
@@ -191,7 +191,7 @@ func TestRun_OrphanTests_ListError(t *testing.T) {
 	testutil.MakePkgDir(t, "internal/foo")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := &runner{
+	job := &runner{
 		goModule: func() (string, error) { return modName, nil },
 		goListPackages: func(string) ([]string, error) {
 			return []string{modName + "/internal/foo"}, nil
@@ -204,7 +204,7 @@ func TestRun_OrphanTests_ListError(t *testing.T) {
 
 	var buf bytes.Buffer
 	//nolint:exhaustruct // test uses partial initialization
-	err := r.run(Opts{
+	err := job.run(Opts{
 		Out:              &buf,
 		DefaultThreshold: 80.0,
 		SrcPrefix:        "internal",

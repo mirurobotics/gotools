@@ -8,27 +8,27 @@ import (
 )
 
 // Check reports t.TempDir references; use test_dirs.CreateTemp instead.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
-	pkg := analysis.PkgImportName(f, "testing")
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
+	pkg := analysis.TestingPkgName(file)
 	if pkg == "" {
 		return nil
 	}
 
-	handles := handleNames(f, pkg)
+	handles := handleNames(file, pkg)
 	if len(handles) == 0 {
 		return nil
 	}
 
 	var diags []analysis.Diagnostic
 
-	ast.Inspect(f, func(n ast.Node) bool {
-		sel, ok := n.(*ast.SelectorExpr)
+	ast.Inspect(file, func(node ast.Node) bool {
+		sel, ok := node.(*ast.SelectorExpr)
 		if !ok || sel.Sel.Name != "TempDir" || !handles[baseName(sel.X)] {
 			return true
 		}
 
 		pos := fset.Position(sel.Pos())
-		if analysis.NolintOnLines(fset, f, "tempdir", pos.Line, pos.Line) {
+		if analysis.NolintOnLines(fset, file, "tempdir", pos.Line, pos.Line) {
 			return true
 		}
 
@@ -45,11 +45,11 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-func handleNames(f *ast.File, pkg string) map[string]bool {
+func handleNames(file *ast.File, pkg string) map[string]bool {
 	names := make(map[string]bool)
-	ast.Inspect(f, func(n ast.Node) bool {
-		field, ok := n.(*ast.Field)
-		if !ok || !isHandleType(field.Type, pkg) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		field, ok := node.(*ast.Field)
+		if !ok || !analysis.IsTestingHandle(field.Type, pkg) {
 			return true
 		}
 		for _, name := range field.Names {
@@ -60,34 +60,12 @@ func handleNames(f *ast.File, pkg string) map[string]bool {
 	return names
 }
 
-func isHandleType(expr ast.Expr, pkg string) bool {
-	if star, ok := expr.(*ast.StarExpr); ok {
-		expr = star.X
-	}
-
-	sel, ok := expr.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-
-	ident, ok := sel.X.(*ast.Ident)
-	if !ok || ident.Name != pkg {
-		return false
-	}
-
-	switch sel.Sel.Name {
-	case "T", "B", "F", "TB":
-		return true
-	}
-	return false
-}
-
 func baseName(expr ast.Expr) string {
-	switch x := expr.(type) {
+	switch expr := expr.(type) {
 	case *ast.Ident:
-		return x.Name
+		return expr.Name
 	case *ast.SelectorExpr:
-		return x.Sel.Name
+		return expr.Sel.Name
 	}
 	return ""
 }

@@ -46,8 +46,8 @@ func TestX(t *testing.T) {
 	assert.Equal(t, 3, got.C)
 }
 `
-	fset, f := linttest.Parse(t, "foo_test.go", src)
-	linttest.AssertCount(t, Check(fset, "foo_test.go", f), 0, "")
+	fset, file := linttest.Parse(t, "foo_test.go", src)
+	linttest.AssertCount(t, Check(fset, "foo_test.go", file), 0, "")
 }
 
 func TestCheck_HelperTakingValueAllowed(t *testing.T) {
@@ -214,13 +214,13 @@ func TestX(t *testing.T) {
 	o5.Equal(1, got.D)
 }
 `
-	fset, f := linttest.Parse(t, "foo_test.go", src)
-	diags := Check(fset, "foo_test.go", f)
+	fset, file := linttest.Parse(t, "foo_test.go", src)
+	diags := Check(fset, "foo_test.go", file)
 	linttest.AssertLines(t, diags, []int{12}, wantMsg("got", "got"))
 }
 
 func TestCheck_CallRootAndOddBases(t *testing.T) {
-	fset, f := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
+	fset, file := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
 	assert.Equal(t, 1, build().A)
 	assert.Equal(t, 2, build().B)
 	assert.Equal(t, 3, build().C)
@@ -229,7 +229,7 @@ func TestCheck_CallRootAndOddBases(t *testing.T) {
 	assert.Equal(t, 3, []T{}[0].C)
 }
 `)
-	diags := Check(fset, "foo_test.go", f)
+	diags := Check(fset, "foo_test.go", file)
 	linttest.AssertLines(t, diags, []int{12, 15}, "")
 	if diags[0].Message != wantMsg("build()", "") {
 		t.Errorf("message = %q", diags[0].Message)

@@ -16,15 +16,15 @@ import (
 // Previous finds the latest <prefix>X.Y.Z tag without a pre-release suffix.
 func Previous(prefix string, errW io.Writer) (string, error) {
 	//nolint:exhaustruct // only gitTags needed
-	r := runner{gitTags: GitTags}
-	return r.previous(prefix, errW)
+	run := runner{gitTags: GitTags}
+	return run.previous(prefix, errW)
 }
 
 // Latest finds the latest tag matching <prefix>X.Y.Z with optional pre-release suffix.
 func Latest(prefix string, errW io.Writer) (string, error) {
 	//nolint:exhaustruct // only gitTags needed
-	r := runner{gitTags: GitTags}
-	return r.latest(prefix, errW)
+	run := runner{gitTags: GitTags}
+	return run.latest(prefix, errW)
 }
 
 // GitTags returns all git tags.
@@ -53,8 +53,8 @@ func GitTags(errW io.Writer) ([]string, error) {
 // Current returns the exact tag on HEAD.
 func Current(errW io.Writer) (string, error) {
 	//nolint:exhaustruct // only currentTag needed
-	r := runner{currentTag: defaultCurrentTag}
-	return r.current(errW)
+	run := runner{currentTag: defaultCurrentTag}
+	return run.current(errW)
 }
 
 func defaultCurrentTag(errW io.Writer) (string, error) {
@@ -119,9 +119,9 @@ func (r *runner) current(errW io.Writer) (string, error) { return r.currentTag(e
 // FilterTags returns tags matching the given pattern.
 func FilterTags(tags []string, pattern *regexp.Regexp) []string {
 	var matched []string
-	for _, t := range tags {
-		if pattern.MatchString(t) {
-			matched = append(matched, t)
+	for _, tag := range tags {
+		if pattern.MatchString(tag) {
+			matched = append(matched, tag)
 		}
 	}
 	return matched
@@ -129,32 +129,32 @@ func FilterTags(tags []string, pattern *regexp.Regexp) []string {
 
 // SortVersionTags sorts tags using the same logic as sort -V.
 func SortVersionTags(tags []string) {
-	sort.SliceStable(tags, func(i, j int) bool { return VersionLess(tags[i], tags[j]) })
+	sort.SliceStable(tags, func(a, b int) bool { return VersionLess(tags[a], tags[b]) })
 }
 
 // VersionLess compares two version strings like sort -V.
 func VersionLess(a, b string) bool {
-	pa, pb := SplitVersionParts(a), SplitVersionParts(b)
-	return slices.CompareFunc(pa, pb, comparePart) < 0
+	partsA, partsB := SplitVersionParts(a), SplitVersionParts(b)
+	return slices.CompareFunc(partsA, partsB, comparePart) < 0
 }
 
 // SplitVersionParts splits a version into numeric and non-numeric segments.
-func SplitVersionParts(s string) []string {
+func SplitVersionParts(version string) []string {
 	var parts []string
 	cur := ""
 	inDigit := false
 
-	for _, c := range s {
-		isDigit := c >= '0' && c <= '9'
+	for _, char := range version {
+		isDigit := char >= '0' && char <= '9'
 		switch {
 		case cur == "":
-			cur = string(c)
+			cur = string(char)
 			inDigit = isDigit
 		case isDigit == inDigit:
-			cur += string(c)
+			cur += string(char)
 		default:
 			parts = append(parts, cur)
-			cur = string(c)
+			cur = string(char)
 			inDigit = isDigit
 		}
 	}
@@ -173,17 +173,17 @@ func comparePart(a, b string) int {
 	return strings.Compare(a, b)
 }
 
-// ParseNum returns the integer value of s if it is all digits.
-func ParseNum(s string) (int, bool) {
-	n := 0
-	for _, c := range s {
-		if c < '0' || c > '9' {
+// ParseNum returns the integer value of text if it is all digits.
+func ParseNum(text string) (int, bool) {
+	num := 0
+	for _, char := range text {
+		if char < '0' || char > '9' {
 			return 0, false
 		}
-		n = n*10 + int(c-'0')
+		num = num*10 + int(char-'0')
 	}
-	if len(s) == 0 {
+	if len(text) == 0 {
 		return 0, false
 	}
-	return n, true
+	return num, true
 }

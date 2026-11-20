@@ -129,8 +129,8 @@ func TestX(t *testing.T) {
 	assert.Equal(t, got.C, v1.PodPending)
 }
 `
-	fset, f := linttest.Parse(t, "foo_test.go", src)
-	linttest.AssertLines(t, Check(fset, "foo_test.go", f), []int{11},
+	fset, file := linttest.Parse(t, "foo_test.go", src)
+	linttest.AssertLines(t, Check(fset, "foo_test.go", file), []int{11},
 		"3 asserts compare fields of got one at a time; compare the whole value"+
 			" in one assert, or move the checks into a helper that takes got")
 }
@@ -148,7 +148,7 @@ func TestCheck_IndexChangeStartsNewGroup(t *testing.T) {
 }
 
 func TestCheck_PackageAndGenericCallRootsHaveNoHelperHint(t *testing.T) {
-	fset, f := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
+	fset, file := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
 	assert.Equal(t, 1, http.Load().A)
 	assert.Equal(t, 2, http.Load().B)
 	assert.Equal(t, 3, http.Load().C)
@@ -160,11 +160,11 @@ func TestCheck_PackageAndGenericCallRootsHaveNoHelperHint(t *testing.T) {
 	assert.Equal(t, 3, pair[int, string]().C)
 }
 `)
-	diags := Check(fset, "foo_test.go", f)
+	diags := Check(fset, "foo_test.go", file)
 	linttest.AssertLines(t, diags, []int{12, 15, 18}, "")
-	for _, d := range diags {
-		if strings.Contains(d.Message, "helper") {
-			t.Errorf("unexpected helper hint: %q", d.Message)
+	for _, diag := range diags {
+		if strings.Contains(diag.Message, "helper") {
+			t.Errorf("unexpected helper hint: %q", diag.Message)
 		}
 	}
 }
@@ -287,6 +287,6 @@ func TestX(t *testing.T) {
 	assert.Equal(t, 3, config.C)
 }
 `
-	fset, f := linttest.Parse(t, "foo_test.go", src)
-	linttest.AssertLines(t, Check(fset, "foo_test.go", f), []int{12}, "")
+	fset, file := linttest.Parse(t, "foo_test.go", src)
+	linttest.AssertLines(t, Check(fset, "foo_test.go", file), []int{12}, "")
 }

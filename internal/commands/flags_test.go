@@ -19,64 +19,64 @@ func linterIntDefaults() map[string]int {
 	}
 }
 
-func assertFlagTypes(t *testing.T, fl *pflag.FlagSet, want map[string]string) {
+func assertFlagTypes(t *testing.T, flags *pflag.FlagSet, want map[string]string) {
 	t.Helper()
 	for name, wantType := range want {
-		f := fl.Lookup(name)
-		if f == nil {
+		flag := flags.Lookup(name)
+		if flag == nil {
 			t.Errorf("flag %q not registered", name)
 			continue
 		}
-		if f.Value.Type() != wantType {
-			t.Errorf("flag %q type = %q, want %q", name, f.Value.Type(), wantType)
+		if flag.Value.Type() != wantType {
+			t.Errorf("flag %q type = %q, want %q", name, flag.Value.Type(), wantType)
 		}
 	}
 }
 
-func assertStringDefaults(t *testing.T, fl *pflag.FlagSet, want map[string]string) {
+func assertStringDefaults(t *testing.T, flags *pflag.FlagSet, want map[string]string) {
 	t.Helper()
-	for name, w := range want {
-		got, err := fl.GetString(name)
+	for name, wantVal := range want {
+		got, err := flags.GetString(name)
 		if err != nil {
 			t.Errorf("flag %q: %v", name, err)
-		} else if got != w {
-			t.Errorf("flag %q default = %q, want %q", name, got, w)
+		} else if got != wantVal {
+			t.Errorf("flag %q default = %q, want %q", name, got, wantVal)
 		}
 	}
 }
 
-func assertBoolDefaults(t *testing.T, fl *pflag.FlagSet, want map[string]bool) {
+func assertBoolDefaults(t *testing.T, flags *pflag.FlagSet, want map[string]bool) {
 	t.Helper()
-	for name, w := range want {
-		got, err := fl.GetBool(name)
+	for name, wantVal := range want {
+		got, err := flags.GetBool(name)
 		if err != nil {
 			t.Errorf("flag %q: %v", name, err)
-		} else if got != w {
-			t.Errorf("flag %q default = %v, want %v", name, got, w)
+		} else if got != wantVal {
+			t.Errorf("flag %q default = %v, want %v", name, got, wantVal)
 		}
 	}
 }
 
-func assertIntDefaults(t *testing.T, fl *pflag.FlagSet, want map[string]int) {
+func assertIntDefaults(t *testing.T, flags *pflag.FlagSet, want map[string]int) {
 	t.Helper()
-	for name, w := range want {
-		got, err := fl.GetInt(name)
+	for name, wantVal := range want {
+		got, err := flags.GetInt(name)
 		if err != nil {
 			t.Errorf("flag %q: %v", name, err)
-		} else if got != w {
-			t.Errorf("flag %q default = %d, want %d", name, got, w)
+		} else if got != wantVal {
+			t.Errorf("flag %q default = %d, want %d", name, got, wantVal)
 		}
 	}
 }
 
-func assertFloatDefaults(t *testing.T, fl *pflag.FlagSet, want map[string]float64) {
+func assertFloatDefaults(t *testing.T, flags *pflag.FlagSet, want map[string]float64) {
 	t.Helper()
-	for name, w := range want {
-		got, err := fl.GetFloat64(name)
+	for name, wantVal := range want {
+		got, err := flags.GetFloat64(name)
 		if err != nil {
 			t.Errorf("flag %q: %v", name, err)
-		} else if got != w {
-			t.Errorf("flag %q default = %v, want %v", name, got, w)
+		} else if got != wantVal {
+			t.Errorf("flag %q default = %v, want %v", name, got, wantVal)
 		}
 	}
 }

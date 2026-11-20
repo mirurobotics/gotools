@@ -16,17 +16,17 @@ const message = "TODO comment must include an issue link (an http or https URL) 
 const linkPattern = `(?i)https?://[\w-]+(\.[\w-]+)+`
 
 // Check reports TODO comments with no issue link in the TODO or its continuation lines.
-func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnostic {
+func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
 	link := regexp.MustCompile(linkPattern)
 	var diags []analysis.Diagnostic
-	for _, cg := range f.Comments {
-		if analysis.HasNolint(cg, "todoissue") {
+	for _, group := range file.Comments {
+		if analysis.HasNolint(group, "todoissue") {
 			continue
 		}
-		for _, n := range unlinkedTODOs(groupLines(fset, cg), link) {
+		for _, lineNum := range unlinkedTODOs(groupLines(fset, group), link) {
 			diags = append(diags, analysis.Diagnostic{
 				File:    filename,
-				Line:    n,
+				Line:    lineNum,
 				Message: message,
 			})
 		}
@@ -48,14 +48,14 @@ func unlinkedTODOs(lines []line, link *regexp.Regexp) []int {
 		}
 		open = 0
 	}
-	for _, l := range lines {
-		if l.text == "" || isTODO(l.text) {
+	for _, entry := range lines {
+		if entry.text == "" || isTODO(entry.text) {
 			closeScope()
 		}
-		if isTODO(l.text) {
-			open, linked = l.num, false
+		if isTODO(entry.text) {
+			open, linked = entry.num, false
 		}
-		if open != 0 && link.MatchString(l.text) {
+		if open != 0 && link.MatchString(entry.text) {
 			linked = true
 		}
 	}
@@ -68,18 +68,18 @@ func isTODO(text string) bool {
 	if !ok || rest == "" {
 		return ok
 	}
-	r := []rune(rest)[0]
-	return r == ':' || r == '(' || unicode.IsSpace(r)
+	char := []rune(rest)[0]
+	return char == ':' || char == '(' || unicode.IsSpace(char)
 }
 
-func groupLines(fset *token.FileSet, cg *ast.CommentGroup) []line {
+func groupLines(fset *token.FileSet, group *ast.CommentGroup) []line {
 	var lines []line
-	for _, c := range cg.List {
-		text, ok := checkedText(c.Text)
+	for _, comment := range group.List {
+		text, ok := checkedText(comment.Text)
 		if !ok {
 			continue
 		}
-		start := fset.Position(c.Pos()).Line
+		start := fset.Position(comment.Pos()).Line
 		for i, text := range strings.Split(text, "\n") {
 			lines = append(lines, line{start + i, stripMarkers(text)})
 		}

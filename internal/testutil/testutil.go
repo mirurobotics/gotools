@@ -28,16 +28,18 @@ func WriteCovgateFile(t *testing.T, dir, val string) {
 func AssertInOrder(t *testing.T, out string, ordered ...string) {
 	t.Helper()
 	prev, prevIdx := "", -1
-	for _, s := range ordered {
-		idx := strings.Index(out, s)
+	for _, str := range ordered {
+		idx := strings.Index(out, str)
 		if idx < 0 {
-			t.Errorf("output missing %q:\n%s", s, out)
+			t.Errorf("output missing %q:\n%s", str, out)
 			return
 		}
 		if idx <= prevIdx {
-			t.Errorf("expected %q (%d) after %q (%d):\n%s", s, idx, prev, prevIdx, out)
+			t.Errorf(
+				"expected %q (%d) after %q (%d):\n%s", str, idx, prev, prevIdx, out,
+			)
 		}
-		prev, prevIdx = s, idx
+		prev, prevIdx = str, idx
 	}
 }
 

@@ -97,10 +97,10 @@ func TestRun_Check_AllowedPkgnamePrefixes(t *testing.T) {
 		{name: "mock_ prefix", pkgName: "mock_service"},
 		{name: "_test suffix", pkgName: "foo_test"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			writeFile(t, dir+"/ok.go", "package "+tt.pkgName+"\n\nfunc f() {}\n")
+			writeFile(t, dir+"/ok.go", "package "+tc.pkgName+"\n\nfunc f() {}\n")
 			diags, _, err := Run(dir, false, defaultCfg())
 			if err != nil {
 				t.Fatal(err)
@@ -108,7 +108,7 @@ func TestRun_Check_AllowedPkgnamePrefixes(t *testing.T) {
 			if diags != 0 {
 				t.Errorf(
 					"expected 0 diagnostics for package %q, got %d",
-					tt.pkgName, diags,
+					tc.pkgName, diags,
 				)
 			}
 		})

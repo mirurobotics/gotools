@@ -48,12 +48,12 @@ func assertCheckerFixerAgree(t *testing.T, src string) {
 	t.Helper()
 	srcBytes := []byte(src)
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
+	file, err := parser.ParseFile(fset, "test.go", srcBytes, parser.ParseComments)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	candidates := FindCandidates(fset, f, srcBytes, 88, 4)
+	candidates := FindCandidates(fset, file, srcBytes, 88, 4)
 	fixed := analysis.Fix(fset, srcBytes, candidates)
 	changed := string(fixed) != src
 

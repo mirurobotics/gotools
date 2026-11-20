@@ -231,18 +231,18 @@ func TestCheck_NolintOtherRuleDoesNotExempt(t *testing.T) {
 	})
 }
 
-func runCheckCase(t *testing.T, tt checkCase) {
+func runCheckCase(t *testing.T, tc checkCase) {
 	t.Helper()
-	filename := tt.filename
+	filename := tc.filename
 	if filename == "" {
 		filename = "test.go"
 	}
-	fset, f := linttest.Parse(t, filename, tt.src)
-	diags := Check(fset, filename, f, []byte(tt.src), tt.maxLen)
-	linttest.AssertCount(t, diags, tt.wantN, tt.wantMsg)
-	if tt.wantN > 0 && diags[0].Line != tt.wantLine {
-		t.Errorf("line = %d, want %d", diags[0].Line, tt.wantLine)
+	fset, file := linttest.Parse(t, filename, tc.src)
+	diags := Check(fset, filename, file, []byte(tc.src), tc.maxLen)
+	linttest.AssertCount(t, diags, tc.wantN, tc.wantMsg)
+	if tc.wantN > 0 && diags[0].Line != tc.wantLine {
+		t.Errorf("line = %d, want %d", diags[0].Line, tc.wantLine)
 	}
 }
 
-func body(n int) string { return strings.Repeat("var _ = 1\n", n) }
+func body(lines int) string { return strings.Repeat("var _ = 1\n", lines) }

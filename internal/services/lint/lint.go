@@ -82,14 +82,14 @@ func runLintSteps(
 		}
 	}
 
-	f, t := runAnalyzers(opts)
-	failures = append(failures, f...)
-	timings = append(timings, t...)
+	fails, times := runAnalyzers(opts)
+	failures = append(failures, fails...)
+	timings = append(timings, times...)
 
 	if !opts.NoGolangci {
-		f, t = runGolangciTargets(opts)
-		failures = append(failures, f...)
-		timings = append(timings, t...)
+		fails, times = runGolangciTargets(opts)
+		failures = append(failures, fails...)
+		timings = append(timings, times...)
 	}
 	return failures, timings, nil
 }
@@ -103,21 +103,21 @@ func runCustomLinter(opts LintOpts) (bool, error) {
 	cfg.Err = opts.Err
 
 	totalDiags := 0
-	for _, p := range strings.Split(opts.Paths, ",") {
-		p = strings.TrimSpace(p)
-		if p == "" {
+	for _, path := range strings.Split(opts.Paths, ",") {
+		path = strings.TrimSpace(path)
+		if path == "" {
 			continue
 		}
-		_, _ = fmt.Fprintf(opts.Out, "Running custom linter on %s...\n", p)
-		diags, fixed, runErr := linter.Run(p, opts.DoFix, cfg)
+		_, _ = fmt.Fprintf(opts.Out, "Running custom linter on %s...\n", path)
+		diags, fixed, runErr := linter.Run(path, opts.DoFix, cfg)
 		if runErr != nil {
-			return false, fmt.Errorf("custom linter on %s: %w", p, runErr)
+			return false, fmt.Errorf("custom linter on %s: %w", path, runErr)
 		}
 		if opts.DoFix && fixed > 0 {
-			_, _ = fmt.Fprintf(opts.Out, "%d file(s) fixed in %s.\n", fixed, p)
+			_, _ = fmt.Fprintf(opts.Out, "%d file(s) fixed in %s.\n", fixed, path)
 		}
 		if diags > 0 {
-			_, _ = fmt.Fprintf(opts.Out, "%d violation(s) found in %s.\n", diags, p)
+			_, _ = fmt.Fprintf(opts.Out, "%d violation(s) found in %s.\n", diags, path)
 		}
 		totalDiags += diags
 	}
@@ -205,42 +205,44 @@ func goosTargets(raw string) []string {
 	return targets
 }
 
-func timedRun(name string, fn func() error) stepResult {
+func timedRun(name string, run func() error) stepResult {
 	start := time.Now()
-	err := fn()
+	err := run()
 	return stepResult{timing: stepTiming{name, time.Since(start)}, failed: err != nil}
 }
 
 func collectResults(results []stepResult) (failures []string, timings []stepTiming) {
-	for _, r := range results {
-		timings = append(timings, r.timing)
-		if r.failed {
-			failures = append(failures, r.timing.name)
+	for _, result := range results {
+		timings = append(timings, result.timing)
+		if result.failed {
+			failures = append(failures, result.timing.name)
 		}
 	}
 	return failures, timings
 }
 
-func printTimings(w io.Writer, timings []stepTiming, total time.Duration) {
-	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "Timings")
-	_, _ = fmt.Fprintln(w, "-------")
+func printTimings(out io.Writer, timings []stepTiming, total time.Duration) {
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "Timings")
+	_, _ = fmt.Fprintln(out, "-------")
 	width := 16
-	for _, t := range timings {
-		width = max(width, len(t.name))
+	for _, timing := range timings {
+		width = max(width, len(timing.name))
 	}
-	for _, t := range timings {
-		_, _ = fmt.Fprintf(w, "%-*s %7s\n", width, t.name, fmtDuration(t.duration))
+	for _, timing := range timings {
+		_, _ = fmt.Fprintf(
+			out, "%-*s %7s\n", width, timing.name, fmtDuration(timing.duration),
+		)
 	}
-	_, _ = fmt.Fprintf(w, "%-*s %7s\n", width, "total", fmtDuration(total))
+	_, _ = fmt.Fprintf(out, "%-*s %7s\n", width, "total", fmtDuration(total))
 }
 
-func fmtDuration(d time.Duration) string {
-	d = d.Round(100 * time.Millisecond)
-	if d < time.Minute {
-		return fmt.Sprintf("%.1fs", d.Seconds())
+func fmtDuration(dur time.Duration) string {
+	dur = dur.Round(100 * time.Millisecond)
+	if dur < time.Minute {
+		return fmt.Sprintf("%.1fs", dur.Seconds())
 	}
-	m := int(d.Minutes())
-	s := d - time.Duration(m)*time.Minute
-	return fmt.Sprintf("%dm%02.0fs", m, s.Seconds())
+	mins := int(dur.Minutes())
+	secs := dur - time.Duration(mins)*time.Minute
+	return fmt.Sprintf("%dm%02.0fs", mins, secs.Seconds())
 }

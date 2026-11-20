@@ -30,17 +30,17 @@ func IsLintSource(filename string) bool {
 // IsCmdSource returns true if the file lives under a cmd/ directory.
 func IsCmdSource(filename string) bool { return strings.Contains(filename, "cmd/") }
 
-// IsExampleFunc reports whether fn is a go test Example function in a test file.
-func IsExampleFunc(filename string, fn *ast.FuncDecl) bool {
-	if fn.Recv != nil || !IsTestFile(filename) {
+// IsExampleFunc reports whether decl is a go test Example function in a test file.
+func IsExampleFunc(filename string, decl *ast.FuncDecl) bool {
+	if decl.Recv != nil || !IsTestFile(filename) {
 		return false
 	}
-	suffix, ok := strings.CutPrefix(fn.Name.Name, "Example")
+	suffix, ok := strings.CutPrefix(decl.Name.Name, "Example")
 	if !ok || suffix == "" {
 		return ok
 	}
-	r, _ := utf8.DecodeRuneInString(suffix)
-	return !unicode.IsLower(r)
+	char, _ := utf8.DecodeRuneInString(suffix)
+	return !unicode.IsLower(char)
 }
 
 // IsTestFile returns true if the filename ends with _test.go.

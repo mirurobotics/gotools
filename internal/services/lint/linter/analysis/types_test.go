@@ -20,17 +20,17 @@ func TestBaseIdent(t *testing.T) {
 		{"*(T)", "T"},
 		{"[]T", ""},
 	}
-	for _, tt := range tests {
-		e, err := parser.ParseExpr(tt.expr)
+	for _, tc := range tests {
+		parsed, err := parser.ParseExpr(tc.expr)
 		if err != nil {
 			t.Fatal(err)
 		}
 		got := ""
-		if id := BaseIdent(e); id != nil {
+		if id := BaseIdent(parsed); id != nil {
 			got = id.Name
 		}
-		if got != tt.want {
-			t.Errorf("BaseIdent(%s) = %q, want %q", tt.expr, got, tt.want)
+		if got != tc.want {
+			t.Errorf("BaseIdent(%s) = %q, want %q", tc.expr, got, tc.want)
 		}
 	}
 }

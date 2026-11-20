@@ -95,13 +95,13 @@ func TestRatchetPackage_MeasureError(t *testing.T) {
 	testutil.MakePkgDir(t, pkgRel)
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{
+	run := runner{
 		measure: func(string, []string) (float64, []byte, error) {
 			return 0, nil, fmt.Errorf("tests failed")
 		},
 	}
 
-	res := r.ratchetPackage(pkgName, modName, "", "")
+	res := run.ratchetPackage(pkgName, modName, "", "")
 	if res.updated != 0 || res.unchanged != 0 || res.failed != 1 {
 		t.Errorf("got (%d,%d,%d), want (0,0,1)", res.updated, res.unchanged, res.failed)
 	}
@@ -114,9 +114,9 @@ func TestRatchetPackage_New(t *testing.T) {
 	dir := testutil.MakePkgDir(t, pkgRel)
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
-	res := r.ratchetPackage(pkgName, modName, "", "")
+	res := run.ratchetPackage(pkgName, modName, "", "")
 	if res.updated != 1 || res.unchanged != 0 || res.failed != 0 {
 		t.Errorf("got (%d,%d,%d), want (1,0,0)", res.updated, res.unchanged, res.failed)
 	}
@@ -146,9 +146,9 @@ func TestRatchetPackage_New_WriteError(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
-	res := r.ratchetPackage(pkgName, modName, "", "")
+	res := run.ratchetPackage(pkgName, modName, "", "")
 	if res.updated != 0 || res.unchanged != 0 || res.failed != 1 {
 		t.Errorf("got (%d,%d,%d), want (0,0,1)", res.updated, res.unchanged, res.failed)
 	}
@@ -162,9 +162,9 @@ func TestRatchetPackage_FromZero(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "0\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
-	res := r.ratchetPackage(pkgName, modName, "", "")
+	res := run.ratchetPackage(pkgName, modName, "", "")
 	if res.updated != 1 || res.unchanged != 0 || res.failed != 0 {
 		t.Errorf("got (%d,%d,%d), want (1,0,0)", res.updated, res.unchanged, res.failed)
 	}
@@ -188,9 +188,9 @@ func TestRatchetPackage_Up(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "70.0\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
-	res := r.ratchetPackage(pkgName, modName, "", "")
+	res := run.ratchetPackage(pkgName, modName, "", "")
 	if res.updated != 1 || res.unchanged != 0 || res.failed != 0 {
 		t.Errorf("got (%d,%d,%d), want (1,0,0)", res.updated, res.unchanged, res.failed)
 	}
@@ -222,9 +222,9 @@ func TestRatchetPackage_Up_WriteError(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(covFile, 0o644) })
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
-	res := r.ratchetPackage(pkgName, modName, "", "")
+	res := run.ratchetPackage(pkgName, modName, "", "")
 	if res.updated != 0 || res.unchanged != 0 || res.failed != 1 {
 		t.Errorf("got (%d,%d,%d), want (0,0,1)", res.updated, res.unchanged, res.failed)
 	}
@@ -238,9 +238,9 @@ func TestRatchetPackage_CorruptedCovgate(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "notanumber\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
-	res := r.ratchetPackage(pkgName, modName, "", "")
+	res := run.ratchetPackage(pkgName, modName, "", "")
 	if res.updated != 0 || res.unchanged != 0 || res.failed != 1 {
 		t.Errorf("got (%d,%d,%d), want (0,0,1)", res.updated, res.unchanged, res.failed)
 	}
@@ -264,9 +264,9 @@ func TestRatchetPackage_Ok(t *testing.T) {
 	testutil.WriteCovgateFile(t, dir, "90.0\n")
 
 	//nolint:exhaustruct // test uses partial initialization
-	r := runner{measure: fakeMeasure(85.0)}
+	run := runner{measure: fakeMeasure(85.0)}
 
-	res := r.ratchetPackage(pkgName, modName, "", "")
+	res := run.ratchetPackage(pkgName, modName, "", "")
 	if res.updated != 0 || res.unchanged != 1 || res.failed != 0 {
 		t.Errorf("got (%d,%d,%d), want (0,1,0)", res.updated, res.unchanged, res.failed)
 	}
