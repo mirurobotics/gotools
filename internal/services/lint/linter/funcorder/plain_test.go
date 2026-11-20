@@ -28,6 +28,7 @@ type Name string
 
 func show([]Name) {}
 `,
+		`"show" should be directly below "Run"`,
 		`type "Name" should be directly above its first user "names"`,
 	)
 	assertMessages(t, `package p

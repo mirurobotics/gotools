@@ -156,12 +156,19 @@ func (m *model) grouped(x *fn) string {
 }
 
 func (m *model) directlyBelow(x *fn, order []int) []string {
-	k := slices.Index(order, x.idx)
+	k, first := slices.Index(order, x.idx), x.idx
 	for m.fns[order[k-1]] == nil {
 		k--
+		if !m.inPlain(order[k]) {
+			first = order[k]
+		}
+	}
+	prev := first - 1
+	for prev >= 0 && m.inPlain(prev) {
+		prev--
 	}
 	above := order[k-1]
-	if above == order[k]-1 {
+	if above == prev {
 		return nil
 	}
 	msg := fmt.Sprintf("%q should be directly below %q", x.name, m.declName(above))
