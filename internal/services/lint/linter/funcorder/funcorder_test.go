@@ -168,6 +168,36 @@ func Run() { other(); _ = helper }
 	)
 }
 
+func TestCheck_SharedHelperBelowLastCaller(t *testing.T) {
+	assertMessages(t, `package p
+
+func A() { a1(); h() }
+
+func h() {}
+
+func a1() {}
+
+func B() { b1(); h() }
+
+func b1() {}
+`,
+		`"h" should be below its last caller "B"`,
+	)
+}
+
+func TestCheck_ExportedMethodEntryFirst(t *testing.T) {
+	assertMessages(t, `package p
+
+type T struct{}
+
+func (T) a() {}
+
+func (T) B() {}
+`,
+		`"T.B" should be above unexported "T.a"`,
+	)
+}
+
 func TestCheck_ExportedCalledInFile(t *testing.T) {
 	assertMessages(t, `package p
 
