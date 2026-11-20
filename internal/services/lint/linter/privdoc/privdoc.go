@@ -25,8 +25,6 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 	return diags
 }
 
-type allowed map[*ast.CommentGroup]bool
-
 func proseComments(f *ast.File) []*ast.Comment {
 	ok := allowedGroups(f)
 	groups := append(analysis.DocGroups(f), analysis.LineComments(f)...)
@@ -59,6 +57,8 @@ func allowedGroups(f *ast.File) allowed {
 	}
 	return ok
 }
+
+type allowed map[*ast.CommentGroup]bool
 
 func (ok allowed) genDecl(d *ast.GenDecl) {
 	anyPublic := d.Tok == token.IMPORT

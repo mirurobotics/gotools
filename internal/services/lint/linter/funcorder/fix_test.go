@@ -31,6 +31,14 @@ func TestFix_ExportedCalledInFileMovesDown(t *testing.T) {
 	assertFix(t, src, "package p\n\n"+load+"\n"+loadFile+"\n"+parse)
 }
 
+func TestFix_TypeMovesDownToMethods(t *testing.T) {
+	typ := "type runner struct{}\n"
+	run := "func Run() { r := runner{}; r.run() }\n"
+	method := "func (r runner) run() {}\n"
+	assertFix(t, "package p\n\n"+typ+"\n"+run+"\n"+method,
+		"package p\n\n"+run+"\n"+typ+"\n"+method)
+}
+
 func TestFix_PackageLineComment(t *testing.T) {
 	head := "package p /* a\nb */\n\n"
 	assertFix(t, head+"func helper() {}\n\nfunc Run() { helper() }\n",

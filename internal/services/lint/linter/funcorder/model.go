@@ -8,24 +8,23 @@ import (
 )
 
 type fn struct {
-	decl    *ast.FuncDecl
-	idx     int
-	name    string
-	recv    string
-	rank    int
-	exempt  bool
-	called  bool
-	callees []int
-	callers []int
-}
-
-type model struct {
-	fns      []*fn
-	typeDecl map[string]int
+	decl            *ast.FuncDecl
+	idx             int
+	name            string
+	recv            string
+	rank            int
+	exempt          bool
+	hasInFileCaller bool
+	callees         []int
+	callers         []int
 }
 
 func build(f *ast.File) *model {
-	m := &model{fns: make([]*fn, len(f.Decls)), typeDecl: map[string]int{}}
+	m := &model{
+		fns:      make([]*fn, len(f.Decls)),
+		typeDecl: map[string]int{},
+		soloType: map[string]int{},
+	}
 	byName := map[string]int{}
 	for i, d := range f.Decls {
 		m.addDecl(i, d, byName)
@@ -33,13 +32,19 @@ func build(f *ast.File) *model {
 	for _, x := range m.funcs() {
 		x.callees = callees(x, byName)
 		for _, j := range x.callees {
-			m.fns[j].called = true
+			m.fns[j].hasInFileCaller = true
 		}
 	}
 	for _, x := range m.funcs() {
 		m.linkCallees(x)
 	}
 	return m
+}
+
+type model struct {
+	fns      []*fn
+	typeDecl map[string]int
+	soloType map[string]int
 }
 
 func (m *model) funcs() []*fn {
@@ -55,8 +60,12 @@ func (m *model) funcs() []*fn {
 func (m *model) addDecl(i int, d ast.Decl, byName map[string]int) {
 	switch d := d.(type) {
 	case *ast.GenDecl:
-		for _, name := range typeNames(d) {
+		names := typeNames(d)
+		for _, name := range names {
 			m.typeDecl[name] = i
+		}
+		if len(d.Specs) == 1 && len(names) == 1 {
+			m.soloType[names[0]] = i
 		}
 	case *ast.FuncDecl:
 		x := newFn(i, d)
@@ -105,15 +114,15 @@ func typeNames(gd *ast.GenDecl) []string {
 
 func newFn(i int, d *ast.FuncDecl) *fn {
 	x := &fn{
-		decl:    d,
-		idx:     i,
-		name:    d.Name.Name,
-		recv:    recvType(d),
-		rank:    rank(d),
-		exempt:  d.Doc != nil && analysis.HasNolint(d.Doc, "funcorder"),
-		called:  false,
-		callees: nil,
-		callers: nil,
+		decl:            d,
+		idx:             i,
+		name:            d.Name.Name,
+		recv:            recvType(d),
+		rank:            rank(d),
+		exempt:          d.Doc != nil && analysis.HasNolint(d.Doc, "funcorder"),
+		hasInFileCaller: false,
+		callees:         nil,
+		callers:         nil,
 	}
 	if x.recv != "" {
 		x.name = x.recv + "." + x.name

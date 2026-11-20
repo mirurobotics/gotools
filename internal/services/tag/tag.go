@@ -13,11 +13,6 @@ import (
 	"strings"
 )
 
-type runner struct {
-	gitTags    func(errW io.Writer) ([]string, error)
-	currentTag func(errW io.Writer) (string, error)
-}
-
 // Previous finds the latest <prefix>X.Y.Z tag without a pre-release suffix.
 func Previous(prefix string, errW io.Writer) (string, error) {
 	//nolint:exhaustruct // only gitTags needed
@@ -60,6 +55,11 @@ func GitTags(errW io.Writer) ([]string, error) {
 		}
 	}
 	return tags, nil
+}
+
+type runner struct {
+	gitTags    func(errW io.Writer) ([]string, error)
+	currentTag func(errW io.Writer) (string, error)
 }
 
 func (r *runner) previous(prefix string, errW io.Writer) (string, error) {

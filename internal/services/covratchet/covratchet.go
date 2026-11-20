@@ -19,13 +19,6 @@ type Opts struct {
 	Out         io.Writer
 }
 
-type runner struct {
-	goModule       func() (string, error)
-	goListPackages func(string) ([]string, error)
-	measure        func(pkg string, testPaths []string) (float64, []byte, error)
-	progress       gocover.Progress
-}
-
 // Run ratchets up .covgate thresholds.
 func Run(opts Opts) error {
 	progress := gocover.Progress{Enabled: opts.Parallelism == 0, Table: table()}
@@ -36,6 +29,13 @@ func Run(opts Opts) error {
 		progress:       progress,
 	}
 	return r.run(opts)
+}
+
+type runner struct {
+	goModule       func() (string, error)
+	goListPackages func(string) ([]string, error)
+	measure        func(pkg string, testPaths []string) (float64, []byte, error)
+	progress       gocover.Progress
 }
 
 func (r *runner) run(opts Opts) error {

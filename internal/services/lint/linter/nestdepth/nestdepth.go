@@ -8,13 +8,6 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
 
-type checker struct {
-	fset     *token.FileSet
-	filename string
-	maxDepth int
-	diags    []analysis.Diagnostic
-}
-
 // Check reports a diagnostic when nesting depth inside a function exceeds maxDepth.
 func Check(
 	fset *token.FileSet,
@@ -45,6 +38,13 @@ func Check(
 	})
 
 	return c.diags
+}
+
+type checker struct {
+	fset     *token.FileSet
+	filename string
+	maxDepth int
+	diags    []analysis.Diagnostic
 }
 
 func (c *checker) checkBlock(stmts []ast.Stmt, depth int) {

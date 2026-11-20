@@ -15,16 +15,6 @@ import (
 // MinFieldAsserts is how many distinct fields asserted on one value trigger a report.
 const MinFieldAsserts = 3
 
-type checker struct {
-	fset     *token.FileSet
-	filename string
-	f        *ast.File
-	testify  map[string]bool
-	imports  map[string]bool
-	results  map[*ast.Field]bool
-	diags    []analysis.Diagnostic
-}
-
 type fieldGroup struct {
 	base   string
 	root   *ast.Ident
@@ -63,6 +53,16 @@ func Check(fset *token.FileSet, filename string, f *ast.File) []analysis.Diagnos
 		return true
 	})
 	return c.diags
+}
+
+type checker struct {
+	fset     *token.FileSet
+	filename string
+	f        *ast.File
+	testify  map[string]bool
+	imports  map[string]bool
+	results  map[*ast.Field]bool
+	diags    []analysis.Diagnostic
 }
 
 func (c *checker) checkStmts(stmts []ast.Stmt) {

@@ -37,7 +37,9 @@ func Fix(fset *token.FileSet, f *ast.File, src []byte) []byte {
 }
 
 func (m *model) violations(x *fn) []string {
-	checks := []func(*fn) string{m.stepdown, m.rankOrder, m.belowType, m.grouped}
+	checks := []func(*fn) string{
+		m.stepdown, m.rankOrder, m.belowType, m.grouped, m.typeAbove,
+	}
 	if x.exempt {
 		checks = checks[2:]
 	}
@@ -92,6 +94,15 @@ func (m *model) grouped(x *fn) string {
 	)
 }
 
+func (m *model) typeAbove(x *fn) string {
+	t, ok := m.soloType[x.recv]
+	earlier := func(y *fn) bool { return y.recv == x.recv && y.idx < x.idx }
+	if !ok || t == x.idx-1 || t > x.idx || slices.ContainsFunc(m.funcs(), earlier) {
+		return ""
+	}
+	return fmt.Sprintf("type %q should be directly above its methods", x.recv)
+}
+
 func (m *model) order() []int {
 	done := map[int]bool{}
 	var out []int
@@ -109,19 +120,33 @@ func (m *model) order() []int {
 func (m *model) units() [][]int {
 	var units [][]int
 	group := map[string]int{}
+	glued := map[int]bool{}
+	for _, x := range m.funcs() {
+		if t, ok := m.soloType[x.recv]; ok {
+			glued[t] = true
+		}
+	}
 	for i, x := range m.fns {
-		if x == nil || x.recv == "" {
+		switch {
+		case glued[i]:
+		case x == nil || x.recv == "":
 			units = append(units, []int{i})
-			continue
-		}
-		if u, ok := group[x.recv]; ok {
+		case group[x.recv] > 0:
+			u := group[x.recv] - 1
 			units[u] = append(units[u], i)
-			continue
+		default:
+			group[x.recv] = len(units) + 1
+			units = append(units, m.unitHead(x.recv, i))
 		}
-		group[x.recv] = len(units)
-		units = append(units, []int{i})
 	}
 	return units
+}
+
+func (m *model) unitHead(recv string, i int) []int {
+	if t, ok := m.soloType[recv]; ok {
+		return []int{t, i}
+	}
+	return []int{i}
 }
 
 func (m *model) unitReady(u []int, done map[int]bool) bool {
@@ -159,7 +184,7 @@ func mustPrecede(x, y *fn) bool {
 	if x.rank != 0 || y.rank != 1 || x.exempt || y.exempt {
 		return false
 	}
-	return x.recv == y.recv && !x.called && !y.called
+	return x.recv == y.recv && !x.hasInFileCaller && !y.hasInFileCaller
 }
 
 func kahn[T any](items []T, ready func(T) bool, emit func(T)) {

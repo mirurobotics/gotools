@@ -58,6 +58,25 @@ func b() { a() }
 
 func Other() {}
 `,
+		"exported cycle member is not an entry point": `package p
+
+func c() {}
+
+func a() { B() }
+
+func B() { a() }
+`,
+		"grouped type declaration": `package p
+
+type (
+	A struct{}
+	B struct{}
+)
+
+func Run() {}
+
+func (a A) Get() {}
+`,
 		"exported entry above unexported entry": `package p
 
 func Run() { helper() }
@@ -118,11 +137,11 @@ func (t T) B() {}
 `,
 		"shadowed receiver": `package p
 
-type T struct{}
-
 type U struct{}
 
 func (u U) Help() {}
+
+type T struct{}
 
 func (t T) Help() {}
 
@@ -195,6 +214,19 @@ func (T) a() {}
 func (T) B() {}
 `,
 		`"T.B" should be above unexported "T.a"`,
+	)
+}
+
+func TestCheck_TypeAboveMethods(t *testing.T) {
+	assertMessages(t, `package p
+
+type runner struct{}
+
+func Run() { r := runner{}; r.run() }
+
+func (r runner) run() {}
+`,
+		`type "runner" should be directly above its methods`,
 	)
 }
 

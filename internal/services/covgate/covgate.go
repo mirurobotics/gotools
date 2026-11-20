@@ -25,15 +25,6 @@ type Opts struct {
 	Out                io.Writer
 }
 
-type runner struct {
-	goModule           func() (string, error)
-	goListPackages     func(string) ([]string, error)
-	goListTestPackages func(string) ([]string, error)
-	measure            func(pkg string, testPaths []string) (float64, []byte, error)
-	runTests           func(paths []string) ([]byte, error)
-	progress           gocover.Progress
-}
-
 type workItem struct {
 	pkg      string
 	testOnly bool
@@ -51,6 +42,15 @@ func Run(opts Opts) error {
 		progress:           progress,
 	}
 	return r.run(opts)
+}
+
+type runner struct {
+	goModule           func() (string, error)
+	goListPackages     func(string) ([]string, error)
+	goListTestPackages func(string) ([]string, error)
+	measure            func(pkg string, testPaths []string) (float64, []byte, error)
+	runTests           func(paths []string) ([]byte, error)
+	progress           gocover.Progress
 }
 
 func (r *runner) run(opts Opts) error {
