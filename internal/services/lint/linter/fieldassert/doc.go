@@ -9,9 +9,9 @@
 //
 // is reported once it covers MinFieldAsserts (3) distinct fields. A statement
 // that may change the value starts a new group: any use outside a testify call,
-// or a closure, & or call on it inside one (len, cap and conversions are reads).
-// Two field checks are often targeted; from three on the test rebuilds the
-// struct by hand and stops covering new fields. Compare the whole value.
+// or a closure, & or call on it inside one, except conversions to predeclared
+// types and the pure builtins len, cap, min, max, real, imag and complex. Two
+// field checks are often targeted; from three on the test rebuilds the struct.
 //
 // The actual argument decides the group, so table tests comparing tc.wantA to
 // got.A are grouped by got; the expected one counts only when the actual is a
