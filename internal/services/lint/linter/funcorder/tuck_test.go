@@ -225,3 +225,24 @@ func TestFix_TuckedTypeUnblocksAnother(t *testing.T) {
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
+
+func TestFix_TuckedTypeTakesItsHelpers(t *testing.T) {
+	src := []string{
+		"func Run() { _ = obj{} }\n", "func Other() {}\n",
+		"type obj struct{}\n", "func (o obj) ID() { g() }\n", "func g() {}\n",
+	}
+	want := []string{src[0], src[2], src[3], src[4], src[1]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_TuckedTypeWithUserBelow(t *testing.T) {
+	src := []string{
+		"func Run() { _ = obj{} }\n", "func Other() {}\n",
+		"type obj struct{}\n", "func (o obj) ID() string { return \"\" }\n",
+		"func New() obj { return obj{} }\n",
+	}
+	want := []string{src[0], src[2], src[3], src[1], src[4]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
