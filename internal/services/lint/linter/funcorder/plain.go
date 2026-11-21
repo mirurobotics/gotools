@@ -35,7 +35,8 @@ func (m *model) typeUsers(withMethods bool) map[int][]int {
 func (m *model) isConst(i int) bool { return m.declTok(i) == token.CONST }
 
 func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
-	usage, head := uses[typeIdx], m.plainHead(typeIdx)
+	_, nested := m.nesting(uses)
+	usage, head := uses[typeIdx], m.heads([]int{typeIdx}, nested)
 	usePos := usage.at
 	if m.isNested(usage) {
 		usePos = usage.user
@@ -104,7 +105,15 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 	for outPos, i := range out {
 		pos[i] = outPos
 	}
-	uses := m.firstUses(units, func(i int) int { return pos[i] })
+	above, nested := m.nesting(m.firstUses(units, func(i int) int { return pos[i] }))
+	var placed []int
+	for outPos, i := range out {
+		placed = append(append(placed, m.heads(above[outPos], nested)...), i)
+	}
+	return placed
+}
+
+func (m *model) nesting(uses map[int]use) (map[int][]int, map[int][]int) {
 	above, nested := map[int][]int{}, map[int][]int{}
 	for _, idx := range slices.Sorted(maps.Keys(uses)) {
 		if usage := uses[idx]; m.isNested(usage) {
@@ -113,11 +122,14 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 			above[usage.at] = append(above[usage.at], idx)
 		}
 	}
-	var placed []int
-	for outPos, i := range out {
-		placed = append(append(placed, m.heads(above[outPos], nested)...), i)
-	}
-	return placed
+	return above, nested
+}
+
+func (m *model) isNested(usage use) bool { return m.inPlain(usage.user) }
+
+func (m *model) inPlain(i int) bool {
+	_, ok := m.plainOf(i)
+	return ok
 }
 
 func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
@@ -151,13 +163,6 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 		useOf(typeIdx)
 	}
 	return uses
-}
-
-func (m *model) isNested(usage use) bool { return m.inPlain(usage.user) }
-
-func (m *model) inPlain(i int) bool {
-	_, ok := m.plainOf(i)
-	return ok
 }
 
 func (m *model) plainOf(i int) (int, bool) {

@@ -68,7 +68,7 @@ func (a *attacher) claimTypeConsts() {
 	plain := slices.Sorted(maps.Keys(a.m.plain))
 	for _, typeIdx := range plain {
 		if !slices.ContainsFunc(a.m.plain[typeIdx], a.m.isConst) {
-			a.claimAll(typeIdx, a.typeConst(typeIdx, true))
+			a.claimAll(typeIdx, a.ownConst(typeIdx))
 		}
 	}
 	for _, typeIdx := range plain {
@@ -81,6 +81,18 @@ func (a *attacher) claimAll(owner int, ok func(int) bool) {
 		if a.isFree(i) && ok(i) {
 			a.owner[i] = owner
 		}
+	}
+}
+
+func (a *attacher) ownConst(typeIdx int) func(int) bool {
+	isConst := a.typeConst(typeIdx, true)
+	plain := slices.Collect(maps.Keys(a.m.plain))
+	return func(i int) bool {
+		usesOther := func(other int) bool {
+			spec := soloTypeSpec(a.m.decls[other])
+			return other != typeIdx && refersTo(a.m.decls[i], spec)
+		}
+		return isConst(i) && !slices.ContainsFunc(plain, usesOther)
 	}
 }
 

@@ -204,6 +204,26 @@ func TestFix_PlainTypesUsedByEachOthersConsts(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
+func TestFix_PlainTypesLeaveSharedConsts(t *testing.T) {
+	src := []string{
+		"type a int\n", "type b int\n", "const (\n\tA a = 0\n\tB b = 0\n)\n",
+		"func First(b) {}\n", "func Last(a) {}\n",
+	}
+	want := []string{src[2], src[1], src[3], src[0], src[4]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_PlainTypeNestsInsideHead(t *testing.T) {
+	src := []string{
+		"func helper() {}\n", "const c = 1\n", "const X a = 0\n",
+		"type P int\n", "type a int\n", "func Run(P) { helper() }\n",
+	}
+	want := []string{src[1], src[4], src[2], src[3], src[5], src[0]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
 func TestFix_PlainTypeLeavesUnrelatedConsts(t *testing.T) {
 	src := []string{
 		"type Kind int\n", "const A Kind = 0\n", "const prefix = \"p\"\n",
