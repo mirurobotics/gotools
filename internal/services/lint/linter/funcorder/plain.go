@@ -110,8 +110,8 @@ func (m *model) strayMessage(typeIdx, stray int) string {
 		const msg = "type %q should be directly above %q, which uses only it"
 		return fmt.Sprintf(msg, name, block)
 	}
-	const msg = "type %q should be directly above its consts, starting with %q"
-	return fmt.Sprintf(msg, name, block)
+	const msg = "%q should be grouped directly below type %q"
+	return fmt.Sprintf(msg, block, name)
 }
 
 func (m *model) declName(i int) string {

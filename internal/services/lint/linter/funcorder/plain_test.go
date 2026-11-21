@@ -143,7 +143,22 @@ func g() {}
 
 const A Kind = 0
 `,
-		`type "Kind" should be directly above its consts, starting with "A"`,
+		`"A" should be grouped directly below type "Kind"`,
+	)
+}
+
+func TestCheck_PlainTypeConstAfterUser(t *testing.T) {
+	assertMessages(t, `package p
+
+type K int
+
+const A K = 0
+
+func f(K) {}
+
+const B K = 0
+`,
+		`"B" should be grouped directly below type "K"`,
 	)
 }
 
