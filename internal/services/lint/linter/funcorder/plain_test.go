@@ -242,6 +242,16 @@ func TestFix_PlainTypeAboveConstOfOtherType(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
+func TestFix_PlainTypeAboveUserInHead(t *testing.T) {
+	src := []string{
+		"func Start() {}\n", "const X = a(b(0))\n", "const Y b = 0\n",
+		"type a int\n", "type b int\n",
+	}
+	want := []string{src[0], src[4], src[2], src[3], src[1]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
 func TestFix_PlainTypeNestsInsideHead(t *testing.T) {
 	src := []string{
 		"func helper() {}\n", "const c = 1\n", "const X a = 0\n",

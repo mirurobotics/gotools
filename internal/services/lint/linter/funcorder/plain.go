@@ -1,6 +1,7 @@
 package funcorder
 
 import (
+	"cmp"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -133,14 +134,7 @@ func (m *model) inPlain(i int) bool {
 }
 
 func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
-	start := map[int]int{}
-	byPos := func(a, b int) int { return pos(a) - pos(b) }
-	for _, unit := range units {
-		outPos := pos(slices.MinFunc(unit, byPos))
-		for _, i := range unit {
-			start[i] = outPos
-		}
-	}
+	start := unitStarts(units, pos)
 	uses := map[int]use{}
 	var useOf func(typeIdx int) use
 	startOf := func(i int) int {
@@ -154,7 +148,9 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 			return usage
 		}
 		uses[typeIdx] = use{user: typeIdx, at: 0}
-		byStart := func(a, b int) int { return startOf(a) - startOf(b) }
+		byStart := func(a, b int) int {
+			return cmp.Or(startOf(a)-startOf(b), m.headRank(a)-m.headRank(b))
+		}
 		first := slices.MinFunc(m.plain[typeIdx], byStart)
 		uses[typeIdx] = use{user: first, at: startOf(first)}
 		return uses[typeIdx]
@@ -163,6 +159,13 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 		useOf(typeIdx)
 	}
 	return uses
+}
+
+func (m *model) headRank(i int) int {
+	if owner, ok := m.plainOf(i); ok {
+		return owner
+	}
+	return len(m.decls)
 }
 
 func (m *model) plainOf(i int) (int, bool) {
@@ -227,4 +230,16 @@ func refersTo(node ast.Node, spec *ast.TypeSpec) bool {
 		return !found
 	})
 	return found
+}
+
+func unitStarts(units [][]int, pos func(int) int) map[int]int {
+	start := map[int]int{}
+	byPos := func(a, b int) int { return pos(a) - pos(b) }
+	for _, unit := range units {
+		outPos := pos(slices.MinFunc(unit, byPos))
+		for _, i := range unit {
+			start[i] = outPos
+		}
+	}
+	return start
 }
