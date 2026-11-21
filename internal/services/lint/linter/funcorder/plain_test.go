@@ -143,6 +143,21 @@ func use(a, b) {}
 `)
 	assertMessages(t, `package p
 
+func Run() { _ = LevelDebug }
+
+type Level int
+
+type Name string
+
+const (
+	LevelDebug Level = iota
+	nameDebug  Name  = "d"
+)
+
+func log(Level) {}
+`)
+	assertMessages(t, `package p
+
 func Run() { _ = A }
 
 type Method string
@@ -210,6 +225,16 @@ func TestFix_PlainTypesLeaveSharedConsts(t *testing.T) {
 		"func First(b) {}\n", "func Last(a) {}\n",
 	}
 	want := []string{src[2], src[1], src[3], src[0], src[4]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_PlainTypeAboveConstOfOtherType(t *testing.T) {
+	src := []string{
+		"func Run() { f(0) }\n", "type T int\n", "const C = T(U(0))\n",
+		"type U int\n", "func f(T) {}\n",
+	}
+	want := []string{src[0], src[1], src[4], src[3], src[2]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
