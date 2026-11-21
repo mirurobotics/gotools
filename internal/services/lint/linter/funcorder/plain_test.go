@@ -56,6 +56,19 @@ func setMode(m mode) {}
 	)
 }
 
+func TestCheck_PlainTypeAboveConstUser(t *testing.T) {
+	assertMessages(t, `package p
+
+func Run() { _ = A }
+
+const A Method = "a"
+
+type Method string
+`,
+		`type "Method" should be directly above its first user "A"`,
+	)
+}
+
 func TestCheck_PlainTypeAboveBlockOverFirstUser(t *testing.T) {
 	assertMessages(t, `package p
 
@@ -113,6 +126,16 @@ type b struct{ x a }
 
 func use(a, b) {}
 `)
+	assertMessages(t, `package p
+
+func Run() { _ = A }
+
+type Method string
+
+const A Method = "a"
+
+type call struct{ m Method }
+`)
 }
 
 func TestFix_PlainTypeMovesToFirstUser(t *testing.T) {
@@ -136,12 +159,22 @@ func TestFix_PlainTypeCarriesItsConsts(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
-func TestFix_PlainTypeIgnoresConstUsers(t *testing.T) {
+func TestFix_PlainTypeMovesAboveConstUser(t *testing.T) {
 	src := []string{
 		"type Kind int\n", "func Run() { _ = x }\n", "const x = Kind(1)\n",
 		"func g() {}\n", "func f(k Kind) {}\n",
 	}
-	want := []string{src[1], src[2], src[3], src[0], src[4]}
+	want := []string{src[1], src[0], src[2], src[3], src[4]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_PlainTypeMovesAboveItsConsts(t *testing.T) {
+	src := []string{
+		"func Run() { _ = A }\n", "const A Method = \"a\"\n",
+		"type call struct{ m Method }\n", "type Method string\n",
+	}
+	want := []string{src[0], src[3], src[1], src[2]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
@@ -156,9 +189,9 @@ func TestFix_PlainTypeLeavesUnrelatedConsts(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
-func TestFix_PlainTypeSkipsConstUser(t *testing.T) {
+func TestFix_PlainTypeAboveLeadingConstUser(t *testing.T) {
 	src := []string{"const C P = 0\n", "var a = 1\n", "func f(P) {}\n", "type P int\n"}
-	want := []string{src[0], src[1], src[3], src[2]}
+	want := []string{src[3], src[0], src[1], src[2]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }

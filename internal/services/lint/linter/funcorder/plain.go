@@ -20,25 +20,47 @@ func (m *model) typeUsers(withMethods bool) map[int][]int {
 		if spec == nil || slices.ContainsFunc(m.fns, isMethod) != withMethods {
 			continue
 		}
-		if users := usersOf(spec, m.decls); len(users) > 0 {
+		users := usersOf(spec, m.decls, !withMethods)
+		others := slices.DeleteFunc(slices.Clone(users), m.carriedConst(typeIdx))
+		if len(others) > 0 {
+			users = others
+		}
+		if len(users) > 0 {
 			byType[typeIdx] = users
 		}
 	}
 	return byType
 }
 
+func (m *model) carriedConst(typeIdx int) func(int) bool {
+	spec := soloTypeSpec(m.decls[typeIdx])
+	isOther := func(decl ast.Decl) bool {
+		genDecl, ok := decl.(*ast.GenDecl)
+		return !ok || genDecl.Tok != token.CONST || !refersTo(decl, spec)
+	}
+	return func(i int) bool {
+		return i > typeIdx && !slices.ContainsFunc(m.decls[typeIdx+1:i+1], isOther)
+	}
+}
+
 func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
-	usePos, head := uses[typeIdx].at, m.plainHead(typeIdx)
+	usage, head := uses[typeIdx], m.plainHead(typeIdx)
+	usePos := usage.at
+	if m.isNested(usage) {
+		usePos = usage.user
+	}
 	if typeIdx > usePos {
 		return false
 	}
 	for i := head[len(head)-1] + 1; i < usePos; i++ {
-		if owner, ok := m.plainOf(i); !ok || uses[owner].at != usePos {
+		if owner, ok := m.plainOf(i); !ok || uses[owner].at != usage.at {
 			return false
 		}
 	}
 	return true
 }
+
+func (m *model) isNested(usage use) bool { return m.inPlain(usage.user) }
 
 func (m *model) inPlain(i int) bool {
 	_, ok := m.plainOf(i)
@@ -56,7 +78,7 @@ func (m *model) plainOf(i int) (int, bool) {
 func (m *model) typeMessage(typeIdx int, usage use) string {
 	name := soloTypeSpec(m.decls[typeIdx]).Name.Name
 	user := m.declName(usage.user)
-	if usage.at == usage.user {
+	if usage.at == usage.user || m.isNested(usage) {
 		const msg = "type %q should be directly above its first user %q"
 		return fmt.Sprintf(msg, name, user)
 	}
@@ -82,6 +104,9 @@ func (m *model) declName(i int) string {
 	}
 	var name string
 	ast.Inspect(m.decls[i], func(node ast.Node) bool {
+		if name != "" {
+			return false
+		}
 		switch node := node.(type) {
 		case *ast.TypeSpec:
 			name = node.Name.Name
@@ -99,15 +124,29 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 		pos[i] = outPos
 	}
 	uses := m.firstUses(units, func(i int) int { return pos[i] })
-	above := map[int][]int{}
+	above, nested := map[int][]int{}, map[int][]int{}
 	for _, idx := range slices.Sorted(maps.Keys(uses)) {
-		above[uses[idx].at] = append(above[uses[idx].at], m.plainHead(idx)...)
+		if usage := uses[idx]; m.isNested(usage) {
+			nested[usage.user] = append(nested[usage.user], idx)
+		} else {
+			above[usage.at] = append(above[usage.at], idx)
+		}
 	}
 	var placed []int
 	for outPos, i := range out {
-		placed = append(append(placed, above[outPos]...), i)
+		placed = append(append(placed, m.heads(above[outPos], nested)...), i)
 	}
 	return placed
+}
+
+func (m *model) heads(types []int, nested map[int][]int) []int {
+	var out []int
+	for _, typeIdx := range types {
+		for _, i := range m.plainHead(typeIdx) {
+			out = append(append(out, m.heads(nested[i], nested)...), i)
+		}
+	}
+	return out
 }
 
 func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
@@ -120,10 +159,25 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 		}
 	}
 	uses := map[int]use{}
-	byStart := func(a, b int) int { return start[a] - start[b] }
-	for typeIdx, users := range m.plain {
-		first := slices.MinFunc(users, byStart)
-		uses[typeIdx] = use{user: first, at: start[first]}
+	var useOf func(typeIdx int) use
+	startOf := func(i int) int {
+		if owner, ok := m.plainOf(i); ok {
+			return useOf(owner).at
+		}
+		return start[i]
+	}
+	useOf = func(typeIdx int) use {
+		if usage, ok := uses[typeIdx]; ok {
+			return usage
+		}
+		uses[typeIdx] = use{user: typeIdx, at: 0}
+		byStart := func(a, b int) int { return startOf(a) - startOf(b) }
+		first := slices.MinFunc(m.plain[typeIdx], byStart)
+		uses[typeIdx] = use{user: first, at: startOf(first)}
+		return uses[typeIdx]
+	}
+	for typeIdx := range m.plain {
+		useOf(typeIdx)
 	}
 	return uses
 }
@@ -143,10 +197,11 @@ func soloTypeSpec(decl ast.Decl) *ast.TypeSpec {
 	return spec
 }
 
-func usersOf(spec *ast.TypeSpec, decls []ast.Decl) []int {
+func usersOf(spec *ast.TypeSpec, decls []ast.Decl, withConsts bool) []int {
 	var users []int
 	for i, decl := range decls {
-		if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok != token.VAR {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if ok && !isUserBlock(genDecl.Tok, withConsts) {
 			continue
 		}
 		if refersTo(decl, spec) {
@@ -154,6 +209,10 @@ func usersOf(spec *ast.TypeSpec, decls []ast.Decl) []int {
 		}
 	}
 	return users
+}
+
+func isUserBlock(tok token.Token, withConsts bool) bool {
+	return tok == token.VAR || withConsts && tok == token.CONST
 }
 
 func refersTo(node ast.Node, spec *ast.TypeSpec) bool {

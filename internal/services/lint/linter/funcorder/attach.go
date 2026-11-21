@@ -61,7 +61,9 @@ func (a *attacher) claimHeads() {
 func (a *attacher) claimTypeConsts() {
 	plain := slices.Sorted(maps.Keys(a.m.plain))
 	for _, typeIdx := range plain {
-		a.claimBelow(typeIdx, typeIdx, a.typeConst(typeIdx, true))
+		if !slices.ContainsFunc(a.m.plain[typeIdx], a.m.carriedConst(typeIdx)) {
+			a.claimBelow(typeIdx, typeIdx, a.typeConst(typeIdx, true))
+		}
 	}
 	for _, typeIdx := range plain {
 		a.claimAbove(typeIdx, a.typeConst(typeIdx, false))
