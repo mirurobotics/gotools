@@ -312,6 +312,16 @@ func TestFix_PlainTypeCarriesConstAbove(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
+func TestFix_PlainTypeCarriesConstAboveFirstFunction(t *testing.T) {
+	src := []string{
+		"type c int\n", "type a int\n", "func F(a, b) {}\n",
+		"const X = c(a(0))\n", "type b int\n",
+	}
+	want := []string{src[0], src[1], src[3], src[4], src[2]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
 func TestFix_PlainTypeCarriesLeadingConst(t *testing.T) {
 	src := []string{
 		"func Run() { g(); f() }\n", "const c = 1\n", "type K int\n",

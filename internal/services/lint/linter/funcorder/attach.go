@@ -72,7 +72,7 @@ func (a *attacher) claimTypeConsts() {
 		}
 	}
 	for _, typeIdx := range plain {
-		a.claimAbove(typeIdx, a.looseConst(typeIdx))
+		a.claimAbove(typeIdx, -1, a.looseConst(typeIdx))
 	}
 }
 
@@ -160,13 +160,13 @@ func (a *attacher) claimLeads(settled bool) {
 	}
 	for _, fnc := range a.m.funcs() {
 		if fnc.recv == "" {
-			a.claimAbove(fnc.idx, leads)
+			a.claimAbove(fnc.idx, a.first, leads)
 		}
 	}
 }
 
-func (a *attacher) claimAbove(owner int, ok func(int) bool) {
-	for i := owner - 1; i > a.first && a.isFree(i) && ok(i); i-- {
+func (a *attacher) claimAbove(owner, floor int, ok func(int) bool) {
+	for i := owner - 1; i > floor && a.isFree(i) && ok(i); i-- {
 		a.owner[i] = owner
 	}
 }
