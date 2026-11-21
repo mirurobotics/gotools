@@ -30,8 +30,8 @@ func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diag
 	}
 	uses := graph.firstUses(graph.units(false), func(i int) int { return i })
 	for _, typeIdx := range slices.Sorted(maps.Keys(uses)) {
-		if !graph.typePlaced(typeIdx, uses) {
-			add(graph.decls[typeIdx], graph.typeMessage(typeIdx, uses[typeIdx]))
+		if msg := graph.typeViolation(typeIdx, uses); msg != "" {
+			add(graph.decls[typeIdx], msg)
 		}
 	}
 	return diags

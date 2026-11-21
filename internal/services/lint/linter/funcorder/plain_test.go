@@ -162,6 +162,21 @@ const B K = 0
 	)
 }
 
+func TestCheck_PlainTypeConstPastSiblingType(t *testing.T) {
+	assertMessages(t, `package p
+
+type T int
+
+type U int
+
+func f(T, U) {}
+
+const A T = 0
+`,
+		`"A" should be grouped directly below type "T"`,
+	)
+}
+
 func TestCheck_MethodHeadKeepsPlainTypeConst(t *testing.T) {
 	assertMessages(t, `package p
 

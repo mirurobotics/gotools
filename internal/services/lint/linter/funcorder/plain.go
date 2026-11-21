@@ -35,31 +35,34 @@ func (m *model) typeUsers(withMethods bool) map[int][]int {
 
 func (m *model) isConst(i int) bool { return m.declTok(i) == token.CONST }
 
-func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
+func (m *model) typeViolation(typeIdx int, uses map[int]use) string {
+	if !m.isNearUser(typeIdx, uses) {
+		return m.userMessage(typeIdx, uses[typeIdx])
+	}
+	if stray, ok := m.strayBlock(typeIdx); ok {
+		return m.strayMessage(typeIdx, stray)
+	}
+	return ""
+}
+
+func (m *model) isNearUser(typeIdx int, uses map[int]use) bool {
 	usage, head := uses[typeIdx], m.plainHead(typeIdx)
-	if typeIdx > usage.at {
-		return false
+	isAbove := func(i int) bool {
+		owner, ok := m.plainOf(i)
+		return slices.Contains(head, i) ||
+			ok && uses[owner].at == usage.at && uses[owner].depth <= usage.depth
 	}
-	if _, ok := m.strayBlock(typeIdx); ok {
-		return false
-	}
-	isAbove := func(owner int) bool {
-		return uses[owner].at == usage.at && uses[owner].depth <= usage.depth
-	}
-	for i := head[len(head)-1] + 1; i < usage.at; i++ {
-		if owner, ok := m.plainOf(i); !ok || !isAbove(owner) {
+	for i := typeIdx + 1; i < usage.at; i++ {
+		if !isAbove(i) {
 			return false
 		}
 	}
-	return true
+	return typeIdx <= usage.at
 }
 
-func (m *model) typeMessage(typeIdx int, usage use) string {
+func (m *model) userMessage(typeIdx int, usage use) string {
 	name := soloTypeSpec(m.decls[typeIdx]).Name.Name
 	user := m.declName(usage.user)
-	if stray, ok := m.strayBlock(typeIdx); ok && m.isOnlyHeadAbove(typeIdx, usage.at) {
-		return m.strayMessage(typeIdx, stray)
-	}
 	if owner, ok := m.plainOf(usage.user); ok {
 		usage.at = m.plainHead(owner)[0]
 	}
@@ -92,16 +95,6 @@ func (m *model) strayBlock(typeIdx int) (int, bool) {
 		}
 	}
 	return 0, false
-}
-
-func (m *model) isOnlyHeadAbove(typeIdx, userIdx int) bool {
-	head := m.plainHead(typeIdx)
-	for i := typeIdx + 1; i < userIdx; i++ {
-		if !slices.Contains(head, i) {
-			return false
-		}
-	}
-	return typeIdx < userIdx
 }
 
 func (m *model) strayMessage(typeIdx, stray int) string {
