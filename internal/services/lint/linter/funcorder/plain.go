@@ -185,7 +185,9 @@ func (m *model) userKey(i int, start map[int]int, useOf func(int) use) emitKey {
 	}
 	usage := useOf(owner)
 	slot := slices.Index(m.plainHead(owner), i)
-	return emitKey{at: usage.at, unheaded: 0, depth: usage.depth, owner: owner, slot: slot}
+	return emitKey{
+		at: usage.at, unheaded: 0, depth: usage.depth, owner: owner, slot: slot,
+	}
 }
 
 func (m *model) plainHead(typeIdx int) []int {
@@ -248,7 +250,9 @@ func refersTo(node ast.Node, spec *ast.TypeSpec) bool {
 }
 
 func headKey(uses map[int]use, typeIdx int) emitKey {
-	return emitKey{at: 0, unheaded: 0, depth: uses[typeIdx].depth, owner: typeIdx, slot: 0}
+	return emitKey{
+		at: 0, unheaded: 0, depth: uses[typeIdx].depth, owner: typeIdx, slot: 0,
+	}
 }
 
 func unitStarts(units [][]int, pos func(int) int) map[int]int {
