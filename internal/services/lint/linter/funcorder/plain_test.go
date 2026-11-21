@@ -132,6 +132,21 @@ func f(k Kind) {}
 	)
 }
 
+func TestCheck_PlainTypeAboveItsDistantConst(t *testing.T) {
+	assertMessages(t, `package p
+
+type Kind int
+
+func f(Kind) {}
+
+func g() {}
+
+const A Kind = 0
+`,
+		`type "Kind" should be directly above its consts, starting with "A"`,
+	)
+}
+
 func TestCheck_MethodHeadKeepsPlainTypeConst(t *testing.T) {
 	assertMessages(t, `package p
 

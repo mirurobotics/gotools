@@ -57,8 +57,8 @@ func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
 func (m *model) typeMessage(typeIdx int, usage use) string {
 	name := soloTypeSpec(m.decls[typeIdx]).Name.Name
 	user := m.declName(usage.user)
-	if msg, ok := m.strayMessage(typeIdx); ok {
-		return msg
+	if stray, ok := m.strayBlock(typeIdx); ok && m.isOnlyHeadAbove(typeIdx, usage.at) {
+		return m.strayMessage(typeIdx, stray)
 	}
 	if owner, ok := m.plainOf(usage.user); ok {
 		usage.at = m.plainHead(owner)[0]
@@ -83,16 +83,6 @@ func (m *model) typeMessage(typeIdx int, usage use) string {
 	)
 }
 
-func (m *model) strayMessage(typeIdx int) (string, bool) {
-	stray, ok := m.strayBlock(typeIdx)
-	spec := soloTypeSpec(m.decls[typeIdx])
-	if !ok || stray > typeIdx || !refersTo(m.decls[stray], spec) {
-		return "", false
-	}
-	const msg = "type %q should be directly above %q, which uses only it"
-	return fmt.Sprintf(msg, spec.Name.Name, m.declName(stray)), true
-}
-
 func (m *model) strayBlock(typeIdx int) (int, bool) {
 	head := m.plainHead(typeIdx)
 	typePos := slices.Index(head, typeIdx)
@@ -102,6 +92,26 @@ func (m *model) strayBlock(typeIdx int) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func (m *model) isOnlyHeadAbove(typeIdx, at int) bool {
+	head := m.plainHead(typeIdx)
+	for i := typeIdx + 1; i < at; i++ {
+		if !slices.Contains(head, i) {
+			return false
+		}
+	}
+	return typeIdx < at
+}
+
+func (m *model) strayMessage(typeIdx, stray int) string {
+	name, block := soloTypeSpec(m.decls[typeIdx]).Name.Name, m.declName(stray)
+	if stray < typeIdx {
+		const msg = "type %q should be directly above %q, which uses only it"
+		return fmt.Sprintf(msg, name, block)
+	}
+	const msg = "type %q should be directly above its consts, starting with %q"
+	return fmt.Sprintf(msg, name, block)
 }
 
 func (m *model) declName(i int) string {
