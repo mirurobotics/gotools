@@ -73,6 +73,50 @@ func (o obj) ID() string { return "" }
 	)
 }
 
+func TestCheck_TuckedTypeBelowHelpersVarBlock(t *testing.T) {
+	assertMessages(t, `package p
+
+func Run() { _ = t{} }
+
+type t struct{}
+
+func (t) M() { h() }
+
+var cache map[string]obj
+
+func h() { _ = cache }
+
+func Other() {}
+
+type obj struct{}
+
+func (obj) ID() {}
+`,
+		`"obj.ID" should be directly below "h"`,
+	)
+}
+
+func TestCheck_TuckedTypeIgnoresOtherTypesHead(t *testing.T) {
+	assertMessages(t, `package p
+
+func Run() { _ = t{} }
+
+func Other() {}
+
+type t struct{}
+
+var x obj
+
+func (t) M() {}
+
+type obj struct{}
+
+func (obj) ID() {}
+`,
+		`"t.M" should be directly below "Run"`,
+	)
+}
+
 func TestCheck_TuckedTypesPlaced(t *testing.T) {
 	cases := map[string]string{
 		"above its user": `package p
