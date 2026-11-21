@@ -181,11 +181,11 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 func (m *model) userKey(i int, start map[int]int, useOf func(int) use) emitKey {
 	owner, ok := m.plainOf(i)
 	if !ok {
-		return emitKey{at: start[i], free: 1, depth: 0, owner: 0, slot: 0}
+		return emitKey{at: start[i], unheaded: 1, depth: 0, owner: 0, slot: 0}
 	}
 	usage := useOf(owner)
 	slot := slices.Index(m.plainHead(owner), i)
-	return emitKey{at: usage.at, free: 0, depth: usage.depth, owner: owner, slot: slot}
+	return emitKey{at: usage.at, unheaded: 0, depth: usage.depth, owner: owner, slot: slot}
 }
 
 func (m *model) plainHead(typeIdx int) []int {
@@ -248,7 +248,7 @@ func refersTo(node ast.Node, spec *ast.TypeSpec) bool {
 }
 
 func headKey(uses map[int]use, typeIdx int) emitKey {
-	return emitKey{at: 0, free: 0, depth: uses[typeIdx].depth, owner: typeIdx, slot: 0}
+	return emitKey{at: 0, unheaded: 0, depth: uses[typeIdx].depth, owner: typeIdx, slot: 0}
 }
 
 func unitStarts(units [][]int, pos func(int) int) map[int]int {
@@ -263,11 +263,11 @@ func unitStarts(units [][]int, pos func(int) int) map[int]int {
 	return start
 }
 
-type emitKey struct{ at, free, depth, owner, slot int }
+type emitKey struct{ at, unheaded, depth, owner, slot int }
 
 func (r emitKey) compare(other emitKey) int {
 	return cmp.Or(
-		r.at-other.at, r.free-other.free, other.depth-r.depth,
+		r.at-other.at, r.unheaded-other.unheaded, other.depth-r.depth,
 		r.owner-other.owner, r.slot-other.slot,
 	)
 }
