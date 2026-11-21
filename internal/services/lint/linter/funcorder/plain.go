@@ -43,8 +43,8 @@ func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
 	if typeIdx > usePos {
 		return false
 	}
-	for k, i := range head {
-		if i != head[0]+k {
+	for offset, i := range head {
+		if i != head[0]+offset {
 			return false
 		}
 	}
