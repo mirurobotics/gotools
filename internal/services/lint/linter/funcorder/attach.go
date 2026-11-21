@@ -72,7 +72,7 @@ func (a *attacher) claimTypeConsts() {
 		}
 	}
 	for _, typeIdx := range plain {
-		a.claimAbove(typeIdx, a.typeConst(typeIdx, false))
+		a.claimAbove(typeIdx, a.looseConst(typeIdx))
 	}
 }
 
@@ -84,12 +84,38 @@ func (a *attacher) claimAll(owner int, ok func(int) bool) {
 	}
 }
 
+func (a *attacher) looseConst(typeIdx int) func(int) bool {
+	isConst := a.typeConst(typeIdx, false)
+	return func(i int) bool { return isConst(i) && !a.leadsTo(i, typeIdx) }
+}
+
 func (a *attacher) typeConst(typeIdx int, usesType bool) func(int) bool {
 	spec := soloTypeSpec(a.m.decls[typeIdx])
 	return func(i int) bool {
 		isConst := a.m.declTok(i) == token.CONST
 		return isConst && refersTo(a.m.decls[i], spec) == usesType
 	}
+}
+
+func (a *attacher) leadsTo(i, typeIdx int) bool {
+	for userType, users := range a.m.plain {
+		if !slices.Contains(users, i) {
+			continue
+		}
+		if userType == typeIdx || a.headLeadsTo(userType, typeIdx) {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *attacher) headLeadsTo(owner, typeIdx int) bool {
+	for i, got := range a.owner {
+		if got == owner && a.leadsTo(i, typeIdx) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *attacher) releaseInitVars() {

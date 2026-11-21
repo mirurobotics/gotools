@@ -194,6 +194,16 @@ func TestFix_PlainTypeMovesAboveItsConsts(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
+func TestFix_PlainTypesUsedByEachOthersConsts(t *testing.T) {
+	src := []string{
+		"func helper() {}\n", "const Y b = 0\n", "type a int\n",
+		"const X a = 0\n", "type b int\n", "func Run() { helper() }\n",
+	}
+	want := []string{src[4], src[1], src[2], src[3], src[5], src[0]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
 func TestFix_PlainTypeLeavesUnrelatedConsts(t *testing.T) {
 	src := []string{
 		"type Kind int\n", "const A Kind = 0\n", "const prefix = \"p\"\n",
