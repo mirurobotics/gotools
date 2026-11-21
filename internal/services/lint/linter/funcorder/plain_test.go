@@ -120,6 +120,23 @@ func f(O) {}
 	)
 }
 
+func TestCheck_MethodHeadKeepsPlainTypeConst(t *testing.T) {
+	assertMessages(t, `package p
+
+type S struct{}
+
+const c K = 0
+
+var v = 1
+
+func (S) M() {}
+
+type K int
+
+func f(K) {}
+`)
+}
+
 func TestCheck_PlainTypeAboveBlockOverFirstUser(t *testing.T) {
 	assertMessages(t, `package p
 
@@ -350,15 +367,13 @@ func TestFix_PlainTypeCarriesConstAboveFirstFunction(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
-func TestFix_PlainTypeCarriesConstFromMethodHead(t *testing.T) {
+func TestFix_PlainTypeLeavesHeaderConst(t *testing.T) {
 	src := []string{
-		"func (a) M() {}\n", "func Start() { helper() }\n", "type c int\n",
-		"func F(c) {}\n", "var V1 = 0\n", "type a int\n", "var V0 = a(0)\n",
-		"const C = c(0)\n", "func helper() {}\n",
+		"const defaultName = \"x\"\n", "type Kind int\n",
+		"func Run() { _ = defaultName; helper() }\n", "func helper() {}\n",
+		"func use(Kind) {}\n",
 	}
-	want := []string{
-		src[5], src[0], src[1], src[8], src[2], src[7], src[3], src[4], src[6],
-	}
+	want := []string{src[0], src[2], src[3], src[1], src[4]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }

@@ -9,9 +9,8 @@ import (
 
 func (m *model) attachToTypes() map[int]int {
 	a := m.newAttacher(map[int]int{})
-	a.claimOwnConsts()
 	a.claimHeads()
-	a.claimLooseConsts()
+	a.claimTypeConsts()
 	return a.owner
 }
 
@@ -65,11 +64,15 @@ func (a *attacher) claimBelow(start, owner int, ok func(int) bool) {
 	}
 }
 
-func (a *attacher) claimOwnConsts() {
-	for _, typeIdx := range slices.Sorted(maps.Keys(a.m.plain)) {
+func (a *attacher) claimTypeConsts() {
+	plain := slices.Sorted(maps.Keys(a.m.plain))
+	for _, typeIdx := range plain {
 		if !slices.ContainsFunc(a.m.plain[typeIdx], a.m.isConst) {
 			a.claimAll(typeIdx, a.ownConst(typeIdx))
 		}
+	}
+	for _, typeIdx := range plain {
+		a.claimAbove(typeIdx, -1, a.looseConst(typeIdx))
 	}
 }
 
@@ -93,15 +96,12 @@ func (a *attacher) ownConst(typeIdx int) func(int) bool {
 	}
 }
 
-func (a *attacher) claimLooseConsts() {
-	for _, typeIdx := range slices.Sorted(maps.Keys(a.m.plain)) {
-		a.claimAbove(typeIdx, -1, a.looseConst(typeIdx))
-	}
-}
-
 func (a *attacher) looseConst(typeIdx int) func(int) bool {
 	isConst := a.typeConst(typeIdx, false)
-	return func(i int) bool { return isConst(i) && !a.leadsTo(i, typeIdx) }
+	return func(i int) bool {
+		isHeader := i < a.first && !a.isPlainUser(i)
+		return isConst(i) && !isHeader && !a.leadsTo(i, typeIdx)
+	}
 }
 
 func (a *attacher) typeConst(typeIdx int, usesType bool) func(int) bool {
@@ -110,6 +110,15 @@ func (a *attacher) typeConst(typeIdx int, usesType bool) func(int) bool {
 		isConst := a.m.declTok(i) == token.CONST
 		return isConst && refersTo(a.m.decls[i], spec) == usesType
 	}
+}
+
+func (a *attacher) isPlainUser(i int) bool {
+	for _, users := range a.m.plain {
+		if slices.Contains(users, i) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *attacher) leadsTo(i, typeIdx int) bool {
@@ -149,7 +158,7 @@ func (a *attacher) release(typeIdx, owner int) {
 	released := false
 	for i := typeIdx + 1; owns(a.owner, owner, i); i++ {
 		released = released || a.m.initVars[i]
-		if released {
+		if released && !a.m.isConst(i) {
 			delete(a.owner, i)
 		}
 	}
