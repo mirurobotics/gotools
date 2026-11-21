@@ -42,8 +42,8 @@ func (l *layout) lastUserTree(typeIdx, from int) int {
 }
 
 func (l *layout) isFreeUser(user int) bool {
-	owner := l.m.unitOwner(l.unit[l.unitOf[user]])
-	return owner != nil && owner.recv == ""
+	fnc := l.m.unitFunc(l.unit[l.unitOf[user]])
+	return fnc != nil && fnc.recv == ""
 }
 
 func (l *layout) isTuckable(tree []int, last, from int) bool {
