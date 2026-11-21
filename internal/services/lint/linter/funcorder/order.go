@@ -67,13 +67,15 @@ func (m *model) keepsInitOrder(order []int) bool {
 }
 
 func (m *model) unitReady(unit []int, done map[int]bool) bool {
-	fnc := m.fns[unit[len(unit)-1]]
+	fnc := m.unitOwner(unit)
 	if fnc == nil || fnc.recv == "" {
 		return m.ready(fnc, done)
 	}
 	typeIdx, ok := m.typeDecl[fnc.recv]
 	return !ok || done[typeIdx] || slices.Contains(unit, typeIdx)
 }
+
+func (m *model) unitOwner(unit []int) *fn { return m.fns[unit[len(unit)-1]] }
 
 func (m *model) ready(fnc *fn, done map[int]bool) bool {
 	if fnc == nil || fnc.exempt {
