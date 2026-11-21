@@ -1,9 +1,6 @@
 package funcorder
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestCheck_PlainTypeAboveFirstUser(t *testing.T) {
 	assertMessages(t, `package p
@@ -56,6 +53,147 @@ func setMode(m mode) {}
 	)
 }
 
+func TestCheck_PlainTypeAboveConstUser(t *testing.T) {
+	assertMessages(t, `package p
+
+func Run() { _ = A }
+
+const A Method = "a"
+
+type Method string
+`,
+		`type "Method" should be directly above its first user "A"`,
+	)
+}
+
+func TestCheck_PlainTypeAboveItsConsts(t *testing.T) {
+	assertMessages(t, `package p
+
+type Kind int
+
+func Run() { _ = x }
+
+const x = Kind(1)
+
+func f(k Kind) {}
+`,
+		`type "Kind" should be directly above its first user "f"`,
+	)
+}
+
+func TestCheck_PlainTypeAboveHeadOfFirstUser(t *testing.T) {
+	assertMessages(t, `package p
+
+func Run() { f(0) }
+
+const D = 2
+
+const C T = 0
+
+type O int
+
+func f(O) {}
+
+type T int
+`,
+		`type "T" should be directly above "D", which sits over its first user "C"`,
+	)
+}
+
+func TestCheck_PlainTypeAboveTypeItHolds(t *testing.T) {
+	assertMessages(t, `package p
+
+func Run() { f(0) }
+
+const C T = 0
+
+type O int
+
+type T int
+
+func f(O) {}
+`,
+		`type "O" should be directly above its first user "f"`,
+	)
+}
+
+func TestCheck_PlainTypeBelowItsConst(t *testing.T) {
+	assertMessages(t, `package p
+
+const (
+	A Kind = iota
+)
+
+type Kind int
+
+func f(k Kind) {}
+`,
+		`type "Kind" should be directly above "A", which uses only it`,
+	)
+}
+
+func TestCheck_PlainTypeAboveItsDistantConst(t *testing.T) {
+	assertMessages(t, `package p
+
+type Kind int
+
+func f(Kind) {}
+
+func g() {}
+
+const A Kind = 0
+`,
+		`"A" should be grouped directly below type "Kind"`,
+	)
+}
+
+func TestCheck_PlainTypeConstAfterUser(t *testing.T) {
+	assertMessages(t, `package p
+
+type K int
+
+const A K = 0
+
+func f(K) {}
+
+const B K = 0
+`,
+		`"B" should be grouped directly below type "K"`,
+	)
+}
+
+func TestCheck_PlainTypeConstPastSiblingType(t *testing.T) {
+	assertMessages(t, `package p
+
+type T int
+
+type U int
+
+func f(T, U) {}
+
+const A T = 0
+`,
+		`"A" should be grouped directly below type "T"`,
+	)
+}
+
+func TestCheck_MethodHeadKeepsPlainTypeConst(t *testing.T) {
+	assertMessages(t, `package p
+
+type S struct{}
+
+const c K = 0
+
+var v = 1
+
+func (S) M() {}
+
+type K int
+
+func f(K) {}
+`)
+}
+
 func TestCheck_PlainTypeAboveBlockOverFirstUser(t *testing.T) {
 	assertMessages(t, `package p
 
@@ -63,11 +201,14 @@ type K int
 
 func Run() { f() }
 
-const c = 1
+const (
+	c1 = 1
+	c2 = 2
+)
 
 func f(K) {}
 `,
-		`type "K" should be directly above "c", which sits over its first user "f"`,
+		`type "K" should be directly above "c1", which sits over its first user "f"`,
 	)
 }
 
@@ -113,62 +254,32 @@ type b struct{ x a }
 
 func use(a, b) {}
 `)
+	assertMessages(t, `package p
+
+func Run() { _ = A }
+
+type Method string
+
+const A Method = "a"
+
+type call struct{ m Method }
+`)
 }
 
-func TestFix_PlainTypeMovesToFirstUser(t *testing.T) {
-	src := []string{
-		"type group struct{}\n", "func Check() { var c checker; c.run() }\n",
-		"type checker struct{}\n", "func (c checker) run() { _ = group{} }\n",
-		"func Run() { _ = Name(\"\") }\n", "type Name string\n",
-	}
-	want := []string{src[1], src[0], src[2], src[3], src[5], src[4]}
-	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
-		"package p\n\n"+strings.Join(want, "\n"))
-}
+func TestCheck_PlainTypesLeaveSharedConsts(t *testing.T) {
+	assertMessages(t, `package p
 
-func TestFix_PlainTypeCarriesItsConsts(t *testing.T) {
-	src := []string{
-		"func Run() Kind { return A }\n", "type Kind int\n",
-		"const (\n\tA Kind = iota\n\tB\n)\n", "var x = 1\n",
-	}
-	want := []string{src[1], src[2], src[0], src[3]}
-	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
-		"package p\n\n"+strings.Join(want, "\n"))
-}
+func Run() { _ = LevelDebug }
 
-func TestFix_PlainTypeIgnoresConstUsers(t *testing.T) {
-	src := []string{
-		"type Kind int\n", "func Run() { _ = x }\n", "const x = Kind(1)\n",
-		"func g() {}\n", "func f(k Kind) {}\n",
-	}
-	want := []string{src[1], src[2], src[3], src[0], src[4]}
-	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
-		"package p\n\n"+strings.Join(want, "\n"))
-}
+type Level int
 
-func TestFix_PlainTypeLeavesUnrelatedConsts(t *testing.T) {
-	src := []string{
-		"type Kind int\n", "const A Kind = 0\n", "const prefix = \"p\"\n",
-		"func Run() { _ = prefix }\n", "func f(Kind) {}\n",
-	}
-	want := []string{src[2], src[3], src[0], src[1], src[4]}
-	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
-		"package p\n\n"+strings.Join(want, "\n"))
-}
+type Name string
 
-func TestFix_PlainTypeSkipsConstUser(t *testing.T) {
-	src := []string{"const C P = 0\n", "var a = 1\n", "func f(P) {}\n", "type P int\n"}
-	want := []string{src[0], src[1], src[3], src[2]}
-	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
-		"package p\n\n"+strings.Join(want, "\n"))
-}
+const (
+	LevelDebug Level = iota
+	nameDebug  Name  = "d"
+)
 
-func TestFix_PlainTypeCarriesLeadingConst(t *testing.T) {
-	src := []string{
-		"func Run() { g(); f() }\n", "const c = 1\n", "type K int\n",
-		"func f(K) {}\n", "func g() {}\n",
-	}
-	want := []string{src[0], src[4], src[1], src[2], src[3]}
-	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
-		"package p\n\n"+strings.Join(want, "\n"))
+func log(Level) {}
+`)
 }
