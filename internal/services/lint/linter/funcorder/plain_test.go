@@ -143,6 +143,19 @@ func use(a, b) {}
 `)
 	assertMessages(t, `package p
 
+func Run() { _ = A }
+
+type Method string
+
+const A Method = "a"
+
+type call struct{ m Method }
+`)
+}
+
+func TestCheck_PlainTypesLeaveSharedConsts(t *testing.T) {
+	assertMessages(t, `package p
+
 func Run() { _ = LevelDebug }
 
 type Level int
@@ -155,16 +168,6 @@ const (
 )
 
 func log(Level) {}
-`)
-	assertMessages(t, `package p
-
-func Run() { _ = A }
-
-type Method string
-
-const A Method = "a"
-
-type call struct{ m Method }
 `)
 }
 
