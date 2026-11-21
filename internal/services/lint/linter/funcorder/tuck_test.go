@@ -96,27 +96,6 @@ func (obj) ID() {}
 	)
 }
 
-func TestCheck_TuckedTypeIgnoresOtherTypesHead(t *testing.T) {
-	assertMessages(t, `package p
-
-func Run() { _ = t{} }
-
-func Other() {}
-
-type t struct{}
-
-var x obj
-
-func (t) M() {}
-
-type obj struct{}
-
-func (obj) ID() {}
-`,
-		`"t.M" should be directly below "Run"`,
-	)
-}
-
 func TestCheck_TuckedTypesPlaced(t *testing.T) {
 	cases := map[string]string{
 		"above its user": `package p
@@ -288,6 +267,16 @@ func TestFix_TuckedTypeWithUserBelow(t *testing.T) {
 		"func New() obj { return obj{} }\n",
 	}
 	want := []string{src[0], src[2], src[3], src[1], src[4]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_TuckedTypeIgnoresOtherTypesHead(t *testing.T) {
+	src := []string{
+		"func Run() { _ = t{} }\n", "func Other() {}\n", "type t struct{}\n",
+		"var x obj\n", "func (t) M() {}\n", "type obj struct{}\n", "func (obj) ID() {}\n",
+	}
+	want := []string{src[0], src[2], src[3], src[4], src[1], src[5], src[6]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
