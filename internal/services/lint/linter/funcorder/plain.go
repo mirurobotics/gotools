@@ -94,14 +94,14 @@ func (m *model) strayBlock(typeIdx int) (int, bool) {
 	return 0, false
 }
 
-func (m *model) isOnlyHeadAbove(typeIdx, at int) bool {
+func (m *model) isOnlyHeadAbove(typeIdx, userIdx int) bool {
 	head := m.plainHead(typeIdx)
-	for i := typeIdx + 1; i < at; i++ {
+	for i := typeIdx + 1; i < userIdx; i++ {
 		if !slices.Contains(head, i) {
 			return false
 		}
 	}
-	return typeIdx < at
+	return typeIdx < userIdx
 }
 
 func (m *model) strayMessage(typeIdx, stray int) string {
