@@ -51,11 +51,18 @@ func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
 		}
 	}
 	for i := head[len(head)-1] + 1; i < usePos; i++ {
-		if owner, ok := m.plainOf(i); !ok || uses[owner].at != usage.at {
+		if owner, ok := m.plainOf(i); !ok || !m.isSameAnchor(uses[owner], usage) {
 			return false
 		}
 	}
 	return true
+}
+
+func (m *model) isSameAnchor(other, usage use) bool {
+	if m.isNested(usage) {
+		return other.user == usage.user
+	}
+	return other.at == usage.at
 }
 
 func (m *model) typeMessage(typeIdx int, usage use) string {
@@ -102,14 +109,15 @@ func (m *model) declName(i int) string {
 }
 
 func (m *model) placeTypes(units [][]int, out []int) []int {
-	pos := make(map[int]int, len(out))
-	for outPos, i := range out {
-		pos[i] = outPos
-	}
-	above, nested := m.nesting(m.firstUses(units, func(i int) int { return pos[i] }))
+	pos, rank := positions(out), func(i int) int { return i }
 	var placed []int
-	for outPos, i := range out {
-		placed = append(append(placed, m.heads(above[outPos], nested)...), i)
+	for range len(m.plain) + 1 {
+		above, nested := m.nesting(m.firstUses(units, pos, rank))
+		next := m.emit(out, above, nested)
+		if slices.Equal(next, placed) {
+			break
+		}
+		placed, rank = next, positions(next)
 	}
 	return placed
 }
@@ -133,7 +141,7 @@ func (m *model) inPlain(i int) bool {
 	return ok
 }
 
-func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
+func (m *model) firstUses(units [][]int, pos, rank func(int) int) map[int]use {
 	start := unitStarts(units, pos)
 	uses := map[int]use{}
 	var useOf func(typeIdx int) use
@@ -149,7 +157,7 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 		}
 		uses[typeIdx] = use{user: typeIdx, at: 0}
 		byStart := func(a, b int) int {
-			return cmp.Or(startOf(a)-startOf(b), m.headRank(a)-m.headRank(b))
+			return cmp.Or(startOf(a)-startOf(b), rank(a)-rank(b))
 		}
 		first := slices.MinFunc(m.plain[typeIdx], byStart)
 		uses[typeIdx] = use{user: first, at: startOf(first)}
@@ -161,19 +169,20 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 	return uses
 }
 
-func (m *model) headRank(i int) int {
-	if owner, ok := m.plainOf(i); ok {
-		return owner
-	}
-	return len(m.decls)
-}
-
 func (m *model) plainOf(i int) (int, bool) {
 	if ownerIdx, ok := m.typeOwner[i]; ok {
 		i = ownerIdx
 	}
 	_, ok := m.plain[i]
 	return i, ok
+}
+
+func (m *model) emit(out []int, above, nested map[int][]int) []int {
+	var placed []int
+	for outPos, i := range out {
+		placed = append(append(placed, m.heads(above[outPos], nested)...), i)
+	}
+	return placed
 }
 
 func (m *model) heads(types []int, nested map[int][]int) []int {
@@ -230,6 +239,14 @@ func refersTo(node ast.Node, spec *ast.TypeSpec) bool {
 		return !found
 	})
 	return found
+}
+
+func positions(order []int) func(int) int {
+	byDecl := make(map[int]int, len(order))
+	for pos, i := range order {
+		byDecl[i] = pos
+	}
+	return func(i int) int { return byDecl[i] }
 }
 
 func unitStarts(units [][]int, pos func(int) int) map[int]int {

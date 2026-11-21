@@ -28,7 +28,8 @@ func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diag
 			add(fnc.decl, msg)
 		}
 	}
-	uses := graph.firstUses(graph.units(false), func(i int) int { return i })
+	identity := func(i int) int { return i }
+	uses := graph.firstUses(graph.units(false), identity, identity)
 	for _, typeIdx := range slices.Sorted(maps.Keys(uses)) {
 		if !graph.typePlaced(typeIdx, uses) {
 			add(graph.decls[typeIdx], graph.typeMessage(typeIdx, uses[typeIdx]))

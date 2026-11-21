@@ -84,6 +84,26 @@ func f(k Kind) {}
 	)
 }
 
+func TestCheck_PlainTypeAboveUserInHead(t *testing.T) {
+	assertMessages(t, `package p
+
+func Run() { f(0) }
+
+type T int
+
+const D = 2
+
+const C T = 0
+
+type O int
+
+func f(O) {}
+`,
+		`type "T" should be directly above its first user "C"`,
+		`type "O" should be directly above its first user "f"`,
+	)
+}
+
 func TestCheck_PlainTypeAboveBlockOverFirstUser(t *testing.T) {
 	assertMessages(t, `package p
 
@@ -248,6 +268,17 @@ func TestFix_PlainTypeAboveUserInHead(t *testing.T) {
 		"type a int\n", "type b int\n",
 	}
 	want := []string{src[0], src[4], src[2], src[3], src[1]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_PlainTypeAboveFirstPlacedUser(t *testing.T) {
+	src := []string{
+		"func Run() { f() }\n", "const c2 T = 0\n", "type N int\n",
+		"const c1 T = 0\n", "const u N = 0\n", "type O int\n",
+		"func f(O) {}\n", "type T int\n",
+	}
+	want := []string{src[0], src[7], src[3], src[1], src[2], src[4], src[5], src[6]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
