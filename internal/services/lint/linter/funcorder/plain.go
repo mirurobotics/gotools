@@ -95,9 +95,9 @@ func (m *model) strayMessage(typeIdx int) (string, bool) {
 
 func (m *model) strayBlock(typeIdx int) (int, bool) {
 	head := m.plainHead(typeIdx)
-	at := slices.Index(head, typeIdx)
+	typePos := slices.Index(head, typeIdx)
 	for offset, i := range head {
-		if i != typeIdx+offset-at {
+		if i != typeIdx+offset-typePos {
 			return i, true
 		}
 	}
@@ -253,8 +253,6 @@ func unitStarts(units [][]int, pos func(int) int) map[int]int {
 	return start
 }
 
-// emitKey orders users that start at the same place the way Fix emits them:
-// heads before free users, deeper heads first, then by owner and slot.
 type emitKey struct{ at, free, depth, owner, slot int }
 
 func (r emitKey) compare(other emitKey) int {
