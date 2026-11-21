@@ -100,7 +100,7 @@ func (a *attacher) looseConst(typeIdx int) func(int) bool {
 	isConst := a.typeConst(typeIdx, false)
 	return func(i int) bool {
 		isHeader := i < a.first && !a.isPlainUser(i)
-		return isConst(i) && !isHeader && !a.leadsTo(i, typeIdx)
+		return isConst(i) && !isHeader && !a.leadsTo(i, typeIdx, map[int]bool{})
 	}
 }
 
@@ -121,21 +121,22 @@ func (a *attacher) isPlainUser(i int) bool {
 	return false
 }
 
-func (a *attacher) leadsTo(i, typeIdx int) bool {
+func (a *attacher) leadsTo(i, typeIdx int, seen map[int]bool) bool {
 	for userType, users := range a.m.plain {
-		if !slices.Contains(users, i) {
+		if seen[userType] || !slices.Contains(users, i) {
 			continue
 		}
-		if userType == typeIdx || a.headLeadsTo(userType, typeIdx) {
+		seen[userType] = true
+		if userType == typeIdx || a.headLeadsTo(userType, typeIdx, seen) {
 			return true
 		}
 	}
 	return false
 }
 
-func (a *attacher) headLeadsTo(owner, typeIdx int) bool {
+func (a *attacher) headLeadsTo(owner, typeIdx int, seen map[int]bool) bool {
 	for i, got := range a.owner {
-		if got == owner && a.leadsTo(i, typeIdx) {
+		if got == owner && a.leadsTo(i, typeIdx, seen) {
 			return true
 		}
 	}

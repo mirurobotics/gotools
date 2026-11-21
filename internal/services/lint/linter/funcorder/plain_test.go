@@ -103,7 +103,7 @@ type T int
 	)
 }
 
-func TestCheck_PlainTypeBelowTypeItHolds(t *testing.T) {
+func TestCheck_PlainTypeAboveTypeItHolds(t *testing.T) {
 	assertMessages(t, `package p
 
 func Run() { f(0) }
@@ -117,6 +117,21 @@ type T int
 func f(O) {}
 `,
 		`type "O" should be directly above its first user "f"`,
+	)
+}
+
+func TestCheck_PlainTypeBelowItsConst(t *testing.T) {
+	assertMessages(t, `package p
+
+const (
+	A Kind = iota
+)
+
+type Kind int
+
+func f(k Kind) {}
+`,
+		`type "Kind" should be directly above "A", which uses only it`,
 	)
 }
 

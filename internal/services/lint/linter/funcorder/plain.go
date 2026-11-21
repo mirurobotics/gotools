@@ -40,10 +40,8 @@ func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
 	if typeIdx > usage.at {
 		return false
 	}
-	for offset, i := range head {
-		if i != head[0]+offset {
-			return false
-		}
+	if _, ok := m.strayBlock(typeIdx); ok {
+		return false
 	}
 	isAbove := func(owner int) bool {
 		return uses[owner].at == usage.at && uses[owner].depth <= usage.depth
@@ -59,6 +57,9 @@ func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
 func (m *model) typeMessage(typeIdx int, usage use) string {
 	name := soloTypeSpec(m.decls[typeIdx]).Name.Name
 	user := m.declName(usage.user)
+	if stray, ok := m.strayBlock(typeIdx); ok {
+		return m.strayMessage(typeIdx, stray)
+	}
 	if owner, ok := m.plainOf(usage.user); ok {
 		usage.at = m.plainHead(owner)[0]
 	}
@@ -80,6 +81,27 @@ func (m *model) typeMessage(typeIdx int, usage use) string {
 		"type %q should be directly above %q, which holds its first user %q",
 		name, m.declName(usage.at), user,
 	)
+}
+
+func (m *model) strayBlock(typeIdx int) (int, bool) {
+	head := m.plainHead(typeIdx)
+	at := slices.Index(head, typeIdx)
+	for offset, i := range head {
+		if i != typeIdx+offset-at {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func (m *model) strayMessage(typeIdx, stray int) string {
+	spec := soloTypeSpec(m.decls[typeIdx])
+	if refersTo(m.decls[stray], spec) {
+		const msg = "type %q should be directly above %q, which uses only it"
+		return fmt.Sprintf(msg, spec.Name.Name, m.declName(stray))
+	}
+	const msg = "type %q should be directly below %q, which sits over it"
+	return fmt.Sprintf(msg, spec.Name.Name, m.declName(stray))
 }
 
 func (m *model) declName(i int) string {
@@ -108,7 +130,7 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 		pos[i] = outPos
 	}
 	uses := m.firstUses(units, func(i int) int { return pos[i] })
-	deepest := func(a, b int) int { return cmp.Or(uses[b].depth-uses[a].depth, a-b) }
+	deepest := func(a, b int) int { return headKey(uses, a).compare(headKey(uses, b)) }
 	above := map[int][]int{}
 	for _, idx := range slices.SortedFunc(maps.Keys(uses), deepest) {
 		above[uses[idx].at] = append(above[uses[idx].at], m.plainHead(idx)...)
@@ -129,11 +151,11 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 			return usage
 		}
 		uses[typeIdx] = use{user: typeIdx, at: 0, depth: 0}
-		rank := func(i int) []int { return m.emitRank(i, start, useOf) }
+		keyOf := func(i int) emitKey { return m.userKey(i, start, useOf) }
 		first := slices.MinFunc(m.plain[typeIdx], func(a, b int) int {
-			return slices.Compare(rank(a), rank(b))
+			return keyOf(a).compare(keyOf(b))
 		})
-		usage := use{user: first, at: rank(first)[0], depth: 0}
+		usage := use{user: first, at: keyOf(first).at, depth: 0}
 		if owner, ok := m.plainOf(first); ok {
 			usage.depth = 1 + useOf(owner).depth
 		}
@@ -146,14 +168,14 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 	return uses
 }
 
-func (m *model) emitRank(i int, start map[int]int, useOf func(int) use) []int {
+func (m *model) userKey(i int, start map[int]int, useOf func(int) use) emitKey {
 	owner, ok := m.plainOf(i)
 	if !ok {
-		return []int{start[i], 1}
+		return emitKey{at: start[i], free: 1, depth: 0, owner: 0, slot: 0}
 	}
 	usage := useOf(owner)
-	head := m.plainHead(owner)
-	return []int{usage.at, 0, -usage.depth, owner, slices.Index(head, i)}
+	slot := slices.Index(m.plainHead(owner), i)
+	return emitKey{at: usage.at, free: 0, depth: usage.depth, owner: owner, slot: slot}
 }
 
 func (m *model) plainHead(typeIdx int) []int {
@@ -215,6 +237,10 @@ func refersTo(node ast.Node, spec *ast.TypeSpec) bool {
 	return found
 }
 
+func headKey(uses map[int]use, typeIdx int) emitKey {
+	return emitKey{at: 0, free: 0, depth: uses[typeIdx].depth, owner: typeIdx, slot: 0}
+}
+
 func unitStarts(units [][]int, pos func(int) int) map[int]int {
 	start := map[int]int{}
 	byPos := func(a, b int) int { return pos(a) - pos(b) }
@@ -225,4 +251,15 @@ func unitStarts(units [][]int, pos func(int) int) map[int]int {
 		}
 	}
 	return start
+}
+
+// emitKey orders users that start at the same place the way Fix emits them:
+// heads before free users, deeper heads first, then by owner and slot.
+type emitKey struct{ at, free, depth, owner, slot int }
+
+func (r emitKey) compare(other emitKey) int {
+	return cmp.Or(
+		r.at-other.at, r.free-other.free, other.depth-r.depth,
+		r.owner-other.owner, r.slot-other.slot,
+	)
 }
