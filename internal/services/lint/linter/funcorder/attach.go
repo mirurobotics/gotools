@@ -9,8 +9,9 @@ import (
 
 func (m *model) attachToTypes() map[int]int {
 	a := m.newAttacher(map[int]int{})
+	a.claimOwnConsts()
 	a.claimHeads()
-	a.claimTypeConsts()
+	a.claimLooseConsts()
 	return a.owner
 }
 
@@ -64,15 +65,11 @@ func (a *attacher) claimBelow(start, owner int, ok func(int) bool) {
 	}
 }
 
-func (a *attacher) claimTypeConsts() {
-	plain := slices.Sorted(maps.Keys(a.m.plain))
-	for _, typeIdx := range plain {
+func (a *attacher) claimOwnConsts() {
+	for _, typeIdx := range slices.Sorted(maps.Keys(a.m.plain)) {
 		if !slices.ContainsFunc(a.m.plain[typeIdx], a.m.isConst) {
 			a.claimAll(typeIdx, a.ownConst(typeIdx))
 		}
-	}
-	for _, typeIdx := range plain {
-		a.claimAbove(typeIdx, -1, a.looseConst(typeIdx))
 	}
 }
 
@@ -93,6 +90,12 @@ func (a *attacher) ownConst(typeIdx int) func(int) bool {
 			return other != typeIdx && refersTo(a.m.decls[i], spec)
 		}
 		return isConst(i) && !slices.ContainsFunc(plain, usesOther)
+	}
+}
+
+func (a *attacher) claimLooseConsts() {
+	for _, typeIdx := range slices.Sorted(maps.Keys(a.m.plain)) {
+		a.claimAbove(typeIdx, -1, a.looseConst(typeIdx))
 	}
 }
 
