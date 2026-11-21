@@ -46,11 +46,8 @@ func (m *model) typeViolation(typeIdx int, uses map[int]use) string {
 }
 
 func (m *model) isNearUser(typeIdx int, uses map[int]use) bool {
-	usage, head := uses[typeIdx], m.plainHead(typeIdx)
+	usage := uses[typeIdx]
 	isAbove := func(i int) bool {
-		if slices.Contains(head, i) {
-			return true
-		}
 		owner, ok := m.plainOf(i)
 		return ok && uses[owner].at == usage.at && uses[owner].depth <= usage.depth
 	}
