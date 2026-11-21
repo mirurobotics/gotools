@@ -108,9 +108,7 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 		pos[i] = outPos
 	}
 	uses := m.firstUses(units, func(i int) int { return pos[i] })
-	deepest := func(a, b int) int {
-		return cmp.Or(uses[b].depth-uses[a].depth, a-b)
-	}
+	deepest := func(a, b int) int { return cmp.Or(uses[b].depth-uses[a].depth, a-b) }
 	above := map[int][]int{}
 	for _, idx := range slices.SortedFunc(maps.Keys(uses), deepest) {
 		above[uses[idx].at] = append(above[uses[idx].at], m.plainHead(idx)...)
