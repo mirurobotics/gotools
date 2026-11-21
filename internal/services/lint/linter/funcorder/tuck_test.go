@@ -274,7 +274,8 @@ func TestFix_TuckedTypeWithUserBelow(t *testing.T) {
 func TestFix_TuckedTypeIgnoresOtherTypesHead(t *testing.T) {
 	src := []string{
 		"func Run() { _ = t{} }\n", "func Other() {}\n", "type t struct{}\n",
-		"var x obj\n", "func (t) M() {}\n", "type obj struct{}\n", "func (obj) ID() {}\n",
+		"var x obj\n", "func (t) M() {}\n",
+		"type obj struct{}\n", "func (obj) ID() {}\n",
 	}
 	want := []string{src[0], src[2], src[3], src[4], src[1], src[5], src[6]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
