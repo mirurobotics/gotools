@@ -9,7 +9,7 @@ import (
 	"slices"
 )
 
-type use struct{ user, at int }
+type use struct{ user, at, depth int }
 
 func (m *model) typeUsers(withMethods bool) map[int][]int {
 	byType := map[int][]int{}
@@ -45,9 +45,8 @@ func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
 			return false
 		}
 	}
-	depth := m.depth(uses, typeIdx)
 	isAbove := func(owner int) bool {
-		return uses[owner].at == usage.at && m.depth(uses, owner) <= depth
+		return uses[owner].at == usage.at && uses[owner].depth <= usage.depth
 	}
 	for i := head[len(head)-1] + 1; i < usage.at; i++ {
 		if owner, ok := m.plainOf(i); !ok || !isAbove(owner) {
@@ -60,12 +59,12 @@ func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
 func (m *model) typeMessage(typeIdx int, usage use) string {
 	name := soloTypeSpec(m.decls[typeIdx]).Name.Name
 	user := m.declName(usage.user)
+	if owner, ok := m.plainOf(usage.user); ok {
+		usage.at = m.plainHead(owner)[0]
+	}
 	if usage.at == usage.user {
 		const msg = "type %q should be directly above its first user %q"
 		return fmt.Sprintf(msg, name, user)
-	}
-	if owner, ok := m.plainOf(usage.user); ok {
-		usage.at = owner
 	}
 	if fnc := m.fns[usage.at]; fnc != nil {
 		const msg = "type %q should be directly above the methods of %q, " +
@@ -110,7 +109,7 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 	}
 	uses := m.firstUses(units, func(i int) int { return pos[i] })
 	deepest := func(a, b int) int {
-		return cmp.Or(m.depth(uses, b)-m.depth(uses, a), a-b)
+		return cmp.Or(uses[b].depth-uses[a].depth, a-b)
 	}
 	above := map[int][]int{}
 	for _, idx := range slices.SortedFunc(maps.Keys(uses), deepest) {
@@ -127,23 +126,21 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 	start := unitStarts(units, pos)
 	uses := map[int]use{}
 	var useOf func(typeIdx int) use
-	startOf := func(i int) int {
-		if owner, ok := m.plainOf(i); ok {
-			return useOf(owner).at
-		}
-		return start[i]
-	}
 	useOf = func(typeIdx int) use {
 		if usage, ok := uses[typeIdx]; ok {
 			return usage
 		}
-		uses[typeIdx] = use{user: typeIdx, at: 0}
-		byStart := func(a, b int) int {
-			return cmp.Or(startOf(a)-startOf(b), m.heldRank(a)-m.heldRank(b))
+		uses[typeIdx] = use{user: typeIdx, at: 0, depth: 0}
+		rank := func(i int) []int { return m.emitRank(i, start, useOf) }
+		first := slices.MinFunc(m.plain[typeIdx], func(a, b int) int {
+			return slices.Compare(rank(a), rank(b))
+		})
+		usage := use{user: first, at: rank(first)[0], depth: 0}
+		if owner, ok := m.plainOf(first); ok {
+			usage.depth = 1 + useOf(owner).depth
 		}
-		first := slices.MinFunc(m.plain[typeIdx], byStart)
-		uses[typeIdx] = use{user: first, at: startOf(first)}
-		return uses[typeIdx]
+		uses[typeIdx] = usage
+		return usage
 	}
 	for typeIdx := range m.plain {
 		useOf(typeIdx)
@@ -151,31 +148,14 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 	return uses
 }
 
-func (m *model) heldRank(i int) int {
-	if m.inPlain(i) {
-		return 0
+func (m *model) emitRank(i int, start map[int]int, useOf func(int) use) []int {
+	owner, ok := m.plainOf(i)
+	if !ok {
+		return []int{start[i], 1}
 	}
-	return 1
-}
-
-func (m *model) inPlain(i int) bool {
-	_, ok := m.plainOf(i)
-	return ok
-}
-
-func (m *model) depth(uses map[int]use, typeIdx int) int {
-	if owner, ok := m.plainOf(uses[typeIdx].user); ok {
-		return 1 + m.depth(uses, owner)
-	}
-	return 0
-}
-
-func (m *model) plainOf(i int) (int, bool) {
-	if ownerIdx, ok := m.typeOwner[i]; ok {
-		i = ownerIdx
-	}
-	_, ok := m.plain[i]
-	return i, ok
+	usage := useOf(owner)
+	head := m.plainHead(owner)
+	return []int{usage.at, 0, -usage.depth, owner, slices.Index(head, i)}
 }
 
 func (m *model) plainHead(typeIdx int) []int {
@@ -186,6 +166,19 @@ func (m *model) plainHead(typeIdx int) []int {
 		return !usesType(i)
 	})
 	return slices.Concat(above, []int{typeIdx}, carried)
+}
+
+func (m *model) inPlain(i int) bool {
+	_, ok := m.plainOf(i)
+	return ok
+}
+
+func (m *model) plainOf(i int) (int, bool) {
+	if ownerIdx, ok := m.typeOwner[i]; ok {
+		i = ownerIdx
+	}
+	_, ok := m.plain[i]
+	return i, ok
 }
 
 func soloTypeSpec(decl ast.Decl) *ast.TypeSpec {

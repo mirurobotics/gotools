@@ -99,7 +99,24 @@ func f(O) {}
 
 type T int
 `,
-		`type "T" should be directly above "O", which holds its first user "C"`,
+		`type "T" should be directly above "D", which sits over its first user "C"`,
+	)
+}
+
+func TestCheck_PlainTypeBelowTypeItHolds(t *testing.T) {
+	assertMessages(t, `package p
+
+func Run() { f(0) }
+
+const C T = 0
+
+type O int
+
+type T int
+
+func f(O) {}
+`,
+		`type "O" should be directly above its first user "f"`,
 	)
 }
 
@@ -281,6 +298,17 @@ func TestFix_PlainTypeAboveFirstPlacedUser(t *testing.T) {
 		"func f(O) {}\n", "type T int\n",
 	}
 	want := []string{src[0], src[7], src[1], src[2], src[3], src[4], src[5], src[6]}
+	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
+		"package p\n\n"+strings.Join(want, "\n"))
+}
+
+func TestFix_PlainTypeAboveFirstEmittedUser(t *testing.T) {
+	src := []string{
+		"func Run() { f(0) }\n", "const cA1 B = 0\n", "const cA2 T = 0\n",
+		"type A int\n", "const cB T = 0\n", "type B int\n", "func f(A) {}\n",
+		"type T int\n",
+	}
+	want := []string{src[0], src[7], src[4], src[5], src[1], src[2], src[3], src[6]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
