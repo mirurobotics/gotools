@@ -110,11 +110,14 @@ type K int
 
 func Run() { f() }
 
-const c = 1
+const (
+	c1 = 1
+	c2 = 2
+)
 
 func f(K) {}
 `,
-		`type "K" should be directly above "c", which sits over its first user "f"`,
+		`type "K" should be directly above "c1", which sits over its first user "f"`,
 	)
 }
 
