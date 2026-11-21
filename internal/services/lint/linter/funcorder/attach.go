@@ -58,11 +58,17 @@ func (a *attacher) claimHeads() {
 	}
 }
 
+func (a *attacher) claimBelow(start, owner int, ok func(int) bool) {
+	for i := start + 1; i < len(a.m.decls) && a.isFree(i) && ok(i); i++ {
+		a.owner[i] = owner
+	}
+}
+
 func (a *attacher) claimTypeConsts() {
 	plain := slices.Sorted(maps.Keys(a.m.plain))
 	for _, typeIdx := range plain {
-		if !slices.ContainsFunc(a.m.plain[typeIdx], a.m.carriedConst(typeIdx)) {
-			a.claimBelow(typeIdx, typeIdx, a.typeConst(typeIdx, true))
+		if !slices.ContainsFunc(a.m.plain[typeIdx], a.m.isConst) {
+			a.claimAll(typeIdx, a.typeConst(typeIdx, true))
 		}
 	}
 	for _, typeIdx := range plain {
@@ -70,9 +76,11 @@ func (a *attacher) claimTypeConsts() {
 	}
 }
 
-func (a *attacher) claimBelow(start, owner int, ok func(int) bool) {
-	for i := start + 1; i < len(a.m.decls) && a.isFree(i) && ok(i); i++ {
-		a.owner[i] = owner
+func (a *attacher) claimAll(owner int, ok func(int) bool) {
+	for i := range a.m.decls {
+		if a.isFree(i) && ok(i) {
+			a.owner[i] = owner
+		}
 	}
 }
 

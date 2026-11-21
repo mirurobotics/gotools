@@ -69,6 +69,21 @@ type Method string
 	)
 }
 
+func TestCheck_PlainTypeAboveItsConsts(t *testing.T) {
+	assertMessages(t, `package p
+
+type Kind int
+
+func Run() { _ = x }
+
+const x = Kind(1)
+
+func f(k Kind) {}
+`,
+		`type "Kind" should be directly above its first user "f"`,
+	)
+}
+
 func TestCheck_PlainTypeAboveBlockOverFirstUser(t *testing.T) {
 	assertMessages(t, `package p
 
@@ -159,12 +174,12 @@ func TestFix_PlainTypeCarriesItsConsts(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
-func TestFix_PlainTypeMovesAboveConstUser(t *testing.T) {
+func TestFix_PlainTypeCarriesConstUser(t *testing.T) {
 	src := []string{
 		"type Kind int\n", "func Run() { _ = x }\n", "const x = Kind(1)\n",
 		"func g() {}\n", "func f(k Kind) {}\n",
 	}
-	want := []string{src[1], src[0], src[2], src[3], src[4]}
+	want := []string{src[1], src[3], src[0], src[2], src[4]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }
@@ -189,9 +204,9 @@ func TestFix_PlainTypeLeavesUnrelatedConsts(t *testing.T) {
 		"package p\n\n"+strings.Join(want, "\n"))
 }
 
-func TestFix_PlainTypeAboveLeadingConstUser(t *testing.T) {
+func TestFix_PlainTypeCarriesConstAbove(t *testing.T) {
 	src := []string{"const C P = 0\n", "var a = 1\n", "func f(P) {}\n", "type P int\n"}
-	want := []string{src[3], src[0], src[1], src[2]}
+	want := []string{src[1], src[3], src[0], src[2]}
 	assertFix(t, "package p\n\n"+strings.Join(src, "\n"),
 		"package p\n\n"+strings.Join(want, "\n"))
 }

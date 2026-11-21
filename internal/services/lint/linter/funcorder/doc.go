@@ -11,7 +11,7 @@
 //     methods; Fix leaves behind blocks that would reorder initialized vars;
 //   - a type declared on its own without methods sits directly above its first
 //     user, a function, var or const block, with the const blocks right above
-//     it and those below it that use it, unless they are all that use it;
+//     it and, below it, the const blocks that use it unless only those do;
 //   - a type with methods that a free function above it, or a var block moving
 //     with one, uses sits directly below the call tree of the last such user.
 //

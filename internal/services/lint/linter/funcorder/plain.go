@@ -21,7 +21,7 @@ func (m *model) typeUsers(withMethods bool) map[int][]int {
 			continue
 		}
 		users := usersOf(spec, m.decls, !withMethods)
-		others := slices.DeleteFunc(slices.Clone(users), m.carriedConst(typeIdx))
+		others := slices.DeleteFunc(slices.Clone(users), m.isConst)
 		if len(others) > 0 {
 			users = others
 		}
@@ -32,16 +32,7 @@ func (m *model) typeUsers(withMethods bool) map[int][]int {
 	return byType
 }
 
-func (m *model) carriedConst(typeIdx int) func(int) bool {
-	spec := soloTypeSpec(m.decls[typeIdx])
-	isOther := func(decl ast.Decl) bool {
-		genDecl, ok := decl.(*ast.GenDecl)
-		return !ok || genDecl.Tok != token.CONST || !refersTo(decl, spec)
-	}
-	return func(i int) bool {
-		return i > typeIdx && !slices.ContainsFunc(m.decls[typeIdx+1:i+1], isOther)
-	}
-}
+func (m *model) isConst(i int) bool { return m.declTok(i) == token.CONST }
 
 func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
 	usage, head := uses[typeIdx], m.plainHead(typeIdx)
@@ -52,27 +43,17 @@ func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
 	if typeIdx > usePos {
 		return false
 	}
+	for k, i := range head {
+		if i != head[0]+k {
+			return false
+		}
+	}
 	for i := head[len(head)-1] + 1; i < usePos; i++ {
 		if owner, ok := m.plainOf(i); !ok || uses[owner].at != usage.at {
 			return false
 		}
 	}
 	return true
-}
-
-func (m *model) isNested(usage use) bool { return m.inPlain(usage.user) }
-
-func (m *model) inPlain(i int) bool {
-	_, ok := m.plainOf(i)
-	return ok
-}
-
-func (m *model) plainOf(i int) (int, bool) {
-	if ownerIdx, ok := m.typeOwner[i]; ok {
-		i = ownerIdx
-	}
-	_, ok := m.plain[i]
-	return i, ok
 }
 
 func (m *model) typeMessage(typeIdx int, usage use) string {
@@ -139,16 +120,6 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 	return placed
 }
 
-func (m *model) heads(types []int, nested map[int][]int) []int {
-	var out []int
-	for _, typeIdx := range types {
-		for _, i := range m.plainHead(typeIdx) {
-			out = append(append(out, m.heads(nested[i], nested)...), i)
-		}
-	}
-	return out
-}
-
 func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 	start := map[int]int{}
 	byPos := func(a, b int) int { return pos(a) - pos(b) }
@@ -182,10 +153,39 @@ func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
 	return uses
 }
 
+func (m *model) isNested(usage use) bool { return m.inPlain(usage.user) }
+
+func (m *model) inPlain(i int) bool {
+	_, ok := m.plainOf(i)
+	return ok
+}
+
+func (m *model) plainOf(i int) (int, bool) {
+	if ownerIdx, ok := m.typeOwner[i]; ok {
+		i = ownerIdx
+	}
+	_, ok := m.plain[i]
+	return i, ok
+}
+
+func (m *model) heads(types []int, nested map[int][]int) []int {
+	var out []int
+	for _, typeIdx := range types {
+		for _, i := range m.plainHead(typeIdx) {
+			out = append(append(out, m.heads(nested[i], nested)...), i)
+		}
+	}
+	return out
+}
+
 func (m *model) plainHead(typeIdx int) []int {
-	head := append([]int{typeIdx}, m.typeBlocks[typeIdx]...)
-	slices.Sort(head)
-	return head
+	spec := soloTypeSpec(m.decls[typeIdx])
+	usesType := func(i int) bool { return refersTo(m.decls[i], spec) }
+	above := slices.DeleteFunc(slices.Clone(m.typeBlocks[typeIdx]), usesType)
+	carried := slices.DeleteFunc(slices.Clone(m.typeBlocks[typeIdx]), func(i int) bool {
+		return !usesType(i)
+	})
+	return slices.Concat(above, []int{typeIdx}, carried)
 }
 
 func soloTypeSpec(decl ast.Decl) *ast.TypeSpec {
