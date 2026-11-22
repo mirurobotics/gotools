@@ -142,7 +142,7 @@ func TestCheck_TestHelperNotExempt(t *testing.T) {
 	})
 }
 
-func TestCheck_NolintFilelenAbovePackageClauseExemptsFile(t *testing.T) {
+func TestCheck_NolintFilelenAbovePkgClauseExemptsFile(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
 		src:      "//nolint:filelen // big table\npackage foo\n" + body(100),
@@ -153,7 +153,7 @@ func TestCheck_NolintFilelenAbovePackageClauseExemptsFile(t *testing.T) {
 	})
 }
 
-func TestCheck_MiruNolintFilelenOnPackageClauseExemptsFile(t *testing.T) {
+func TestCheck_MiruNolintFilelenOnPkgClauseExemptsFile(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
 		src:      "package foo //miru:nolint:filelen\n" + body(100),
@@ -186,7 +186,7 @@ func TestCheck_RuleNameAsAPrefixDoesNotExempt(t *testing.T) {
 	})
 }
 
-func TestCheck_NolintHigherInPackageDocCommentExemptsFile(t *testing.T) {
+func TestCheck_NolintHigherInPkgDocCommentExemptsFile(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
 		src: "//nolint:filelen // big table\n" +
@@ -198,7 +198,7 @@ func TestCheck_NolintHigherInPackageDocCommentExemptsFile(t *testing.T) {
 	})
 }
 
-func TestCheck_NolintTwoLinesAbovePackageClauseDoesNotExempt(t *testing.T) {
+func TestCheck_NolintTwoLinesAbovePkgClauseNotExempt(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
 		src:      "//nolint:filelen\n\npackage foo\n" + body(100),

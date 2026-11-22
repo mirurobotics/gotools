@@ -162,7 +162,7 @@ func TestCheck_NolintFunclenOnFuncLineExemptsFuncDecl(t *testing.T) {
 	})
 }
 
-func TestCheck_NolintFunclenInlineOnFuncLineExemptsFuncDecl(t *testing.T) {
+func TestCheck_InlineNolintFunclenExemptsFuncDecl(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
 		src: "package foo\n\n" +
@@ -174,7 +174,7 @@ func TestCheck_NolintFunclenInlineOnFuncLineExemptsFuncDecl(t *testing.T) {
 	})
 }
 
-func TestCheck_NolintFunclenOnFuncLiteralLineExemptsFuncLit(t *testing.T) {
+func TestCheck_NolintFunclenOnFuncLitLineExemptsFuncLit(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
 		src: "package foo\n\n" +

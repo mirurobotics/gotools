@@ -140,7 +140,7 @@ func TestCheck_StructTagWithGormExempt(t *testing.T) {
 	})
 }
 
-func TestCheck_ParameterlessFuncWithReceiverAndReturnType(t *testing.T) {
+func TestCheck_ParamlessFuncWithReceiverAndReturnType(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: "package foo\n\n" +
 			"func (c *ConfigInstanceList) " +

@@ -17,7 +17,7 @@ func f(a, b bool) bool {
 	})
 }
 
-func TestCheck_NolintAboveAMultiBreakChainCoversEveryBreak(t *testing.T) {
+func TestCheck_NolintAboveMultiBreakChainCoversAll(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
 
@@ -33,7 +33,7 @@ func f(g func() bool, a, b, c bool) bool {
 	})
 }
 
-func TestCheck_NolintInsideANestedFuncLiteralLeavesTheOuterBreak(t *testing.T) {
+func TestCheck_NolintInNestedFuncLitLeavesOuterBreak(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
 

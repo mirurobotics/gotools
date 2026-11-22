@@ -68,7 +68,7 @@ func TestRunDeadcode_ToolCrash_ErrorWrittenToErrW(t *testing.T) {
 	_ = out
 }
 
-func TestRunDeadcode_NonexistentPackage_ErrorWrittenToErrW(t *testing.T) {
+func TestRunDeadcode_NoSuchPackage_ErrorWrittenToErrW(t *testing.T) {
 	var out, errBuf bytes.Buffer
 	err := RunExternal(&out, &errBuf,
 		"go", "tool", "deadcode", "--bad-flag-that-does-not-exist")

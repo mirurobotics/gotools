@@ -100,7 +100,7 @@ func ExampleLower() {
 	})
 }
 
-func TestCheck_ProseInExampleAndOutputInNonExampleFlagged(t *testing.T) {
+func TestCheck_ExampleProseAndNonExampleOutputFlagged(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo_test.go",
 		src: `package foo
@@ -152,7 +152,7 @@ func Examplehelper() {
 	})
 }
 
-func TestCheck_DocCommentsAndDeclarationsWithoutBodyAllowed(t *testing.T) {
+func TestCheck_DocCommentsAndDeclsWithoutBodyAllowed(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
 		src: `package foo

@@ -20,7 +20,7 @@ func f() {
 `)
 }
 
-func TestCollapse_CheckerFixerAgreement_AlreadySingleLine(t *testing.T) {
+func TestCollapse_CheckerFixerAgreement_SingleLine(t *testing.T) {
 	assertCheckerFixerAgree(t, `package foo
 
 func f() {

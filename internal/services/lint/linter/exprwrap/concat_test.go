@@ -114,7 +114,7 @@ func f(b, c string) string {
 	})
 }
 
-func TestCheck_StringConcatWithParensAndNonLiteralOperands(t *testing.T) {
+func TestCheck_StringConcatWithParensAndNonLiterals(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
 
