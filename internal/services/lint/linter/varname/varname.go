@@ -23,7 +23,7 @@ func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diag
 		testing:  analysis.TestingPkgName(file),
 		diags:    nil,
 	}
-	ast.Inspect(file, chk.visit)
+	analysis.WalkDeclaredNames(file, chk.check)
 	return chk.diags
 }
 
@@ -35,74 +35,26 @@ type checker struct {
 	diags    []analysis.Diagnostic
 }
 
-func (c *checker) visit(node ast.Node) bool {
-	switch node := node.(type) {
-	case *ast.FuncDecl:
-		c.checkFuncType(node.Type)
-	case *ast.FuncLit:
-		c.checkFuncType(node.Type)
-	case *ast.GenDecl:
-		return node.Tok != token.CONST
-	case *ast.ValueSpec:
-		c.checkIdents(node.Names)
-	case *ast.AssignStmt:
-		if node.Tok == token.DEFINE {
-			c.checkDefined(node, node.Lhs...)
+func (c *checker) check(name analysis.DeclaredName) {
+	switch name.Kind {
+	case analysis.KindParam, analysis.KindResult:
+		if !c.isTestingParam(name.Type) {
+			c.checkIdent(name.Ident)
 		}
-	case *ast.RangeStmt:
-		if node.Tok == token.DEFINE {
-			c.checkRangeVars(node.Key, node.Value)
-		}
-	}
-	return true
-}
-
-func (c *checker) checkFuncType(funcType *ast.FuncType) {
-	c.checkFields(funcType.Params)
-	c.checkFields(funcType.Results)
-}
-
-func (c *checker) checkFields(fields *ast.FieldList) {
-	if fields == nil {
-		return
-	}
-	for _, field := range fields.List {
-		if !c.isTestingParam(field.Type) {
-			c.checkIdents(field.Names)
-		}
+	case analysis.KindLocalVar, analysis.KindPackageVar:
+		c.checkIdent(name.Ident)
+	case analysis.KindField, analysis.KindFunc, analysis.KindTestFunc,
+		analysis.KindMethod, analysis.KindIfaceMethod, analysis.KindConst,
+		analysis.KindType:
 	}
 }
 
 func (c *checker) isTestingParam(expr ast.Expr) bool {
-	if analysis.IsTestingType(expr, c.testing) {
+	if analysis.IsTestingType(expr, c.testing) || analysis.IsTestingIface(expr) {
 		return true
 	}
 	name, isPtr := analysis.TestingTypeName(expr, c.testing)
 	return isPtr && name == "PB"
-}
-
-func (c *checker) checkIdents(idents []*ast.Ident) {
-	for _, ident := range idents {
-		c.checkIdent(ident)
-	}
-}
-
-func (c *checker) checkDefined(stmt ast.Node, exprs ...ast.Expr) {
-	for _, expr := range exprs {
-		ident, ok := expr.(*ast.Ident)
-		if !ok || redeclared(ident, stmt) {
-			continue
-		}
-		c.checkIdent(ident)
-	}
-}
-
-func (c *checker) checkRangeVars(exprs ...ast.Expr) {
-	for _, expr := range exprs {
-		if ident, ok := expr.(*ast.Ident); ok {
-			c.checkIdent(ident)
-		}
-	}
 }
 
 func (c *checker) checkIdent(ident *ast.Ident) {
@@ -125,14 +77,10 @@ func (c *checker) checkIdent(ident *ast.Ident) {
 
 func (c *checker) allowed(name string) bool {
 	switch name {
-	case "_", "i", "a", "b", "ok", "id", "db", "wg", "mu":
+	case "_", "i", "a", "b", "in", "ok", "id", "db", "wg", "mu":
 		return true
 	case "tc":
 		return analysis.IsTestFile(c.filename)
 	}
 	return false
-}
-
-func redeclared(ident *ast.Ident, stmt ast.Node) bool {
-	return ident.Obj != nil && ident.Obj.Decl != stmt
 }

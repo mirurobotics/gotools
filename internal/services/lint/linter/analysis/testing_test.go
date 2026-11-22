@@ -73,6 +73,30 @@ func TestTestingTypeName(t *testing.T) {
 	}
 }
 
+func TestIsTestingIface(t *testing.T) {
+	tests := []struct {
+		expr string
+		want bool
+	}{
+		{"TestingI", true},
+		{"assert.TestingI", true},
+		{"*TestingI", false},
+		{"TestingI[int]", false},
+		{"pkg.TestingIface", false},
+		{"OtherI", false},
+		{"f().TestingI", false},
+	}
+	for _, tc := range tests {
+		parsed, err := parser.ParseExpr(tc.expr)
+		if err != nil {
+			t.Fatalf("parse %q: %v", tc.expr, err)
+		}
+		if got := IsTestingIface(parsed); got != tc.want {
+			t.Errorf("IsTestingIface(%q) = %v, want %v", tc.expr, got, tc.want)
+		}
+	}
+}
+
 func TestTestingPkgName_Imported(t *testing.T) {
 	file := parseTestFile(t, `package foo; import "testing"`)
 	if got := TestingPkgName(file); got != "testing" {

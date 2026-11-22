@@ -26,8 +26,8 @@ func TestCheck_ThreeCharNameAllowed(t *testing.T) {
 func TestCheck_ExemptNames(t *testing.T) {
 	src := `package foo
 
-func run(a, b int) bool {
-	for i := 0; i < a; i++ {
+func run(a, b, in int) bool {
+	for i := 0; i < a+in; i++ {
 	}
 	m := map[int]int{}
 	_, ok := m[b]
@@ -108,6 +108,29 @@ import tst "testing"
 func TestRun(t *tst.T) {}
 `
 	assertFlagged(t, "foo_test.go", src)
+}
+
+func TestCheck_TestingIfaceParamsSkipped(t *testing.T) {
+	src := `package foo
+
+import "github.com/mirurobotics/core/pkg/assert"
+
+type TestingI interface{ Helper() }
+
+func Equal(t TestingI, want, got any) {}
+func helper(t assert.TestingI) {
+	_ = func(tb assert.TestingI) {}
+}
+`
+	assertFlagged(t, "foo.go", src)
+}
+
+func TestCheck_TestingIfaceLookalikesFlagged(t *testing.T) {
+	src := `package foo
+
+func run(t *TestingI, x OtherI, y pkg.TestingIface, z TestingI[int]) {}
+`
+	assertFlagged(t, "foo.go", src, 3, 3, 3, 3)
 }
 
 func TestCheck_TestingLookalikesFlagged(t *testing.T) {
