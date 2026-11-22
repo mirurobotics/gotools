@@ -59,6 +59,9 @@ func nameLimit(kind analysis.NameKind) int {
 		return MaxLocalNameLen
 	case analysis.KindTestFunc:
 		return MaxTestNameLen
+	case analysis.KindPackageVar, analysis.KindField, analysis.KindFunc,
+		analysis.KindMethod, analysis.KindIfaceMethod, analysis.KindConst,
+		analysis.KindType:
 	}
 	return MaxNameLen
 }
