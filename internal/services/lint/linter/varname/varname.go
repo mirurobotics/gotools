@@ -43,6 +43,9 @@ func (c *checker) check(name analysis.DeclaredName) {
 		}
 	case analysis.KindLocalVar, analysis.KindPackageVar:
 		c.checkIdent(name.Ident)
+	case analysis.KindField, analysis.KindFunc, analysis.KindTestFunc,
+		analysis.KindMethod, analysis.KindIfaceMethod, analysis.KindConst,
+		analysis.KindType:
 	}
 }
 
