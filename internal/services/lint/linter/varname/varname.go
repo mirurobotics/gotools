@@ -74,7 +74,7 @@ func (c *checker) checkFields(fields *ast.FieldList) {
 }
 
 func (c *checker) isTestingParam(expr ast.Expr) bool {
-	if analysis.IsTestingType(expr, c.testing) {
+	if analysis.IsTestingType(expr, c.testing) || analysis.IsTestingIface(expr) {
 		return true
 	}
 	name, isPtr := analysis.TestingTypeName(expr, c.testing)
@@ -125,7 +125,7 @@ func (c *checker) checkIdent(ident *ast.Ident) {
 
 func (c *checker) allowed(name string) bool {
 	switch name {
-	case "_", "i", "a", "b", "ok", "id", "db", "wg", "mu":
+	case "_", "i", "a", "b", "in", "ok", "id", "db", "wg", "mu":
 		return true
 	case "tc":
 		return analysis.IsTestFile(c.filename)
