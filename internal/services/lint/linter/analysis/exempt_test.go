@@ -117,6 +117,33 @@ func TestIsExampleFunc(t *testing.T) {
 	}
 }
 
+func TestIsTestFunc(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want bool
+	}{
+		{"Test", "func TestFoo() {}", true},
+		{"Benchmark", "func BenchmarkFoo() {}", true},
+		{"Fuzz", "func FuzzFoo() {}", true},
+		{"Example", "func ExampleFoo() {}", true},
+		{"bare prefix", "func Test() {}", true},
+		{"underscore after prefix", "func Test_foo() {}", true},
+		{"digit after prefix", "func Test2() {}", true},
+		{"lowercase after Test", "func Testable() {}", false},
+		{"lowercase after Example", "func Examples() {}", false},
+		{"method", "func (T) TestFoo() {}", false},
+		{"other name", "func helper() {}", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := IsTestFunc(parseFunc(t, tc.src)); got != tc.want {
+				t.Errorf("IsTestFunc(%q) = %v, want %v", tc.src, got, tc.want)
+			}
+		})
+	}
+}
+
 func parseFunc(t *testing.T, src string) *ast.FuncDecl {
 	t.Helper()
 	file, err := parser.ParseFile(token.NewFileSet(), "x.go", "package x\n"+src, 0)

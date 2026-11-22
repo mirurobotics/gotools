@@ -125,6 +125,51 @@ func TestCheck_BenchmarkExempt(t *testing.T) {
 	})
 }
 
+func TestCheck_FuzzExempt(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: `package foo; import "testing"` +
+			`; func FuzzFoo(f *testing.F,` +
+			` a, c, d, e, g int) {}`,
+		maxParams: 5,
+		wantN:     0,
+		wantMsg:   "",
+	})
+}
+
+func TestCheck_ExampleExempt(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename:  "",
+		src:       `package foo; func ExampleFoo(a, b, c, d, e, g int) {}`,
+		maxParams: 5,
+		wantN:     0,
+		wantMsg:   "",
+	})
+}
+
+func TestCheck_TestPrefixedWordNotExempt(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename:  "",
+		src:       `package foo; func Testable(a, b, c, d, e, g int) {}`,
+		maxParams: 5,
+		wantN:     1,
+		wantMsg: "function Testable has 6 parameters" +
+			" (limit 5); consider an options struct",
+	})
+}
+
+func TestCheck_TestNamedMethodNotExempt(t *testing.T) {
+	runCheckCase(t, checkCase{
+		filename: "",
+		src: `package foo; type S struct{}` +
+			`; func (s S) TestFoo(a, b, c, d, e, g int) {}`,
+		maxParams: 5,
+		wantN:     1,
+		wantMsg: "function TestFoo has 6 parameters" +
+			" (limit 5); consider an options struct",
+	})
+}
+
 func TestCheck_UnnamedParameters(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "",
