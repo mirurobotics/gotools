@@ -33,9 +33,9 @@ const (
 	KindFunc                       // func without a receiver, other than KindTestFunc
 	KindTestFunc                   // go test Test, Benchmark, Fuzz or Example func
 	KindMethod                     // func with a receiver
-	KindIfaceMethod
-	KindConst
-	KindType
+	KindIfaceMethod                // interface method
+	KindConst                      // const at any scope
+	KindType                       // type at any scope
 )
 
 type nameWalker struct {
