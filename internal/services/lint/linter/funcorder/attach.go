@@ -58,19 +58,49 @@ func (a *attacher) claimHeads() {
 	}
 }
 
-func (a *attacher) claimTypeConsts() {
-	plain := slices.Sorted(maps.Keys(a.m.plain))
-	for _, typeIdx := range plain {
-		a.claimBelow(typeIdx, typeIdx, a.typeConst(typeIdx, true))
-	}
-	for _, typeIdx := range plain {
-		a.claimAbove(typeIdx, a.typeConst(typeIdx, false))
-	}
-}
-
 func (a *attacher) claimBelow(start, owner int, ok func(int) bool) {
 	for i := start + 1; i < len(a.m.decls) && a.isFree(i) && ok(i); i++ {
 		a.owner[i] = owner
+	}
+}
+
+func (a *attacher) claimTypeConsts() {
+	plain := slices.Sorted(maps.Keys(a.m.plain))
+	for _, typeIdx := range plain {
+		if !slices.ContainsFunc(a.m.plain[typeIdx], a.m.isConst) {
+			a.claimAll(typeIdx, a.ownConst(typeIdx))
+		}
+	}
+	for _, typeIdx := range plain {
+		a.claimAbove(typeIdx, -1, a.looseConst(typeIdx))
+	}
+}
+
+func (a *attacher) claimAll(owner int, ok func(int) bool) {
+	for i := range a.m.decls {
+		if a.isFree(i) && ok(i) {
+			a.owner[i] = owner
+		}
+	}
+}
+
+func (a *attacher) ownConst(typeIdx int) func(int) bool {
+	isConst := a.typeConst(typeIdx, true)
+	plain := slices.Collect(maps.Keys(a.m.plain))
+	return func(i int) bool {
+		usesOther := func(other int) bool {
+			spec := soloTypeSpec(a.m.decls[other])
+			return other != typeIdx && refersTo(a.m.decls[i], spec)
+		}
+		return isConst(i) && !slices.ContainsFunc(plain, usesOther)
+	}
+}
+
+func (a *attacher) looseConst(typeIdx int) func(int) bool {
+	isConst := a.typeConst(typeIdx, false)
+	return func(i int) bool {
+		isHeader := i < a.first && !a.isPlainUser(i)
+		return isConst(i) && !isHeader && !a.leadsTo(i, typeIdx, map[int]bool{})
 	}
 }
 
@@ -80,6 +110,37 @@ func (a *attacher) typeConst(typeIdx int, usesType bool) func(int) bool {
 		isConst := a.m.declTok(i) == token.CONST
 		return isConst && refersTo(a.m.decls[i], spec) == usesType
 	}
+}
+
+func (a *attacher) isPlainUser(i int) bool {
+	for _, users := range a.m.plain {
+		if slices.Contains(users, i) {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *attacher) leadsTo(i, typeIdx int, seen map[int]bool) bool {
+	for userType, users := range a.m.plain {
+		if seen[userType] || !slices.Contains(users, i) {
+			continue
+		}
+		seen[userType] = true
+		if userType == typeIdx || a.headLeadsTo(userType, typeIdx, seen) {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *attacher) headLeadsTo(owner, typeIdx int, seen map[int]bool) bool {
+	for i, got := range a.owner {
+		if got == owner && a.leadsTo(i, typeIdx, seen) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *attacher) releaseInitVars() {
@@ -98,7 +159,7 @@ func (a *attacher) release(typeIdx, owner int) {
 	released := false
 	for i := typeIdx + 1; owns(a.owner, owner, i); i++ {
 		released = released || a.m.initVars[i]
-		if released {
+		if released && !a.m.isConst(i) {
 			delete(a.owner, i)
 		}
 	}
@@ -112,13 +173,13 @@ func (a *attacher) claimLeads(settled bool) {
 	}
 	for _, fnc := range a.m.funcs() {
 		if fnc.recv == "" {
-			a.claimAbove(fnc.idx, leads)
+			a.claimAbove(fnc.idx, a.first, leads)
 		}
 	}
 }
 
-func (a *attacher) claimAbove(owner int, ok func(int) bool) {
-	for i := owner - 1; i > a.first && a.isFree(i) && ok(i); i-- {
+func (a *attacher) claimAbove(owner, floor int, ok func(int) bool) {
+	for i := owner - 1; i > floor && a.isFree(i) && ok(i); i-- {
 		a.owner[i] = owner
 	}
 }

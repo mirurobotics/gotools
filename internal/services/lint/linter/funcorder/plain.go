@@ -1,6 +1,7 @@
 package funcorder
 
 import (
+	"cmp"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -8,7 +9,7 @@ import (
 	"slices"
 )
 
-type use struct{ user, at int }
+type use struct{ user, at, depth int }
 
 func (m *model) typeUsers(withMethods bool) map[int][]int {
 	byType := map[int][]int{}
@@ -20,42 +21,50 @@ func (m *model) typeUsers(withMethods bool) map[int][]int {
 		if spec == nil || slices.ContainsFunc(m.fns, isMethod) != withMethods {
 			continue
 		}
-		if users := usersOf(spec, m.decls); len(users) > 0 {
+		users := usersOf(spec, m.decls, !withMethods)
+		others := slices.DeleteFunc(slices.Clone(users), m.isConst)
+		if len(others) > 0 {
+			users = others
+		}
+		if len(users) > 0 {
 			byType[typeIdx] = users
 		}
 	}
 	return byType
 }
 
-func (m *model) typePlaced(typeIdx int, uses map[int]use) bool {
-	usePos, head := uses[typeIdx].at, m.plainHead(typeIdx)
-	if typeIdx > usePos {
-		return false
+func (m *model) isConst(i int) bool { return m.declTok(i) == token.CONST }
+
+func (m *model) typeViolation(typeIdx int, uses map[int]use) string {
+	if !m.isNearUser(typeIdx, uses) {
+		return m.userMessage(typeIdx, uses[typeIdx])
 	}
-	for i := head[len(head)-1] + 1; i < usePos; i++ {
-		if owner, ok := m.plainOf(i); !ok || uses[owner].at != usePos {
+	if stray, ok := m.strayBlock(typeIdx); ok {
+		return m.strayMessage(typeIdx, stray)
+	}
+	return ""
+}
+
+func (m *model) isNearUser(typeIdx int, uses map[int]use) bool {
+	usage := uses[typeIdx]
+	isAbove := func(i int) bool {
+		owner, ok := m.plainOf(i)
+		return ok && uses[owner].at == usage.at && uses[owner].depth <= usage.depth
+	}
+	for i := typeIdx + 1; i < usage.at; i++ {
+		if !isAbove(i) {
 			return false
 		}
 	}
-	return true
+	return typeIdx <= usage.at
 }
 
-func (m *model) inPlain(i int) bool {
-	_, ok := m.plainOf(i)
-	return ok
-}
-
-func (m *model) plainOf(i int) (int, bool) {
-	if ownerIdx, ok := m.typeOwner[i]; ok {
-		i = ownerIdx
-	}
-	_, ok := m.plain[i]
-	return i, ok
-}
-
-func (m *model) typeMessage(typeIdx int, usage use) string {
+func (m *model) userMessage(typeIdx int, usage use) string {
 	name := soloTypeSpec(m.decls[typeIdx]).Name.Name
 	user := m.declName(usage.user)
+	if owner, ok := m.plainOf(usage.user); ok {
+		usage.at = m.plainHead(owner)[0]
+	}
 	if usage.at == usage.user {
 		const msg = "type %q should be directly above its first user %q"
 		return fmt.Sprintf(msg, name, user)
@@ -76,12 +85,36 @@ func (m *model) typeMessage(typeIdx int, usage use) string {
 	)
 }
 
+func (m *model) strayBlock(typeIdx int) (int, bool) {
+	head := m.plainHead(typeIdx)
+	typePos := slices.Index(head, typeIdx)
+	for offset, i := range head {
+		if i != typeIdx+offset-typePos {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func (m *model) strayMessage(typeIdx, stray int) string {
+	name, block := soloTypeSpec(m.decls[typeIdx]).Name.Name, m.declName(stray)
+	if stray < typeIdx {
+		const msg = "type %q should be directly above %q, which uses only it"
+		return fmt.Sprintf(msg, name, block)
+	}
+	const msg = "%q should be grouped directly below type %q"
+	return fmt.Sprintf(msg, block, name)
+}
+
 func (m *model) declName(i int) string {
 	if fnc := m.fns[i]; fnc != nil {
 		return fnc.name
 	}
 	var name string
 	ast.Inspect(m.decls[i], func(node ast.Node) bool {
+		if name != "" {
+			return false
+		}
 		switch node := node.(type) {
 		case *ast.TypeSpec:
 			name = node.Name.Name
@@ -99,8 +132,9 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 		pos[i] = outPos
 	}
 	uses := m.firstUses(units, func(i int) int { return pos[i] })
+	deepest := func(a, b int) int { return headKey(uses, a).compare(headKey(uses, b)) }
 	above := map[int][]int{}
-	for _, idx := range slices.Sorted(maps.Keys(uses)) {
+	for _, idx := range slices.SortedFunc(maps.Keys(uses), deepest) {
 		above[uses[idx].at] = append(above[uses[idx].at], m.plainHead(idx)...)
 	}
 	var placed []int
@@ -111,27 +145,64 @@ func (m *model) placeTypes(units [][]int, out []int) []int {
 }
 
 func (m *model) firstUses(units [][]int, pos func(int) int) map[int]use {
-	start := map[int]int{}
-	byPos := func(a, b int) int { return pos(a) - pos(b) }
-	for _, unit := range units {
-		outPos := pos(slices.MinFunc(unit, byPos))
-		for _, i := range unit {
-			start[i] = outPos
-		}
-	}
+	start := unitStarts(units, pos)
 	uses := map[int]use{}
-	byStart := func(a, b int) int { return start[a] - start[b] }
-	for typeIdx, users := range m.plain {
-		first := slices.MinFunc(users, byStart)
-		uses[typeIdx] = use{user: first, at: start[first]}
+	var useOf func(typeIdx int) use
+	useOf = func(typeIdx int) use {
+		if usage, ok := uses[typeIdx]; ok {
+			return usage
+		}
+		uses[typeIdx] = use{user: typeIdx, at: 0, depth: 0}
+		keyOf := func(i int) emitKey { return m.userKey(i, start, useOf) }
+		first := slices.MinFunc(m.plain[typeIdx], func(a, b int) int {
+			return keyOf(a).compare(keyOf(b))
+		})
+		usage := use{user: first, at: keyOf(first).at, depth: 0}
+		if owner, ok := m.plainOf(first); ok {
+			usage.depth = 1 + useOf(owner).depth
+		}
+		uses[typeIdx] = usage
+		return usage
+	}
+	for typeIdx := range m.plain {
+		useOf(typeIdx)
 	}
 	return uses
 }
 
+func (m *model) userKey(i int, start map[int]int, useOf func(int) use) emitKey {
+	owner, ok := m.plainOf(i)
+	if !ok {
+		return emitKey{at: start[i], unheaded: 1, depth: 0, owner: 0, slot: 0}
+	}
+	usage := useOf(owner)
+	slot := slices.Index(m.plainHead(owner), i)
+	return emitKey{
+		at: usage.at, unheaded: 0, depth: usage.depth, owner: owner, slot: slot,
+	}
+}
+
 func (m *model) plainHead(typeIdx int) []int {
-	head := append([]int{typeIdx}, m.typeBlocks[typeIdx]...)
-	slices.Sort(head)
-	return head
+	spec := soloTypeSpec(m.decls[typeIdx])
+	usesType := func(i int) bool { return refersTo(m.decls[i], spec) }
+	above := slices.DeleteFunc(slices.Clone(m.typeBlocks[typeIdx]), usesType)
+	carried := slices.DeleteFunc(slices.Clone(m.typeBlocks[typeIdx]), func(i int) bool {
+		return !usesType(i)
+	})
+	return slices.Concat(above, []int{typeIdx}, carried)
+}
+
+func (m *model) inPlain(i int) bool {
+	_, ok := m.plainOf(i)
+	return ok
+}
+
+func (m *model) plainOf(i int) (int, bool) {
+	if ownerIdx, ok := m.typeOwner[i]; ok {
+		i = ownerIdx
+	}
+	_, ok := m.plain[i]
+	return i, ok
 }
 
 func soloTypeSpec(decl ast.Decl) *ast.TypeSpec {
@@ -143,10 +214,11 @@ func soloTypeSpec(decl ast.Decl) *ast.TypeSpec {
 	return spec
 }
 
-func usersOf(spec *ast.TypeSpec, decls []ast.Decl) []int {
+func usersOf(spec *ast.TypeSpec, decls []ast.Decl, withConsts bool) []int {
 	var users []int
 	for i, decl := range decls {
-		if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok != token.VAR {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if ok && !isUserBlock(genDecl.Tok, withConsts) {
 			continue
 		}
 		if refersTo(decl, spec) {
@@ -156,6 +228,10 @@ func usersOf(spec *ast.TypeSpec, decls []ast.Decl) []int {
 	return users
 }
 
+func isUserBlock(tok token.Token, withConsts bool) bool {
+	return tok == token.VAR || withConsts && tok == token.CONST
+}
+
 func refersTo(node ast.Node, spec *ast.TypeSpec) bool {
 	found := false
 	refIdents(node, func(*ast.SelectorExpr) {}, func(id *ast.Ident) bool {
@@ -163,4 +239,31 @@ func refersTo(node ast.Node, spec *ast.TypeSpec) bool {
 		return !found
 	})
 	return found
+}
+
+func headKey(uses map[int]use, typeIdx int) emitKey {
+	return emitKey{
+		at: 0, unheaded: 0, depth: uses[typeIdx].depth, owner: typeIdx, slot: 0,
+	}
+}
+
+func unitStarts(units [][]int, pos func(int) int) map[int]int {
+	start := map[int]int{}
+	byPos := func(a, b int) int { return pos(a) - pos(b) }
+	for _, unit := range units {
+		outPos := pos(slices.MinFunc(unit, byPos))
+		for _, i := range unit {
+			start[i] = outPos
+		}
+	}
+	return start
+}
+
+type emitKey struct{ at, unheaded, depth, owner, slot int }
+
+func (r emitKey) compare(other emitKey) int {
+	return cmp.Or(
+		r.at-other.at, r.unheaded-other.unheaded, other.depth-r.depth,
+		r.owner-other.owner, r.slot-other.slot,
+	)
 }

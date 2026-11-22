@@ -10,8 +10,8 @@
 //     is followed by the const and var blocks directly below it, then its
 //     methods; Fix leaves behind blocks that would reorder initialized vars;
 //   - a type declared on its own without methods sits directly above its first
-//     user, a function or var block, with the const blocks right above it and
-//     those below it that use it;
+//     user, a function, var or const block, with the const blocks right above
+//     it and, below it, the const blocks that use only it, unless only they do;
 //   - a type with methods that a free function above it, or a var block moving
 //     with one, uses sits directly below the call tree of the last such user.
 //
