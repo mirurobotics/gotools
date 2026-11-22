@@ -94,6 +94,29 @@ func run() {
 	linttest.AssertLines(t, Check(fset, "foo.go", file), nil, "")
 }
 
+func TestCheck_NolintOtherRuleDoesNotExempt(t *testing.T) {
+	_, over := boundaryNames("local", MaxLocalNameLen)
+	src := fmt.Sprintf(`package foo
+
+func run() {
+	%s := 1 //nolint:funclen // wrong rule
+}
+`, over)
+	assertReported(t, src, 4, wantMsg(over, MaxLocalNameLen))
+}
+
+func TestCheck_NolintOnDifferentLineDoesNotExempt(t *testing.T) {
+	_, over := boundaryNames("local", MaxLocalNameLen)
+	src := fmt.Sprintf(`package foo
+
+func run() {
+	//nolint:namelen // only covers its own line
+	%s := 1
+}
+`, over)
+	assertReported(t, src, 5, wantMsg(over, MaxLocalNameLen))
+}
+
 func TestCheck_TestFuncInNonTestFile(t *testing.T) {
 	fits, over := boundaryNames("Test", MaxTestNameLen)
 	src := fmt.Sprintf("package foo\n\nfunc %s() {}\n\nfunc %s() {}\n", fits, over)
