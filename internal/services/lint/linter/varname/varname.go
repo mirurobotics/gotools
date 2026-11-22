@@ -12,10 +12,7 @@ import (
 // MinNameLen is the fewest characters a variable name may have.
 const MinNameLen = 3
 
-const (
-	ruleName         = "varname"
-	testingIfaceName = "TestingI"
-)
+const ruleName = "varname"
 
 // Check reports variables, parameters and named results with too-short names.
 func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diagnostic {
@@ -77,7 +74,7 @@ func (c *checker) checkFields(fields *ast.FieldList) {
 }
 
 func (c *checker) isTestingParam(expr ast.Expr) bool {
-	if analysis.IsTestingType(expr, c.testing) || isTestingIface(expr) {
+	if analysis.IsTestingType(expr, c.testing) || analysis.IsTestingIface(expr) {
 		return true
 	}
 	name, isPtr := analysis.TestingTypeName(expr, c.testing)
@@ -134,17 +131,6 @@ func (c *checker) allowed(name string) bool {
 		return analysis.IsTestFile(c.filename)
 	}
 	return false
-}
-
-func isTestingIface(expr ast.Expr) bool {
-	if sel, ok := expr.(*ast.SelectorExpr); ok {
-		if _, isPkg := sel.X.(*ast.Ident); !isPkg {
-			return false
-		}
-		expr = sel.Sel
-	}
-	ident, ok := expr.(*ast.Ident)
-	return ok && ident.Name == testingIfaceName
 }
 
 func redeclared(ident *ast.Ident, stmt ast.Node) bool {

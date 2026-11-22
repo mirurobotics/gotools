@@ -45,3 +45,16 @@ func TestingTypeName(expr ast.Expr, testingPkg string) (name string, isPtr bool)
 	}
 	return sel.Sel.Name, isPtr
 }
+
+// IsTestingIface reports whether expr is TestingI or pkg.TestingI, the
+// interface assert helpers take in place of *testing.T.
+func IsTestingIface(expr ast.Expr) bool {
+	if sel, ok := expr.(*ast.SelectorExpr); ok {
+		if _, isPkg := sel.X.(*ast.Ident); !isPkg {
+			return false
+		}
+		expr = sel.Sel
+	}
+	ident, ok := expr.(*ast.Ident)
+	return ok && ident.Name == "TestingI"
+}
