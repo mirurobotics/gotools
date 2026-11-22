@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/analysis"
 )
@@ -25,7 +24,7 @@ func Check(
 	var diags []analysis.Diagnostic
 	for _, decl := range file.Decls {
 		funcDecl, ok := decl.(*ast.FuncDecl)
-		if !ok || funcDecl.Type.Params == nil || isExemptFunc(funcDecl.Name.Name) {
+		if !ok || funcDecl.Type.Params == nil || isExemptFunc(funcDecl) {
 			continue
 		}
 
@@ -47,11 +46,9 @@ func Check(
 	return diags
 }
 
-func isExemptFunc(name string) bool {
-	if name == "main" || name == "init" {
-		return true
-	}
-	return strings.HasPrefix(name, "Test") || strings.HasPrefix(name, "Benchmark")
+func isExemptFunc(decl *ast.FuncDecl) bool {
+	name := decl.Name.Name
+	return name == "main" || name == "init" || analysis.IsTestFunc(decl)
 }
 
 func countParams(params *ast.FieldList, ctxPkg string) int {
