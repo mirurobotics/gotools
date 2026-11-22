@@ -25,17 +25,17 @@ func WalkDeclaredNames(file *ast.File, visit func(DeclaredName)) {
 type NameKind int
 
 const (
-	KindLocalVar   NameKind = iota // :=, var or range variable in a function
-	KindPackageVar                 // var outside any function
-	KindParam                      // param of a func declaration or literal
-	KindResult                     // named result of a func declaration or literal
-	KindField                      // struct field
-	KindFunc                       // func without a receiver, other than KindTestFunc
-	KindTestFunc                   // go test Test, Benchmark, Fuzz or Example func
-	KindMethod                     // func with a receiver
-	KindIfaceMethod                // interface method
-	KindConst                      // const at any scope
-	KindType                       // type at any scope
+	KindLocalVar    NameKind = iota // :=, var or range variable in a function
+	KindPackageVar                  // var outside any function
+	KindParam                       // param of a func declaration or literal
+	KindResult                      // named result of a func declaration or literal
+	KindField                       // struct field
+	KindFunc                        // func without a receiver, other than KindTestFunc
+	KindTestFunc                    // go test Test, Benchmark, Fuzz or Example func
+	KindMethod                      // func with a receiver
+	KindIfaceMethod                 // interface method
+	KindConst                       // const at any scope
+	KindType                        // type at any scope
 )
 
 type nameWalker struct {
