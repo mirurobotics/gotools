@@ -132,6 +132,8 @@ func TestIsTestFunc(t *testing.T) {
 		{"digit after prefix", "func Test2() {}", true},
 		{"lowercase after Test", "func Testable() {}", false},
 		{"lowercase after Example", "func Examples() {}", false},
+		{"lowercase after Benchmark", "func Benchmarks() {}", false},
+		{"lowercase after Fuzz", "func Fuzzy() {}", false},
 		{"method", "func (T) TestFoo() {}", false},
 		{"other name", "func helper() {}", false},
 	}
