@@ -50,7 +50,7 @@ func g() {
 	}
 }
 
-func TestCollapse_TrailingCloseParen_Simple_ExceedsLimit(t *testing.T) {
+func TestCollapse_TrailingCloseParen_Simple_OverLimit(t *testing.T) {
 	src := `package foo
 
 type S struct{ A int }

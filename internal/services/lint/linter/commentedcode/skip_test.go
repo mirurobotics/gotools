@@ -47,7 +47,7 @@ func F() {}
 	})
 }
 
-func TestCheck_TrailingCommentsExamplesDirectivesAndOutputSkipped(t *testing.T) {
+func TestCheck_TrailingExamplesDirectivesOutputSkipped(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo_test.go",
 		src: `package foo
@@ -70,7 +70,7 @@ func ExampleF() {
 	})
 }
 
-func TestCheck_BlockDocsWithIndentedExamplesAndCgoPreamblesSkipped(t *testing.T) {
+func TestCheck_BlockDocExamplesAndCgoPreamblesSkipped(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo_test.go",
 		src: `/*
@@ -114,7 +114,7 @@ func TestCheck_BlockUsageIndentedPastItsOpenerSkipped(t *testing.T) {
 	})
 }
 
-func TestCheck_BlockCommentAfterAByteOrderMarkKeepsItsIndent(t *testing.T) {
+func TestCheck_BlockCommentAfterBOMKeepsIndent(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename:  "foo_test.go",
 		src:       "\uFEFF/* Usage:\n\tfoo.Bar()\n*/\npackage foo\n",

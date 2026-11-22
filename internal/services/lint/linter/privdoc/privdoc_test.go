@@ -180,7 +180,7 @@ var (
 	})
 }
 
-func TestCheck_ProseMixedWithDirectivesFlaggedOnTheProseLine(t *testing.T) {
+func TestCheck_ProseAmidDirectivesFlaggedOnProseLine(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
 
@@ -237,7 +237,7 @@ var x = 1 //nolint:gochecknoglobals
 	})
 }
 
-func TestCheck_GroupedImportsAllowedParamsLeftToStraycomment(t *testing.T) {
+func TestCheck_GroupedImportsOKParamsLeftToStraycomment(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
 

@@ -166,7 +166,7 @@ func TestCheck_NonTestingFirstThenContextStillFlagged(t *testing.T) {
 	})
 }
 
-func TestCheck_PointerToLocalTypeFirstThenContextFlagged(t *testing.T) {
+func TestCheck_LocalTypePtrFirstThenContextFlagged(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo; import "context"` +
 			`; type myType struct{}` +
@@ -177,7 +177,7 @@ func TestCheck_PointerToLocalTypeFirstThenContextFlagged(t *testing.T) {
 	})
 }
 
-func TestCheck_TestingNonTBFMTypeFirstThenContextFlagged(t *testing.T) {
+func TestCheck_TestingNonTBFMFirstThenContextFlagged(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo; import "context"` +
 			`; import "testing"` +
@@ -188,7 +188,7 @@ func TestCheck_TestingNonTBFMTypeFirstThenContextFlagged(t *testing.T) {
 	})
 }
 
-func TestCheck_PointerToNonTestingPackageFirstThenContextFlagged(t *testing.T) {
+func TestCheck_NonTestingPkgPtrFirstThenContextFlagged(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo; import "context"` +
 			`; import "os"` +

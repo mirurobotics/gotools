@@ -26,7 +26,7 @@ func g() {
 	})
 }
 
-func TestCheck_TodoWithLinkOnSameOrContinuationLineAllowed(t *testing.T) {
+func TestCheck_TodoLinkOnSameOrContinuationLineAllowed(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
 
@@ -102,7 +102,7 @@ var w = 4
 	})
 }
 
-func TestCheck_StarPrefixedAndInnerBlockLinesFlaggedAtTheirOwnLine(t *testing.T) {
+func TestCheck_StarAndInnerBlockLinesFlaggedOnOwnLine(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
 
@@ -194,7 +194,7 @@ var l = 5
 	})
 }
 
-func TestCheck_ListMarkerTodosCheckedAndNolintSuppressesAGroup(t *testing.T) {
+func TestCheck_ListTodosCheckedNolintSuppressesGroup(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
 
@@ -216,7 +216,7 @@ var p = 4
 	})
 }
 
-func TestCheck_TodoWithNoSpaceAfterSlashesIsNotADirective(t *testing.T) {
+func TestCheck_TodoWithNoSpaceAfterSlashesNotADirective(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
 
@@ -227,7 +227,7 @@ var q = 1
 	})
 }
 
-func TestCheck_ProseStartingWithTODOPunctuationIsNotATodo(t *testing.T) {
+func TestCheck_ProseStartingWithTODOPunctIsNotATodo(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `package foo
 

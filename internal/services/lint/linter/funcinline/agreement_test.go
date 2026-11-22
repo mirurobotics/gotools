@@ -17,14 +17,14 @@ func f() int {
 `)
 }
 
-func TestFuncInline_CheckerFixerAgreement_AlreadySingleLine(t *testing.T) {
+func TestFuncInline_CheckerFixerAgreement_SingleLine(t *testing.T) {
 	assertCheckerFixerAgree(t, `package foo
 
 func f() int { return 42 }
 `)
 }
 
-func TestFuncInline_CheckerFixerAgreement_MultipleStatements(t *testing.T) {
+func TestFuncInline_CheckerFixerAgreement_MultiStmts(t *testing.T) {
 	assertCheckerFixerAgree(t, `package foo
 
 func f() int {

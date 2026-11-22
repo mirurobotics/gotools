@@ -55,7 +55,7 @@ func TestNewLintCommand_Help(t *testing.T) {
 	}
 }
 
-func TestSharedLinterFlags_ConsistentBetweenCheckAndLint(t *testing.T) {
+func TestSharedLinterFlags_ConsistentInCheckAndLint(t *testing.T) {
 	check, lint := NewCheckCommand().Flags(), NewLintCommand().Flags()
 	ints := linterIntDefaults()
 	shared := make([]string, 0, len(ints)+2)

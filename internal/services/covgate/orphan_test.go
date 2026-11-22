@@ -166,7 +166,7 @@ func orphanRunner(runTests func([]string) ([]byte, error)) (*runner, *[]string) 
 	return run, &listedPatterns
 }
 
-func TestFindOrphanTests_EmptySrcPrefixOrphansEverything(t *testing.T) {
+func TestFindOrphanTests_EmptySrcPrefixOrphansAll(t *testing.T) {
 	//nolint:exhaustruct // test uses partial initialization
 	run := &runner{
 		goListTestPackages: func(string) ([]string, error) {

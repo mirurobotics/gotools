@@ -94,7 +94,7 @@ import "C"
 	})
 }
 
-func TestCheck_HeaderDirectivesAndFunctionCommentsSkipped(t *testing.T) {
+func TestCheck_HeaderDirectivesAndFuncCommentsSkipped(t *testing.T) {
 	runCheckCase(t, checkCase{
 		src: `// Copyright 2026 Example.
 

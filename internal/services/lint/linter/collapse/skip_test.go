@@ -102,7 +102,7 @@ func f() {
 	assertFixResult(t, src, src)
 }
 
-func TestCollapse_EmptyCompositeLit_MultiLine_NoCollapse(t *testing.T) {
+func TestCollapse_EmptyCompLit_MultiLine_NoCollapse(t *testing.T) {
 	src := `package foo
 
 func f() {

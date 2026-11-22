@@ -187,7 +187,7 @@ func ExampleF() {
 	})
 }
 
-func TestCheck_OutputCommentOutsideAnExampleTestFileFlagged(t *testing.T) {
+func TestCheck_ExampleOutputInNonTestFileFlagged(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
 		src: `package foo
@@ -212,7 +212,7 @@ func TestCheck_FirstCommentAfterAByteOrderMarkChecked(t *testing.T) {
 	})
 }
 
-func TestCheck_NolintDirectiveNamingTheRuleSkipsTheGroup(t *testing.T) {
+func TestCheck_NolintDirectiveNamingRuleSkipsGroup(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo_test.go",
 		src: `package foo
@@ -254,7 +254,7 @@ func TestCheck_NonASCIIStringLiteralFlagged(t *testing.T) {
 	})
 }
 
-func TestCheck_DeclarationsWithValuesOrCompositeTypesFlagged(t *testing.T) {
+func TestCheck_DeclsWithValuesOrCompositeTypesFlagged(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo_test.go",
 		src: `package foo

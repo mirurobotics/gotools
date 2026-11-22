@@ -191,7 +191,7 @@ func CreateTemp(t *testing.T) string {
 	})
 }
 
-func TestCheck_NolintCommentOnDifferentLineDoesNotExempt(t *testing.T) {
+func TestCheck_NolintOnDifferentLineDoesNotExempt(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo_test.go",
 		src: `package foo

@@ -95,7 +95,7 @@ func f() context.Context {
 	})
 }
 
-func TestCheck_NolintCommentOnDifferentLineDoesNotExempt(t *testing.T) {
+func TestCheck_NolintOnDifferentLineDoesNotExempt(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
 		src: `package foo

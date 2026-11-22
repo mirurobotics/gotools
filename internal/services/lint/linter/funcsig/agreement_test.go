@@ -19,7 +19,7 @@ func Get(
 `)
 }
 
-func TestFuncsig_CheckerFixerAgreement_AlreadySingleLine(t *testing.T) {
+func TestFuncsig_CheckerFixerAgreement_SingleLine(t *testing.T) {
 	assertCheckerFixerAgree(t, `package foo
 
 func Get(key string) string {

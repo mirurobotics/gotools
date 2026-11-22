@@ -147,7 +147,7 @@ func TestCheck_IndexChangeStartsNewGroup(t *testing.T) {
 `)
 }
 
-func TestCheck_PackageAndGenericCallRootsHaveNoHelperHint(t *testing.T) {
+func TestCheck_PkgAndGenericCallRootsHaveNoHelperHint(t *testing.T) {
 	fset, file := linttest.Parse(t, "foo_test.go", header+`func TestX(t *testing.T) {
 	assert.Equal(t, 1, http.Load().A)
 	assert.Equal(t, 2, http.Load().B)

@@ -223,7 +223,7 @@ var _ = fmt.Sprint
 	})
 }
 
-func TestCheck_BlockDocAboveASingleCSpecWithItsOwnPreambleChecked(t *testing.T) {
+func TestCheck_BlockDocAboveCSpecWithOwnPreambleChecked(t *testing.T) {
 	runCheckCase(t, checkCase{
 		filename: "foo.go",
 		src: `package foo
