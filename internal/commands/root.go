@@ -50,9 +50,7 @@ func applyRepoConfig(cmd *cobra.Command, _ []string) error {
 	return applyFlagValues(cmd, cfg[commandPath(cmd)])
 }
 
-func validateSection(
-	root *cobra.Command, path string, values map[string]string,
-) error {
+func validateSection(root *cobra.Command, path string, values map[string]string) error {
 	target, rest, err := root.Find(strings.Fields(path))
 	if err != nil || target == root || len(rest) > 0 {
 		return fmt.Errorf("%s: unknown command %q", repoconfig.FileName, path)
@@ -65,10 +63,6 @@ func validateSection(
 		}
 	}
 	return nil
-}
-
-func commandPath(cmd *cobra.Command) string {
-	return strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()+" ")
 }
 
 func applyFlagValues(cmd *cobra.Command, values map[string]string) error {
@@ -84,4 +78,8 @@ func applyFlagValues(cmd *cobra.Command, values map[string]string) error {
 		}
 	}
 	return nil
+}
+
+func commandPath(cmd *cobra.Command) string {
+	return strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()+" ")
 }

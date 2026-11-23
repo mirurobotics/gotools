@@ -77,6 +77,7 @@ func TestNewRootCommand_Help(t *testing.T) {
 }
 
 func TestApplyRepoConfig(t *testing.T) {
+	//nolint:exhaustruct // test uses partial initialization
 	tests := []struct {
 		name    string
 		config  string

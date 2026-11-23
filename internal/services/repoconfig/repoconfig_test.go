@@ -8,6 +8,7 @@ import (
 )
 
 func TestLoad(t *testing.T) {
+	//nolint:exhaustruct // test uses partial initialization
 	tests := []struct {
 		name    string
 		setup   func(t *testing.T, dir string)
@@ -30,16 +31,8 @@ func TestLoad(t *testing.T) {
 				"deps update": {"paths": "./cmd"},
 			},
 		},
-		{
-			name:  "empty file",
-			setup: writeConfig(""),
-			want:  nil,
-		},
-		{
-			name:    "malformed yaml",
-			setup:   writeConfig("lint: [\n"),
-			wantErr: true,
-		},
+		{name: "empty file", setup: writeConfig(""), want: nil},
+		{name: "malformed yaml", setup: writeConfig("lint: [\n"), wantErr: true},
 		{
 			name:    "list value",
 			setup:   writeConfig("lint:\n  paths: [a, b]\n"),
