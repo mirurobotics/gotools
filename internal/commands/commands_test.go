@@ -127,6 +127,12 @@ func TestApplyRepoConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "empty command path",
+			config:  "\"\": {}\n",
+			args:    []string{"covgate"},
+			wantErr: true,
+		},
+		{
 			name:    "unknown flag in running section",
 			config:  "covgate:\n  nosuch: x\n",
 			args:    []string{"covgate"},
