@@ -1,0 +1,10 @@
+lint:
+  paths: internal
+  exclude: nofmt,bgctx,tempdir
+  goos: windows
+covgate: &covgate
+  packages: ./internal/...
+  src-prefix: internal
+covratchet: *covgate
+coverage:
+  src-prefix: internal

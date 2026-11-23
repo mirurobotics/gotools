@@ -13,7 +13,7 @@
     "memory": "16gb",
     "storage": "32gb"
   },
-  "postCreateCommand": "go mod download && ./scripts/install-lint-tools.sh",
+  "postCreateCommand": "go mod download",
   "customizations": {
     "vscode": {
       "extensions": [
