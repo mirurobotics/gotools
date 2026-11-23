@@ -13,36 +13,16 @@ permissions:
 jobs:
 
   lint:
-    timeout-minutes: 10
-    name: lint
-    runs-on: ubuntu-latest # standard GitHub-hosted runners are free in public repos
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Go
-        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
-        with:
-          go-version-file: ./go.mod
-
-      - name: Run Linters
-        run: LINT_FIX=0 ./scripts/lint.sh
+    # yamllint disable-line rule:line-length
+    uses: mirurobotics/workflows/.github/workflows/go-lint.yml@1e64700bcb129a0be241e095713c161a79b26a37
+    with:
+      miru: go run ./cmd/miru
 
   test:
-    timeout-minutes: 10
-    name: test
-    runs-on: ubuntu-latest # standard GitHub-hosted runners are free in public repos
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Go
-        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
-        with:
-          go-version-file: ./go.mod
-
-      - name: Run Tests
-        run: ./scripts/covgate.sh
+    # yamllint disable-line rule:line-length
+    uses: mirurobotics/workflows/.github/workflows/go-test.yml@1e64700bcb129a0be241e095713c161a79b26a37
+    with:
+      miru: go run ./cmd/miru
 
   surface-lint:
     # yamllint disable-line rule:line-length
