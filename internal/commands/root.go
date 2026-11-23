@@ -51,8 +51,8 @@ func applyRepoConfig(cmd *cobra.Command, _ []string) error {
 }
 
 func validateSection(root *cobra.Command, path string, values map[string]string) error {
-	target, rest, err := root.Find(strings.Fields(path))
-	if err != nil || target == root || len(rest) > 0 {
+	target, _, err := root.Find(strings.Fields(path))
+	if err != nil || target == root || commandPath(target) != path {
 		return fmt.Errorf("%s: unknown command %q", repoconfig.FileName, path)
 	}
 	for name := range values {

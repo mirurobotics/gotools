@@ -133,6 +133,12 @@ func TestApplyRepoConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "command path with extra spaces",
+			config:  "deps  update: {}\n",
+			args:    []string{"covgate"},
+			wantErr: true,
+		},
+		{
 			name:    "unknown flag in running section",
 			config:  "covgate:\n  nosuch: x\n",
 			args:    []string{"covgate"},
