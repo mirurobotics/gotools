@@ -20,8 +20,9 @@ func NewRootCommand() *cobra.Command {
 			" in the working directory: one section per command path " +
 			"(such as \"deps update\"), keyed by flag name. " +
 			"Flags passed on the command line win; --help shows built-in defaults.",
-		SilenceErrors: true,
-		SilenceUsage:  true,
+		SilenceErrors:     true,
+		SilenceUsage:      true,
+		PersistentPreRunE: applyRepoConfig,
 	}
 
 	cmd.AddCommand(NewLintCommand())
@@ -32,14 +33,14 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(NewTestCommand())
 	cmd.AddCommand(NewDepsCommand())
 	cmd.AddCommand(NewTagCommand())
-	for _, sub := range cmd.Commands() {
-		sub.PersistentPreRunE = applyRepoConfig
-	}
 
 	return cmd
 }
 
 func applyRepoConfig(cmd *cobra.Command, _ []string) error {
+	if isCobraBuiltin(cmd) {
+		return nil
+	}
 	cfg, err := repoconfig.Load(".")
 	if err != nil {
 		return err
@@ -50,6 +51,16 @@ func applyRepoConfig(cmd *cobra.Command, _ []string) error {
 		}
 	}
 	return applyFlagValues(cmd, cfg[commandPath(cmd)])
+}
+
+func isCobraBuiltin(cmd *cobra.Command) bool {
+	name, _, _ := strings.Cut(commandPath(cmd), " ")
+	switch name {
+	case "help", "completion",
+		cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+		return true
+	}
+	return false
 }
 
 func validateSection(root *cobra.Command, path string, values map[string]string) error {

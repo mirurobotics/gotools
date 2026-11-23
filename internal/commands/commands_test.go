@@ -208,20 +208,29 @@ func executeWithRepoConfig(
 	return target.Flags(), root.Execute()
 }
 
-func TestApplyRepoConfig_HelpIgnoresBrokenFile(t *testing.T) {
-	dir := testutil.MakePkgDirs(t)
-	path := filepath.Join(dir, repoconfig.FileName)
-	//nolint:gosec // G306: test file
-	if err := os.WriteFile(path, []byte("nosuch: {}\n"), 0o644); err != nil {
-		t.Fatal(err)
+func TestApplyRepoConfig_BuiltinsIgnoreBrokenFile(t *testing.T) {
+	builtins := [][]string{
+		{"help", "lint"},
+		{"completion", "bash"},
+		{"__complete", "lint", "--"},
 	}
-	root := NewRootCommand()
-	var buf bytes.Buffer
-	root.SetOut(&buf)
-	root.SetArgs([]string{"help", "lint"})
+	for _, args := range builtins {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			dir := testutil.MakePkgDirs(t)
+			path := filepath.Join(dir, repoconfig.FileName)
+			//nolint:gosec // G306: test file
+			if err := os.WriteFile(path, []byte("nosuch: {}\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			root := NewRootCommand()
+			var buf bytes.Buffer
+			root.SetOut(&buf)
+			root.SetArgs(args)
 
-	if err := root.Execute(); err != nil {
-		t.Fatalf("Execute() returned error: %v", err)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("Execute() returned error: %v", err)
+			}
+		})
 	}
 }
 
