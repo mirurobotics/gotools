@@ -19,10 +19,9 @@ func NewRootCommand() *cobra.Command {
 			"Flag defaults are read from " + repoconfig.FileName +
 			" in the working directory: one section per command path " +
 			"(such as \"deps update\"), keyed by flag name. " +
-			"Flags passed on the command line win.",
-		SilenceErrors:     true,
-		SilenceUsage:      true,
-		PersistentPreRunE: applyRepoConfig,
+			"Flags passed on the command line win; --help shows built-in defaults.",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	cmd.AddCommand(NewLintCommand())
@@ -33,6 +32,9 @@ func NewRootCommand() *cobra.Command {
 	cmd.AddCommand(NewTestCommand())
 	cmd.AddCommand(NewDepsCommand())
 	cmd.AddCommand(NewTagCommand())
+	for _, sub := range cmd.Commands() {
+		sub.PersistentPreRunE = applyRepoConfig
+	}
 
 	return cmd
 }

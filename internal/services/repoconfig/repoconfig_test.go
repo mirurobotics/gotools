@@ -31,7 +31,8 @@ func TestLoad(t *testing.T) {
 				"deps update": {"paths": "./cmd"},
 			},
 		},
-		{name: "empty file", setup: writeConfig(""), want: nil},
+		{name: "empty file", setup: writeConfig(""), want: Config{}},
+		{name: "null value", setup: writeConfig("lint:\n  paths:\n"), wantErr: true},
 		{name: "malformed yaml", setup: writeConfig("lint: [\n"), wantErr: true},
 		{
 			name:    "list value",
