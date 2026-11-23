@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/mirurobotics/gotools/internal/services/repoconfig"
 
@@ -16,8 +17,9 @@ func NewRootCommand() *cobra.Command {
 		Short: "Miru Go development tools",
 		Long: "A collection of Go development tools for Miru projects.\n\n" +
 			"Flag defaults are read from " + repoconfig.FileName +
-			" in the working directory: one section per command, " +
-			"keyed by flag name. Flags passed on the command line win.",
+			" in the working directory: one section per command path " +
+			"(such as \"deps update\"), keyed by flag name. " +
+			"Flags passed on the command line win.",
 		SilenceErrors:     true,
 		SilenceUsage:      true,
 		PersistentPreRunE: applyRepoConfig,
@@ -40,21 +42,33 @@ func applyRepoConfig(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	for name := range cfg {
-		if !hasSubcommand(cmd.Root(), name) {
-			return fmt.Errorf("%s: unknown command %q", repoconfig.FileName, name)
+	for path, values := range cfg {
+		if err := validateSection(cmd.Root(), path, values); err != nil {
+			return err
 		}
 	}
-	return applyFlagValues(cmd, cfg[cmd.Name()])
+	return applyFlagValues(cmd, cfg[commandPath(cmd)])
 }
 
-func hasSubcommand(root *cobra.Command, name string) bool {
-	for _, sub := range root.Commands() {
-		if sub.Name() == name {
-			return true
+func validateSection(
+	root *cobra.Command, path string, values map[string]string,
+) error {
+	target, rest, err := root.Find(strings.Fields(path))
+	if err != nil || target == root || len(rest) > 0 {
+		return fmt.Errorf("%s: unknown command %q", repoconfig.FileName, path)
+	}
+	for name := range values {
+		if target.Flags().Lookup(name) == nil {
+			return fmt.Errorf(
+				"%s: %s.%s: unknown flag", repoconfig.FileName, path, name,
+			)
 		}
 	}
-	return false
+	return nil
+}
+
+func commandPath(cmd *cobra.Command) string {
+	return strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()+" ")
 }
 
 func applyFlagValues(cmd *cobra.Command, values map[string]string) error {
@@ -65,7 +79,7 @@ func applyFlagValues(cmd *cobra.Command, values map[string]string) error {
 		}
 		if err := flags.Set(name, value); err != nil {
 			return fmt.Errorf(
-				"%s: %s.%s: %w", repoconfig.FileName, cmd.Name(), name, err,
+				"%s: %s.%s: %w", repoconfig.FileName, commandPath(cmd), name, err,
 			)
 		}
 	}
