@@ -2,7 +2,7 @@
 set -e
 
 usage() {
-	cat <<EOF
+    cat <<EOF
 Usage: $(basename "$0") [options]
 
 Install the surface linters required by scripts/lint-surface.sh:
@@ -20,17 +20,17 @@ EOF
 }
 
 while [ $# -gt 0 ]; do
-	case "$1" in
-		-h|--help)
-			usage
-			exit 0
-			;;
-		*)
-			echo "error: unknown option: $1" >&2
-			usage >&2
-			exit 1
-			;;
-	esac
+    case "$1" in
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "error: unknown option: $1" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
 done
 
 git_repo_root_dir=$(git rev-parse --show-toplevel)
@@ -39,22 +39,22 @@ cd "$git_repo_root_dir"
 # --- yamllint ---
 echo "==> Installing yamllint..."
 if [ -d ".venv" ]; then
-	.venv/bin/pip install --quiet yamllint
+    .venv/bin/pip install --quiet yamllint
 else
-	pip3 install --quiet yamllint
+    pip3 install --quiet yamllint
 fi
 echo "    done."
 
 # --- shellcheck ---
 echo "==> Installing shellcheck..."
 if command -v apt-get >/dev/null 2>&1; then
-	sudo apt-get install -y shellcheck
+    sudo apt-get install -y shellcheck
 elif command -v brew >/dev/null 2>&1; then
-	brew install shellcheck
+    brew install shellcheck
 else
-	echo "error: no supported package manager found (apt-get, brew)." >&2
-	echo "Install shellcheck manually: https://github.com/koalaman/shellcheck#installing" >&2
-	exit 1
+    echo "error: no supported package manager found (apt-get, brew)." >&2
+    echo "Install shellcheck manually: https://github.com/koalaman/shellcheck#installing" >&2
+    exit 1
 fi
 echo "    done."
 
