@@ -2,7 +2,16 @@ package commands
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/mirurobotics/gotools/internal/services/repoconfig"
+	"github.com/mirurobotics/gotools/internal/testutil"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func TestNewRootCommand_Metadata(t *testing.T) {
@@ -65,6 +74,163 @@ func TestNewRootCommand_Help(t *testing.T) {
 	}
 	if buf.Len() == 0 {
 		t.Error("help output is empty")
+	}
+}
+
+func TestApplyRepoConfig(t *testing.T) {
+	//nolint:exhaustruct // test uses partial initialization
+	tests := []struct {
+		name    string
+		config  string
+		args    []string
+		want    map[string]string
+		wantErr string
+	}{
+		{
+			name: "missing file keeps defaults",
+			args: []string{"covgate"},
+			want: map[string]string{"parallelism": "0", "packages": "./..."},
+		},
+		{
+			name:   "section sets flag defaults",
+			config: "covgate:\n  parallelism: 4\n  packages: ./cmd/...\n",
+			args:   []string{"covgate"},
+			want:   map[string]string{"parallelism": "4", "packages": "./cmd/..."},
+		},
+		{
+			name:   "command line wins",
+			config: "covgate:\n  parallelism: 4\n",
+			args:   []string{"covgate", "--parallelism", "2"},
+			want:   map[string]string{"parallelism": "2"},
+		},
+		{
+			name:   "other sections are not applied",
+			config: "lint:\n  paths: ./cmd\ncovratchet:\n  packages: ./cmd/...\n",
+			args:   []string{"covgate"},
+			want:   map[string]string{"packages": "./..."},
+		},
+		{
+			name:   "nested command section is known",
+			config: "deps update: {}\n",
+			args:   []string{"deps", "update"},
+			want:   map[string]string{},
+		},
+		{
+			name:    "unknown command",
+			config:  "nosuch:\n  paths: ./cmd\n",
+			args:    []string{"covgate"},
+			wantErr: `.miru.yml: unknown command "nosuch"`,
+		},
+		{
+			name:    "unknown subcommand",
+			config:  "deps nosuch: {}\n",
+			args:    []string{"covgate"},
+			wantErr: `.miru.yml: unknown command "deps nosuch"`,
+		},
+		{
+			name:    "empty command path",
+			config:  "\"\": {}\n",
+			args:    []string{"covgate"},
+			wantErr: `.miru.yml: unknown command ""`,
+		},
+		{
+			name:    "command path with extra spaces",
+			config:  "deps  update: {}\n",
+			args:    []string{"covgate"},
+			wantErr: `.miru.yml: unknown command "deps  update"`,
+		},
+		{
+			name:    "unknown flag in running section",
+			config:  "covgate:\n  nosuch: x\n",
+			args:    []string{"covgate"},
+			wantErr: ".miru.yml: covgate.nosuch: unknown flag",
+		},
+		{
+			name:    "unknown flag in other section",
+			config:  "lint:\n  nosuch: x\n",
+			args:    []string{"covgate"},
+			wantErr: ".miru.yml: lint.nosuch: unknown flag",
+		},
+		{
+			name:    "invalid value",
+			config:  "covgate:\n  parallelism: many\n",
+			args:    []string{"covgate"},
+			wantErr: ".miru.yml: covgate.parallelism: invalid argument",
+		},
+		{
+			name:    "malformed file",
+			config:  "covgate: [\n",
+			args:    []string{"covgate"},
+			wantErr: "parse .miru.yml",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			flags, err := executeWithRepoConfig(t, tc.config, tc.args)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("Execute() error = %v, want %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Execute() returned error: %v", err)
+			}
+			for name, want := range tc.want {
+				if got := flags.Lookup(name).Value.String(); got != want {
+					t.Errorf("flag %q = %q, want %q", name, got, want)
+				}
+			}
+		})
+	}
+}
+
+func executeWithRepoConfig(
+	t *testing.T, config string, args []string,
+) (*pflag.FlagSet, error) {
+	t.Helper()
+	dir := testutil.MakePkgDirs(t)
+	if config != "" {
+		path := filepath.Join(dir, repoconfig.FileName)
+		//nolint:gosec // G306: test file
+		if err := os.WriteFile(path, []byte(config), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	root := NewRootCommand()
+	target, _, err := root.Find(args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target.RunE = func(*cobra.Command, []string) error { return nil }
+	root.SetArgs(args)
+	return target.Flags(), root.Execute()
+}
+
+func TestApplyRepoConfig_BuiltinsIgnoreBrokenFile(t *testing.T) {
+	builtins := [][]string{
+		{"help", "lint"},
+		{"completion", "bash"},
+		{"__complete", "lint", "--"},
+	}
+	for _, args := range builtins {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			dir := testutil.MakePkgDirs(t)
+			path := filepath.Join(dir, repoconfig.FileName)
+			//nolint:gosec // G306: test file
+			if err := os.WriteFile(path, []byte("nosuch: {}\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			root := NewRootCommand()
+			var buf bytes.Buffer
+			root.SetOut(&buf)
+			root.SetArgs(args)
+
+			if err := root.Execute(); err != nil {
+				t.Fatalf("Execute() returned error: %v", err)
+			}
+		})
 	}
 }
 
