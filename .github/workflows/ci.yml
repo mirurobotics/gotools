@@ -14,13 +14,13 @@ jobs:
 
   lint:
     # yamllint disable-line rule:line-length
-    uses: mirurobotics/workflows/.github/workflows/go-lint.yml@1e64700bcb129a0be241e095713c161a79b26a37
+    uses: mirurobotics/workflows/.github/workflows/go-lint.yml@3626695c335a3468e55a98d5b8d90dc26522d411
     with:
       miru: go run ./cmd/miru
 
   test:
     # yamllint disable-line rule:line-length
-    uses: mirurobotics/workflows/.github/workflows/go-test.yml@1e64700bcb129a0be241e095713c161a79b26a37
+    uses: mirurobotics/workflows/.github/workflows/go-test.yml@3626695c335a3468e55a98d5b8d90dc26522d411
     with:
       miru: go run ./cmd/miru
 
