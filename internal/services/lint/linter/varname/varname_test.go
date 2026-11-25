@@ -150,6 +150,72 @@ func TestCheck_TestingTypeWithoutImportFlagged(t *testing.T) {
 	assertFlagged(t, "foo.go", "package foo\n\nfunc run(t *testing.T) {}\n", 3)
 }
 
+func TestCheck_ConventionalParamsSkipped(t *testing.T) {
+	src := `package foo
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+func handle(c *gin.Context) {}
+func save(tx *gorm.DB) (err error) {
+	return nil
+}
+func serve(w http.ResponseWriter, r *http.Request) {
+	_ = func(tx *gorm.DB) error { return nil }
+}
+`
+	assertFlagged(t, "foo.go", src)
+}
+
+func TestCheck_AliasedConventionalImport(t *testing.T) {
+	src := `package foo
+
+import web "github.com/gin-gonic/gin"
+
+func handle(c *web.Context) {}
+`
+	assertFlagged(t, "foo.go", src)
+}
+
+func TestCheck_ConventionalLookalikesFlagged(t *testing.T) {
+	src := `package foo
+
+import (
+	"net/http"
+	"other"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+func run(c gin.Context, tx gorm.DB, w *http.ResponseWriter, r http.Request) {}
+func swap(c *http.Request, r *gin.Context, w *gorm.DB, tx *other.DB) {}
+`
+	assertFlagged(t, "foo.go", src, 11, 11, 11, 11, 12, 12, 12, 12)
+}
+
+func TestCheck_ConventionalTypeWithoutImportFlagged(t *testing.T) {
+	assertFlagged(t, "foo.go", "package foo\n\nfunc run(c *gin.Context) {}\n", 3)
+}
+
+func TestCheck_ConventionalLocalsFlagged(t *testing.T) {
+	src := `package foo
+
+import "gorm.io/gorm"
+
+func run(db *gorm.DB) {
+	tx := db.Begin()
+	var c *gorm.DB
+	_, _ = tx, c
+}
+`
+	assertFlagged(t, "foo.go", src, 6, 7)
+}
+
 func TestCheck_Vars(t *testing.T) {
 	src := `package foo
 

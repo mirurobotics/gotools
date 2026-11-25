@@ -38,7 +38,7 @@ type checker struct {
 func (c *checker) check(name analysis.DeclaredName) {
 	switch name.Kind {
 	case analysis.KindParam, analysis.KindResult:
-		if !c.isTestingParam(name.Type) {
+		if !c.isTestingParam(name.Type) && !c.hasConventionalName(name) {
 			c.checkIdent(name.Ident)
 		}
 	case analysis.KindLocalVar, analysis.KindPackageVar:
@@ -55,6 +55,28 @@ func (c *checker) isTestingParam(expr ast.Expr) bool {
 	}
 	name, isPtr := analysis.QualifiedTypeName(expr, c.testing)
 	return isPtr && name == "PB"
+}
+
+func (c *checker) hasConventionalName(name analysis.DeclaredName) bool {
+	switch name.Ident.Name {
+	case "c":
+		return c.isQualifiedType(name.Type, "github.com/gin-gonic/gin", "Context", true)
+	case "tx":
+		return c.isQualifiedType(name.Type, "gorm.io/gorm", "DB", true)
+	case "w":
+		return c.isQualifiedType(name.Type, "net/http", "ResponseWriter", false)
+	case "r":
+		return c.isQualifiedType(name.Type, "net/http", "Request", true)
+	}
+	return false
+}
+
+func (c *checker) isQualifiedType(
+	expr ast.Expr, pkgPath, typeName string, wantPtr bool,
+) bool {
+	pkg := analysis.PkgImportName(c.file, pkgPath)
+	name, isPtr := analysis.QualifiedTypeName(expr, pkg)
+	return name == typeName && isPtr == wantPtr
 }
 
 func (c *checker) checkIdent(ident *ast.Ident) {
