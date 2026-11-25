@@ -173,9 +173,14 @@ func serve(w http.ResponseWriter, r *http.Request) {
 func TestCheck_AliasedConventionalImport(t *testing.T) {
 	src := `package foo
 
-import web "github.com/gin-gonic/gin"
+import (
+	h "net/http"
+
+	web "github.com/gin-gonic/gin"
+)
 
 func handle(c *web.Context) {}
+func serve(w h.ResponseWriter, r *h.Request) {}
 `
 	assertFlagged(t, "foo.go", src)
 }
@@ -198,7 +203,8 @@ func wrap(c *other.Context) {}
 }
 
 func TestCheck_ConventionalTypeWithoutImportFlagged(t *testing.T) {
-	assertFlagged(t, "foo.go", "package foo\n\nfunc run(c *gin.Context) {}\n", 3)
+	src := "package foo\n\nfunc run(c *gin.Context, r *http.Request) {}\n"
+	assertFlagged(t, "foo.go", src, 3, 3)
 }
 
 func TestCheck_ConventionalLocalsFlagged(t *testing.T) {
