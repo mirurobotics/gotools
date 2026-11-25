@@ -21,6 +21,8 @@ func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diag
 		filename: filename,
 		file:     file,
 		testing:  analysis.TestingPkgName(file),
+		gin:      analysis.PkgImportName(file, "github.com/gin-gonic/gin"),
+		http:     analysis.PkgImportName(file, "net/http"),
 		diags:    nil,
 	}
 	analysis.WalkDeclaredNames(file, chk.check)
@@ -32,13 +34,15 @@ type checker struct {
 	filename string
 	file     *ast.File
 	testing  string
+	gin      string
+	http     string
 	diags    []analysis.Diagnostic
 }
 
 func (c *checker) check(name analysis.DeclaredName) {
 	switch name.Kind {
 	case analysis.KindParam, analysis.KindResult:
-		if !c.isTestingParam(name.Type) {
+		if !c.isTestingParam(name.Type) && !c.hasConventionalName(name) {
 			c.checkIdent(name.Ident)
 		}
 	case analysis.KindLocalVar, analysis.KindPackageVar:
@@ -53,8 +57,23 @@ func (c *checker) isTestingParam(expr ast.Expr) bool {
 	if analysis.IsTestingType(expr, c.testing) || analysis.IsTestingIface(expr) {
 		return true
 	}
-	name, isPtr := analysis.TestingTypeName(expr, c.testing)
+	name, isPtr := analysis.QualifiedTypeName(expr, c.testing)
 	return isPtr && name == "PB"
+}
+
+func (c *checker) hasConventionalName(name analysis.DeclaredName) bool {
+	switch name.Ident.Name {
+	case "c":
+		typeName, isPtr := analysis.QualifiedTypeName(name.Type, c.gin)
+		return isPtr && typeName == "Context"
+	case "w":
+		typeName, isPtr := analysis.QualifiedTypeName(name.Type, c.http)
+		return !isPtr && typeName == "ResponseWriter"
+	case "r":
+		typeName, isPtr := analysis.QualifiedTypeName(name.Type, c.http)
+		return isPtr && typeName == "Request"
+	}
+	return false
 }
 
 func (c *checker) checkIdent(ident *ast.Ident) {
@@ -77,7 +96,7 @@ func (c *checker) checkIdent(ident *ast.Ident) {
 
 func (c *checker) allowed(name string) bool {
 	switch name {
-	case "_", "i", "a", "b", "in", "ok", "id", "db", "wg", "mu":
+	case "_", "i", "a", "b", "in", "ok", "id", "db", "tx", "wg", "mu":
 		return true
 	case "tc":
 		return analysis.IsTestFile(c.filename)

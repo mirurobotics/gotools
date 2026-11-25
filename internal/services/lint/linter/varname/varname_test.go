@@ -32,9 +32,9 @@ func run(a, b, in int) bool {
 	m := map[int]int{}
 	_, ok := m[b]
 	var _ = ok
-	id, db := 1, 2
+	id, db, tx := 1, 2, 3
 	var wg, mu int
-	_, _, _, _ = id, db, wg, mu
+	_, _, _, _, _ = id, db, tx, wg, mu
 	return ok
 }
 `
@@ -148,6 +148,81 @@ func run(t testing.T, tb *testing.TB, x *other.T, y testing.Cover, z *[]int) {}
 
 func TestCheck_TestingTypeWithoutImportFlagged(t *testing.T) {
 	assertFlagged(t, "foo.go", "package foo\n\nfunc run(t *testing.T) {}\n", 3)
+}
+
+func TestCheck_ConventionalParamsSkipped(t *testing.T) {
+	src := `package foo
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+func handle(c *gin.Context) {}
+func newRequest() (r *http.Request) {
+	return nil
+}
+func serve(w http.ResponseWriter, r *http.Request) {
+	_ = func(c *gin.Context) {}
+}
+`
+	assertFlagged(t, "foo.go", src)
+}
+
+func TestCheck_AliasedConventionalImport(t *testing.T) {
+	src := `package foo
+
+import (
+	h "net/http"
+
+	web "github.com/gin-gonic/gin"
+)
+
+func handle(c *web.Context) {}
+func serve(w h.ResponseWriter, r *h.Request) {}
+`
+	assertFlagged(t, "foo.go", src)
+}
+
+func TestCheck_ConventionalLookalikesFlagged(t *testing.T) {
+	src := `package foo
+
+import (
+	"net/http"
+	"other"
+
+	"github.com/gin-gonic/gin"
+)
+
+func run(c gin.Context, w *http.ResponseWriter, r http.Request) {}
+func swap(c *http.Request, r *gin.Context, w *gin.Context) {}
+func wrap(c *other.Context) {}
+`
+	assertFlagged(t, "foo.go", src, 10, 10, 10, 11, 11, 11, 12)
+}
+
+func TestCheck_ConventionalTypeWithoutImportFlagged(t *testing.T) {
+	src := "package foo\n\nfunc run(c *gin.Context, r *http.Request) {}\n"
+	assertFlagged(t, "foo.go", src, 3, 3)
+}
+
+func TestCheck_ConventionalLocalsFlagged(t *testing.T) {
+	src := `package foo
+
+import "github.com/gin-gonic/gin"
+
+func run(ctx *gin.Context) {
+	c := ctx.Copy()
+	_ = c
+}
+
+func load() {
+	var c *gin.Context
+	_ = c
+}
+`
+	assertFlagged(t, "foo.go", src, 6, 11)
 }
 
 func TestCheck_Vars(t *testing.T) {
