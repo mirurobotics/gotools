@@ -11,12 +11,7 @@ func HasPackageNolint(fset *token.FileSet, file *ast.File, rule string) bool {
 		return true
 	}
 	line := fset.Position(file.Package).Line
-	for _, group := range file.Comments {
-		if fset.Position(group.Pos()).Line == line && HasNolint(group, rule) {
-			return true
-		}
-	}
-	return false
+	return NolintOnLines(fset, file, rule, line, line)
 }
 
 // HasNolint reports whether any comment in group is a nolint directive naming rule.
