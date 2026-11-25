@@ -164,6 +164,9 @@ func handle(c *gin.Context) {}
 func save(tx *gorm.DB) (err error) {
 	return nil
 }
+func open() (tx *gorm.DB) {
+	return nil
+}
 func serve(w http.ResponseWriter, r *http.Request) {
 	_ = func(tx *gorm.DB) error { return nil }
 }
