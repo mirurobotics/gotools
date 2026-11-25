@@ -39,7 +39,7 @@ func Check(
 }
 
 func sourceDir(testFileDir, srcPrefix, testDir string) string {
-	if testDir == "" {
+	if testDir == "" || srcPrefix == "" {
 		return testFileDir
 	}
 	root := filepath.ToSlash(filepath.Clean(testDir)) + "/"
