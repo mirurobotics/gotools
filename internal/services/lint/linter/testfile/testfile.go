@@ -22,8 +22,7 @@ func Check(
 	if !isTest {
 		return nil
 	}
-	line := fset.Position(file.Package).Line
-	if hasNolint(fset, file, line) {
+	if analysis.HasPackageNolint(fset, file, ruleName) {
 		return nil
 	}
 	srcDir := sourceDir(filepath.Dir(filename), srcPrefix, testDir)
@@ -35,15 +34,8 @@ func Check(
 	if err != nil {
 		message = fmt.Sprintf("source package %s for %s is missing", srcDir, name)
 	}
+	line := fset.Position(file.Package).Line
 	return []analysis.Diagnostic{{File: filename, Line: line, Message: message}}
-}
-
-func hasNolint(fset *token.FileSet, file *ast.File, line int) bool {
-	from := line
-	if file.Doc != nil {
-		from = fset.Position(file.Doc.Pos()).Line
-	}
-	return analysis.NolintOnLines(fset, file, ruleName, from, line)
 }
 
 func sourceDir(testFileDir, srcPrefix, testDir string) string {

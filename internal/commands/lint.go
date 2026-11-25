@@ -89,7 +89,7 @@ func bindLinterConfigFlags(flagSet *pflag.FlagSet, flags *lint.LinterFlags) {
 		"maximum param count excluding context.Context",
 	)
 	bindDocFlags(flagSet, flags)
-	bindTestFileFlags(flagSet, flags)
+	bindLayoutFlags(flagSet, &flags.SrcPrefix, &flags.TestDir)
 	bindRuleFlags(flagSet, flags)
 }
 
@@ -101,17 +101,6 @@ func bindDocFlags(flagSet *pflag.FlagSet, flags *lint.LinterFlags) {
 	flagSet.IntVar(
 		&flags.MaxDocFileLines, "max-doc-file-lines", 20,
 		"maximum lines in the package doc comment of a doc.go file",
-	)
-}
-
-func bindTestFileFlags(flagSet *pflag.FlagSet, flags *lint.LinterFlags) {
-	flagSet.StringVar(
-		&flags.SrcPrefix, "src-prefix", "pkg",
-		"source prefix for mapping external test dirs",
-	)
-	flagSet.StringVar(
-		&flags.TestDir, "test-dir", "",
-		"external test directory (empty = none)",
 	)
 }
 
