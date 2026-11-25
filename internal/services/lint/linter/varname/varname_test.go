@@ -209,11 +209,15 @@ import "gorm.io/gorm"
 
 func run(db *gorm.DB) {
 	tx := db.Begin()
-	var c *gorm.DB
-	_, _ = tx, c
+	_ = tx
+}
+
+func load() {
+	var tx *gorm.DB
+	_ = tx
 }
 `
-	assertFlagged(t, "foo.go", src, 6, 7)
+	assertFlagged(t, "foo.go", src, 6, 11)
 }
 
 func TestCheck_Vars(t *testing.T) {
