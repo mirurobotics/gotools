@@ -20,3 +20,23 @@ func BaseIdent(expr ast.Expr) *ast.Ident {
 	}
 	return nil
 }
+
+// QualifiedTypeName returns X for pkg.X or *pkg.X, or "" for other types.
+func QualifiedTypeName(expr ast.Expr, pkg string) (name string, isPtr bool) {
+	if pkg == "" {
+		return "", false
+	}
+	star, isPtr := expr.(*ast.StarExpr)
+	if isPtr {
+		expr = star.X
+	}
+	sel, ok := expr.(*ast.SelectorExpr)
+	if !ok {
+		return "", false
+	}
+	pkgIdent, ok := sel.X.(*ast.Ident)
+	if !ok || pkgIdent.Name != pkg {
+		return "", false
+	}
+	return sel.Sel.Name, isPtr
+}

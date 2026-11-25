@@ -62,17 +62,6 @@ func TestIsTestingHandle(t *testing.T) {
 	}
 }
 
-func TestTestingTypeName(t *testing.T) {
-	parsed, err := parser.ParseExpr("*testing.PB")
-	if err != nil {
-		t.Fatal(err)
-	}
-	name, isPtr := TestingTypeName(parsed, "testing")
-	if name != "PB" || !isPtr {
-		t.Errorf("TestingTypeName = (%q, %v), want (\"PB\", true)", name, isPtr)
-	}
-}
-
 func TestIsTestingIface(t *testing.T) {
 	tests := []struct {
 		expr string

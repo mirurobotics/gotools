@@ -34,3 +34,14 @@ func TestBaseIdent(t *testing.T) {
 		}
 	}
 }
+
+func TestQualifiedTypeName(t *testing.T) {
+	parsed, err := parser.ParseExpr("*testing.PB")
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, isPtr := QualifiedTypeName(parsed, "testing")
+	if name != "PB" || !isPtr {
+		t.Errorf("QualifiedTypeName = (%q, %v), want (\"PB\", true)", name, isPtr)
+	}
+}

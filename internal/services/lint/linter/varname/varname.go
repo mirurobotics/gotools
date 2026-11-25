@@ -53,7 +53,7 @@ func (c *checker) isTestingParam(expr ast.Expr) bool {
 	if analysis.IsTestingType(expr, c.testing) || analysis.IsTestingIface(expr) {
 		return true
 	}
-	name, isPtr := analysis.TestingTypeName(expr, c.testing)
+	name, isPtr := analysis.QualifiedTypeName(expr, c.testing)
 	return isPtr && name == "PB"
 }
 
