@@ -21,6 +21,8 @@ func Check(fset *token.FileSet, filename string, file *ast.File) []analysis.Diag
 		filename: filename,
 		file:     file,
 		testing:  analysis.TestingPkgName(file),
+		gin:      analysis.PkgImportName(file, "github.com/gin-gonic/gin"),
+		http:     analysis.PkgImportName(file, "net/http"),
 		diags:    nil,
 	}
 	analysis.WalkDeclaredNames(file, chk.check)
@@ -32,6 +34,8 @@ type checker struct {
 	filename string
 	file     *ast.File
 	testing  string
+	gin      string
+	http     string
 	diags    []analysis.Diagnostic
 }
 
@@ -60,21 +64,16 @@ func (c *checker) isTestingParam(expr ast.Expr) bool {
 func (c *checker) hasConventionalName(name analysis.DeclaredName) bool {
 	switch name.Ident.Name {
 	case "c":
-		return c.isQualifiedType(name.Type, "github.com/gin-gonic/gin", "Context", true)
+		typeName, isPtr := analysis.QualifiedTypeName(name.Type, c.gin)
+		return isPtr && typeName == "Context"
 	case "w":
-		return c.isQualifiedType(name.Type, "net/http", "ResponseWriter", false)
+		typeName, isPtr := analysis.QualifiedTypeName(name.Type, c.http)
+		return !isPtr && typeName == "ResponseWriter"
 	case "r":
-		return c.isQualifiedType(name.Type, "net/http", "Request", true)
+		typeName, isPtr := analysis.QualifiedTypeName(name.Type, c.http)
+		return isPtr && typeName == "Request"
 	}
 	return false
-}
-
-func (c *checker) isQualifiedType(
-	expr ast.Expr, pkgPath, typeName string, wantPtr bool,
-) bool {
-	pkg := analysis.PkgImportName(c.file, pkgPath)
-	name, isPtr := analysis.QualifiedTypeName(expr, pkg)
-	return name == typeName && isPtr == wantPtr
 }
 
 func (c *checker) checkIdent(ident *ast.Ident) {
