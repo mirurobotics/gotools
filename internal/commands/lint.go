@@ -89,11 +89,8 @@ func bindLinterConfigFlags(flagSet *pflag.FlagSet, flags *lint.LinterFlags) {
 		"maximum param count excluding context.Context",
 	)
 	bindDocFlags(flagSet, flags)
-	flagSet.StringVar(
-		&flags.Exclude, "exclude", "",
-		"comma-separated rules to exclude (empty=run all)",
-	)
-	flagSet.StringVar(&flags.Rule, "rule", "", "only run a specific rule")
+	bindTestFileFlags(flagSet, flags)
+	bindRuleFlags(flagSet, flags)
 }
 
 func bindDocFlags(flagSet *pflag.FlagSet, flags *lint.LinterFlags) {
@@ -105,4 +102,23 @@ func bindDocFlags(flagSet *pflag.FlagSet, flags *lint.LinterFlags) {
 		&flags.MaxDocFileLines, "max-doc-file-lines", 20,
 		"maximum lines in the package doc comment of a doc.go file",
 	)
+}
+
+func bindTestFileFlags(flagSet *pflag.FlagSet, flags *lint.LinterFlags) {
+	flagSet.StringVar(
+		&flags.SrcPrefix, "src-prefix", "pkg",
+		"source prefix for mapping external test dirs",
+	)
+	flagSet.StringVar(
+		&flags.TestDir, "test-dir", "",
+		"external test directory (empty = none)",
+	)
+}
+
+func bindRuleFlags(flagSet *pflag.FlagSet, flags *lint.LinterFlags) {
+	flagSet.StringVar(
+		&flags.Exclude, "exclude", "",
+		"comma-separated rules to exclude (empty=run all)",
+	)
+	flagSet.StringVar(&flags.Rule, "rule", "", "only run a specific rule")
 }

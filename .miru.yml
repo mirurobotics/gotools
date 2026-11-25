@@ -1,6 +1,6 @@
 lint:
   paths: internal
-  exclude: nofmt,bgctx,tempdir
+  exclude: nofmt,bgctx,tempdir,testfile
   goos: windows
 covgate: &covgate
   packages: ./internal/...

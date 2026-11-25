@@ -34,6 +34,7 @@ import (
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/rcvrname"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/straycomment"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/tempdir"
+	"github.com/mirurobotics/gotools/internal/services/lint/linter/testfile"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/todoissue"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/typeassert"
 	"github.com/mirurobotics/gotools/internal/services/lint/linter/varname"
@@ -74,6 +75,7 @@ const (
 	RuleFieldAssert   Rule = "fieldassert"
 	RuleVarName       Rule = "varname"
 	RuleNameLen       Rule = "namelen"
+	RuleTestFile      Rule = "testfile"
 )
 
 // Config holds linter configuration.
@@ -86,6 +88,8 @@ type Config struct {
 	MaxParamCount   int
 	MaxDocLines     int
 	MaxDocFileLines int
+	SrcPrefix       string
+	TestDir         string
 	Exclude         map[Rule]bool
 	Out             io.Writer
 	Err             io.Writer
@@ -116,6 +120,7 @@ func AllRules() []Rule {
 		RuleTypeAssert, RuleParamCount,
 		RuleMutableGlobal, RuleImportAlias, RuleBgCtx, RuleTempDir,
 		RuleTodoIssue, RuleExprWrap, RuleFieldAssert, RuleVarName, RuleNameLen,
+		RuleTestFile,
 		RuleFuncComment, RuleDocLen, RuleStrayComment, RulePrivDoc,
 		RuleDocRestate, RuleCommentedCode,
 		RuleImports, RuleCollapse, RuleFuncSig, RuleFuncInline, RuleFuncOrder,
@@ -216,6 +221,11 @@ func ruleCheckers(cfg Config) []ruleEntry {
 		}},
 		{RuleNameLen, false, func(input checkInput) []analysis.Diagnostic {
 			return namelen.Check(input.fset, input.path, input.f)
+		}},
+		{RuleTestFile, false, func(input checkInput) []analysis.Diagnostic {
+			return testfile.Check(
+				input.fset, input.path, input.f, cfg.SrcPrefix, cfg.TestDir,
+			)
 		}},
 		{RuleFuncComment, false, func(input checkInput) []analysis.Diagnostic {
 			return funccomment.Check(input.fset, input.path, input.f)

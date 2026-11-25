@@ -249,6 +249,8 @@ func defaultCfg() Config {
 		MaxParamCount:   0,
 		MaxDocLines:     0,
 		MaxDocFileLines: 0,
+		SrcPrefix:       "",
+		TestDir:         "",
 		Exclude:         nil,
 		Out:             io.Discard,
 		Err:             io.Discard,

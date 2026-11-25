@@ -54,6 +54,8 @@ type LinterFlags struct {
 	Rule            string
 	MaxDocLines     int
 	MaxDocFileLines int
+	SrcPrefix       string
+	TestDir         string
 }
 
 // BuildLinterConfig builds a linter.Config from the shared flag values.
@@ -83,6 +85,8 @@ func BuildLinterConfig(flags LinterFlags) (linter.Config, error) {
 		Exclude:         excl,
 		MaxDocLines:     flags.MaxDocLines,
 		MaxDocFileLines: flags.MaxDocFileLines,
+		SrcPrefix:       flags.SrcPrefix,
+		TestDir:         flags.TestDir,
 	}, nil
 }
 
