@@ -36,12 +36,29 @@ func TestBaseIdent(t *testing.T) {
 }
 
 func TestQualifiedTypeName(t *testing.T) {
-	parsed, err := parser.ParseExpr("*testing.PB")
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		expr     string
+		pkg      string
+		wantName string
+		wantPtr  bool
+	}{
+		{"*testing.PB", "testing", "PB", true},
+		{"ctx.Context", "ctx", "Context", false},
+		{"*gin.Context", "gin", "Context", true},
+		{"other.T", "testing", "", false},
+		{"testing.T", "", "", false},
+		{"T", "testing", "", false},
+		{"f().T", "testing", "", false},
 	}
-	name, isPtr := QualifiedTypeName(parsed, "testing")
-	if name != "PB" || !isPtr {
-		t.Errorf("QualifiedTypeName = (%q, %v), want (\"PB\", true)", name, isPtr)
+	for _, tc := range tests {
+		parsed, err := parser.ParseExpr(tc.expr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		name, isPtr := QualifiedTypeName(parsed, tc.pkg)
+		if name != tc.wantName || isPtr != tc.wantPtr {
+			t.Errorf("QualifiedTypeName(%s, %q) = (%q, %v), want (%q, %v)",
+				tc.expr, tc.pkg, name, isPtr, tc.wantName, tc.wantPtr)
+		}
 	}
 }

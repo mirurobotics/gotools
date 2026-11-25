@@ -53,6 +53,18 @@ func f(ctx context.Context) {}
 	}
 }
 
+func TestIsContextType_Pointer(t *testing.T) {
+	src := `package foo
+import "context"
+func f(ctx *context.Context) {}
+`
+	file := parseTestFile(t, src)
+	param := firstParamType(t, file.Decls[1])
+	if IsContextType(param, ContextPkgName(file)) {
+		t.Error("expected false for *context.Context")
+	}
+}
+
 func TestIsContextType_NonContext(t *testing.T) {
 	src := `package foo
 func f(x int) {}
