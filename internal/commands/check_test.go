@@ -25,6 +25,7 @@ func TestNewCheckCommand_Flags(t *testing.T) {
 		want[name] = "int"
 	}
 	want["exclude"], want["rule"] = "string", "string"
+	want["src-prefix"], want["test-dir"] = "string", "string"
 	assertFlagTypes(t, NewCheckCommand().Flags(), want)
 }
 
@@ -45,8 +46,9 @@ func TestNewCheckCommand_Help(t *testing.T) {
 
 func TestNewCheckCommand_FlagDefaults(t *testing.T) {
 	flags := NewCheckCommand().Flags()
-	assertStringDefaults(t, flags,
-		map[string]string{"path": ".", "exclude": "", "rule": ""})
+	assertStringDefaults(t, flags, map[string]string{
+		"path": ".", "exclude": "", "rule": "", "src-prefix": "pkg", "test-dir": "",
+	})
 	assertBoolDefaults(t, flags, map[string]bool{"fix": false})
 	assertIntDefaults(t, flags, linterIntDefaults())
 }

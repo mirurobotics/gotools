@@ -122,3 +122,22 @@ func TestRun_ExcludeFilter_SkipFileLen(t *testing.T) {
 		t.Fatalf("expected 0 diagnostics with filelen excluded, got %d", diags)
 	}
 }
+
+func TestRun_Check_TestFileLayout(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir+"/internal/foo/bar.go", "package foo\n")
+	writeFile(t, dir+"/tests/foo/bar_test.go", "package foo\n")
+	writeFile(t, dir+"/tests/foo/baz_test.go", "package foo\n")
+	var out strings.Builder
+	cfg := defaultCfg()
+	cfg.SrcPrefix, cfg.TestDir = dir+"/internal", dir+"/tests"
+	cfg.Out = &out
+	diags, _, err := Run(dir, false, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "baz_test.go:1: no source file in " + dir + "/internal/foo"
+	if diags != 1 || !strings.Contains(out.String(), want) {
+		t.Errorf("got %d diagnostics, want only baz_test.go:\n%s", diags, &out)
+	}
+}

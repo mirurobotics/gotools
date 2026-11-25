@@ -58,8 +58,8 @@ func TestNewLintCommand_Help(t *testing.T) {
 func TestSharedLinterFlags_ConsistentInCheckAndLint(t *testing.T) {
 	check, lint := NewCheckCommand().Flags(), NewLintCommand().Flags()
 	ints := linterIntDefaults()
-	shared := make([]string, 0, len(ints)+2)
-	shared = append(shared, "exclude", "rule")
+	shared := make([]string, 0, len(ints)+4)
+	shared = append(shared, "exclude", "rule", "src-prefix", "test-dir")
 	for name := range ints {
 		shared = append(shared, name)
 	}
@@ -93,6 +93,8 @@ func TestNewLintCommand_Flags(t *testing.T) {
 		"goos":             "string",
 		"exclude":          "string",
 		"rule":             "string",
+		"src-prefix":       "string",
+		"test-dir":         "string",
 	}
 	for name := range linterIntDefaults() {
 		want[name] = "int"
@@ -109,6 +111,8 @@ func TestNewLintCommand_FlagDefaults(t *testing.T) {
 		"goos":             "",
 		"exclude":          "",
 		"rule":             "",
+		"src-prefix":       "pkg",
+		"test-dir":         "",
 	})
 	assertBoolDefaults(t, flags, map[string]bool{
 		"fix":         true,
