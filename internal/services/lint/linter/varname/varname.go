@@ -61,8 +61,6 @@ func (c *checker) hasConventionalName(name analysis.DeclaredName) bool {
 	switch name.Ident.Name {
 	case "c":
 		return c.isQualifiedType(name.Type, "github.com/gin-gonic/gin", "Context", true)
-	case "tx":
-		return c.isQualifiedType(name.Type, "gorm.io/gorm", "DB", true)
 	case "w":
 		return c.isQualifiedType(name.Type, "net/http", "ResponseWriter", false)
 	case "r":
@@ -99,7 +97,7 @@ func (c *checker) checkIdent(ident *ast.Ident) {
 
 func (c *checker) allowed(name string) bool {
 	switch name {
-	case "_", "i", "a", "b", "in", "ok", "id", "db", "wg", "mu":
+	case "_", "i", "a", "b", "in", "ok", "id", "db", "tx", "wg", "mu":
 		return true
 	case "tc":
 		return analysis.IsTestFile(c.filename)

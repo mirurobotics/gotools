@@ -32,9 +32,9 @@ func run(a, b, in int) bool {
 	m := map[int]int{}
 	_, ok := m[b]
 	var _ = ok
-	id, db := 1, 2
+	id, db, tx := 1, 2, 3
 	var wg, mu int
-	_, _, _, _ = id, db, wg, mu
+	_, _, _, _, _ = id, db, tx, wg, mu
 	return ok
 }
 `
@@ -157,18 +157,14 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 func handle(c *gin.Context) {}
-func save(tx *gorm.DB) (err error) {
-	return nil
-}
-func open() (tx *gorm.DB) {
+func newRequest() (r *http.Request) {
 	return nil
 }
 func serve(w http.ResponseWriter, r *http.Request) {
-	_ = func(tx *gorm.DB) error { return nil }
+	_ = func(c *gin.Context) {}
 }
 `
 	assertFlagged(t, "foo.go", src)
@@ -192,13 +188,13 @@ import (
 	"other"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-func run(c gin.Context, tx gorm.DB, w *http.ResponseWriter, r http.Request) {}
-func swap(c *http.Request, r *gin.Context, w *gorm.DB, tx *other.DB) {}
+func run(c gin.Context, w *http.ResponseWriter, r http.Request) {}
+func swap(c *http.Request, r *gin.Context, w *gin.Context) {}
+func wrap(c *other.Context) {}
 `
-	assertFlagged(t, "foo.go", src, 11, 11, 11, 11, 12, 12, 12, 12)
+	assertFlagged(t, "foo.go", src, 10, 10, 10, 11, 11, 11, 12)
 }
 
 func TestCheck_ConventionalTypeWithoutImportFlagged(t *testing.T) {
@@ -208,16 +204,16 @@ func TestCheck_ConventionalTypeWithoutImportFlagged(t *testing.T) {
 func TestCheck_ConventionalLocalsFlagged(t *testing.T) {
 	src := `package foo
 
-import "gorm.io/gorm"
+import "github.com/gin-gonic/gin"
 
-func run(db *gorm.DB) {
-	tx := db.Begin()
-	_ = tx
+func run(ctx *gin.Context) {
+	c := ctx.Copy()
+	_ = c
 }
 
 func load() {
-	var tx *gorm.DB
-	_ = tx
+	var c *gin.Context
+	_ = c
 }
 `
 	assertFlagged(t, "foo.go", src, 6, 11)
