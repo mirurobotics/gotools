@@ -11,11 +11,11 @@
 // an input, ok for the comma-ok idiom, and id, db, wg and mu are common Go
 // shorthands. In _test.go files tc is allowed too, for a test case in
 // table-driven tests. Receivers are left to rcvrname, which asks for 1-2 chars,
-// and type parameters keep Go's single-letter convention. Parameters keep the
-// conventional name of their type: c *gin.Context, tx *gorm.DB,
-// w http.ResponseWriter, r *http.Request, a testing type (t *testing.T,
-// b *testing.B, f *testing.F, m *testing.M, pb *testing.PB, tb testing.TB) or a
-// TestingI interface (t TestingI, t assert.TestingI). Constants, struct fields
-// and parameter names in function types and interfaces are not checked.
+// and type parameters keep Go's single-letter convention. Parameters may take
+// the conventional name of c *gin.Context, tx *gorm.DB, w http.ResponseWriter
+// and r *http.Request, and any name for a testing type (*testing.T, B, F, M,
+// PB, testing.TB) or a TestingI interface, which assert helpers take instead.
+// Constants, struct fields and parameter names in function types and
+// interfaces are not checked.
 // A //nolint:varname comment on the declaring line silences a report.
 package varname
