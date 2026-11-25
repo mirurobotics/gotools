@@ -6,6 +6,14 @@ import (
 	"strings"
 )
 
+func HasPackageNolint(fset *token.FileSet, file *ast.File, rule string) bool {
+	if file.Doc != nil && HasNolint(file.Doc, rule) {
+		return true
+	}
+	line := fset.Position(file.Package).Line
+	return NolintOnLines(fset, file, rule, line, line)
+}
+
 // HasNolint reports whether any comment in group is a nolint directive naming rule.
 func HasNolint(group *ast.CommentGroup, rule string) bool {
 	for _, comment := range group.List {

@@ -33,6 +33,34 @@ func TestNolintsRule(t *testing.T) {
 	}
 }
 
+func TestHasPackageNolint(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want bool
+	}{
+		{"line above clause", "//nolint:filelen // big table\npackage p\n", true},
+		{"on clause line", "package p //miru:nolint:filelen\n", true},
+		{"in a nolint list", "package p //nolint:gosec,filelen // reason\n", true},
+		{"higher in doc", "//nolint:filelen\n//go:generate x\npackage p\n", true},
+		{"detached from clause", "//nolint:filelen\n\npackage p\n", false},
+		{"below clause", "package p\n//nolint:filelen\n", false},
+		{"other rule", "//nolint:funclen\npackage p\n", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fset := token.NewFileSet()
+			file, err := parser.ParseFile(fset, "p.go", tc.src, parser.ParseComments)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := HasPackageNolint(fset, file, "filelen"); got != tc.want {
+				t.Errorf("HasPackageNolint = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestHasNolint(t *testing.T) {
 	group := &ast.CommentGroup{List: []*ast.Comment{
 		{Slash: 0, Text: "// note"},

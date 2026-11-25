@@ -41,14 +41,7 @@ func bindCovgatePackageFlags(flags *pflag.FlagSet, opts *covgate.Opts) {
 		&opts.Exclude, "exclude", "",
 		"comma-separated list of Go list patterns to exclude from coverage measurement",
 	)
-	flags.StringVar(
-		&opts.SrcPrefix, "src-prefix", "pkg",
-		"source prefix for mapping external test dirs",
-	)
-	flags.StringVar(
-		&opts.TestDir, "test-dir", "",
-		"external test directory (empty = none)",
-	)
+	bindLayoutFlags(flags, &opts.SrcPrefix, &opts.TestDir)
 	flags.IntVarP(
 		&opts.Parallelism, "parallelism", "p", 0,
 		"max concurrent package measurements (0 = NumCPU; emits progress)",

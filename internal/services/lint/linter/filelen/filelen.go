@@ -28,7 +28,7 @@ func Check(
 		return nil
 	}
 	line := fset.Position(file.Package).Line
-	if hasNolint(fset, file, line) {
+	if analysis.HasPackageNolint(fset, file, ruleName) {
 		return nil
 	}
 	return []analysis.Diagnostic{{
@@ -66,22 +66,4 @@ func commentEnd(src []byte, start int, comment *ast.Comment) int {
 		return start + len(comment.Text)
 	}
 	return start + 2 + bytes.Index(src[start+2:], []byte("*/")) + 2
-}
-
-func hasNolint(fset *token.FileSet, file *ast.File, line int) bool {
-	var comments []*ast.Comment
-	if file.Doc != nil {
-		comments = append(comments, file.Doc.List...)
-	}
-	for _, group := range file.Comments {
-		if fset.Position(group.Pos()).Line == line {
-			comments = append(comments, group.List...)
-		}
-	}
-	for _, comment := range comments {
-		if analysis.NolintsRule(comment.Text, ruleName) {
-			return true
-		}
-	}
-	return false
 }
