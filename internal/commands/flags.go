@@ -7,8 +7,5 @@ func bindLayoutFlags(flags *pflag.FlagSet, srcPrefix, testDir *string) {
 		srcPrefix, "src-prefix", "pkg",
 		"source prefix for mapping external test dirs",
 	)
-	flags.StringVar(
-		testDir, "test-dir", "",
-		"external test directory (empty = none)",
-	)
+	flags.StringVar(testDir, "test-dir", "", "external test directory (empty = none)")
 }
